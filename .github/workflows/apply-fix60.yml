@@ -1,0 +1,20 @@
+name: Apply Fix60
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply fix60
+        run: |
+          unzip -o fix60.zip
+          rm -f fix60.zip
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "v0.0.3: 右下悬浮刷新/发布按钮组，移除双击刷新与长按发布"
+          git pull --rebase origin main
+          git push origin main
