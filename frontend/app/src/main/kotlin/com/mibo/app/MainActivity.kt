@@ -28,8 +28,6 @@ class MainActivity : ComponentActivity() {
         setContent {
             MiboTheme {
                 val dark = isDarkTheme()
-                // 设置里改「允许横屏」时立刻生效，不用等下次冷启动。
-                LaunchedEffect(App.settings.allowLandscape) { applyOrientation() }
                 DisposableEffect(dark) {
                     // The window background is what shows during activity transitions and
                     // before the first Compose frame. Follow the app's own theme instead of
@@ -67,15 +65,8 @@ class MainActivity : ComponentActivity() {
         App.enqueueDeepLink(data)
     }
 
-    /**
-     * 关掉「允许横屏」就把 Activity 钉成竖屏，系统怎么转都不进横屏，也就不会进左右双页。
-     * 开着的时候交回系统（UNSPECIFIED），跟随传感器和系统自己的旋转锁。
-     */
+    /** 横屏始终允许：方向交回系统（UNSPECIFIED），跟随传感器和系统自己的旋转锁。 */
     private fun applyOrientation() {
-        requestedOrientation = if (App.settings.allowLandscape) {
-            ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-        } else {
-            ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-        }
+        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
     }
 }

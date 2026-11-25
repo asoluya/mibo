@@ -82,33 +82,6 @@ fun feedTabOptions(
         ?.let { add(it) }
 }
 
-/** 首页搜索面板展开、收回的方式。 */
-enum class SearchPanelAnimation(val key: String, val label: String) {
-    Vertical("vertical", "上下扩展"),
-    Fade("fade", "淡入淡出"),
-    ;
-
-    companion object {
-        fun fromKey(key: String?): SearchPanelAnimation {
-            return entries.firstOrNull { it.key == key } ?: Fade
-        }
-    }
-}
-
-/** 「我」页入口与一级设置选项左侧图标的配色样式，默认使用强调色（跟随全局强调色设置）。 */
-enum class MeIconStyle(val key: String, val label: String) {
-    Colorful("colorful", "彩色"),
-    Monochrome("monochrome", "黑白"),
-    Accent("accent", "强调色"),
-    ;
-
-    companion object {
-        fun fromKey(key: String?): MeIconStyle {
-            return entries.firstOrNull { it.key == key } ?: Accent
-        }
-    }
-}
-
 class Settings(context: Context) {
     private val sp = context.getSharedPreferences("app", Context.MODE_PRIVATE)
 
@@ -137,7 +110,7 @@ class Settings(context: Context) {
     )
         private set
 
-    var fontScale by mutableFloatStateOf(sp.getFloat("font_scale", 1f))
+    var fontScale by mutableFloatStateOf(sp.getFloat("font_scale", 1f).coerceIn(0.8f, 1.2f))
         private set
 
     /** 自定义强调色（ARGB 整型）；`0` 表示使用 Miuix 默认蓝，未设置时默认莫奈取色。 */
@@ -145,8 +118,6 @@ class Settings(context: Context) {
         private set
 
     /** 「我」页入口及一级设置选项图标配色样式。 */
-    var meIconStyle by mutableStateOf(MeIconStyle.fromKey(sp.getString("me_icon_style", null)))
-        private set
 
     var mainTab by mutableIntStateOf(sp.getInt("main_tab", 0))
         private set
@@ -253,12 +224,6 @@ class Settings(context: Context) {
     var barOffsetY by mutableFloatStateOf(sp.getFloat("bar_offset_y", 0f))
         private set
 
-    /**
-     * 允许横屏：关掉之后 Activity 钉死竖屏，也就不会进入左右双页。默认开，跟随系统方向。
-     */
-    var allowLandscape by mutableStateOf(sp.getBoolean("allow_landscape", true))
-        private set
-
     /** 点赞前确认：点爱心之后先弹窗问一句，避免手滑。默认关，和以前一样点一下就赞；取消赞不拦。 */
     var confirmLike by mutableStateOf(sp.getBoolean("confirm_like", false))
         private set
@@ -311,12 +276,6 @@ class Settings(context: Context) {
 
     /** 收纳关注分组：开启后首页中间栏菜单将关注分组收进二级菜单，关闭后直接平铺展开在一级菜单中。默认开。 */
     var collapseFollowGroups by mutableStateOf(sp.getBoolean("collapse_follow_groups", true))
-        private set
-
-    /** 首页搜索面板的展开方式：上下扩展、淡入淡出、从搜索按钮展开。默认淡入淡出。 */
-    var searchPanelAnimation by mutableStateOf(
-        SearchPanelAnimation.fromKey(sp.getString("search_panel_animation", null))
-    )
         private set
 
     /** 实况图滑动自动播放：开启后进入或滑动到实况图时自动播放一次，结束后仅支持长按重播。默认开。 */
@@ -542,11 +501,6 @@ class Settings(context: Context) {
     }
 
 
-    fun applyAllowLandscape(value: Boolean) {
-        allowLandscape = value
-        sp.edit().putBoolean("allow_landscape", value).apply()
-    }
-
     fun applyConfirmLike(value: Boolean) {
         confirmLike = value
         sp.edit().putBoolean("confirm_like", value).apply()
@@ -607,11 +561,6 @@ class Settings(context: Context) {
         sp.edit().putBoolean("collapse_follow_groups", value).apply()
     }
 
-    fun applySearchPanelAnimation(value: SearchPanelAnimation) {
-        searchPanelAnimation = value
-        sp.edit().putString("search_panel_animation", value.key).apply()
-    }
-
     fun applyLivePhotoAutoPlay(value: Boolean) {
         livePhotoAutoPlay = value
         sp.edit().putBoolean("live_photo_auto_play", value).apply()
@@ -655,8 +604,9 @@ class Settings(context: Context) {
     }
 
     fun applyFontScale(value: Float) {
-        fontScale = value
-        sp.edit().putFloat("font_scale", value).apply()
+        val clamped = value.coerceIn(0.8f, 1.2f)
+        fontScale = clamped
+        sp.edit().putFloat("font_scale", clamped).apply()
     }
 
     fun applyAccentColor(argb: Int) {
@@ -666,19 +616,6 @@ class Settings(context: Context) {
         }
         accentColor = normalized
         sp.edit().putInt("accent_color", normalized).apply()
-    }
-
-    fun applyMeIconStyle(value: MeIconStyle) {
-        meIconStyle = value
-        sp.edit().putString("me_icon_style", value.key).apply()
-    }
-
-    fun cycleFontScale(): Float {
-        val scales = listOf(0.85f, 1f, 1.15f, 1.3f)
-        val index = scales.indexOfFirst { kotlin.math.abs(it - fontScale) < 0.01f }
-        val next = scales[(if (index < 0) 1 else index + 1) % scales.size]
-        applyFontScale(next)
-        return next
     }
 
     fun cycleDarkMode(): Int {

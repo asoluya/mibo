@@ -63,8 +63,6 @@ import com.mibo.app.data.Account
 import com.mibo.app.data.FeedTabSelection
 import com.mibo.app.data.FollowGroup
 import com.mibo.app.data.HotBoard
-import com.mibo.app.data.MeIconStyle
-import com.mibo.app.data.SearchPanelAnimation
 import com.mibo.app.data.Updater
 import com.mibo.app.data.feedTabOptions
 import com.mibo.app.ui.AccentHueCycle
@@ -141,8 +139,7 @@ private class SettingsUiState(context: Context) {
 
     var darkMode by mutableIntStateOf(App.settings.darkMode)
     var accentColor by mutableIntStateOf(App.settings.accentColor)
-    var meIconStyle by mutableStateOf(App.settings.meIconStyle)
-    var fontScale by mutableStateOf(App.settings.fontScale)
+    var fontScale by mutableFloatStateOf(App.settings.fontScale)
     var autoCheckUpdate by mutableStateOf(App.settings.autoCheckUpdate)
     var checkUpdateOnStartup by mutableStateOf(App.settings.checkUpdateOnStartup)
     var acceptPrerelease by mutableStateOf(App.settings.acceptPrerelease)
@@ -150,8 +147,6 @@ private class SettingsUiState(context: Context) {
     var barGlassAlpha by mutableFloatStateOf(App.settings.barGlassAlpha)
     var barOffsetX by mutableFloatStateOf(App.settings.barOffsetX)
     var barOffsetY by mutableFloatStateOf(App.settings.barOffsetY)
-    var allowLandscape by mutableStateOf(App.settings.allowLandscape)
-    var searchPanelAnimation by mutableStateOf(App.settings.searchPanelAnimation)
     var confirmLike by mutableStateOf(App.settings.confirmLike)
     var inAppBrowser by mutableStateOf(App.settings.inAppBrowser)
     var quickSwitchAccount by mutableStateOf(App.settings.quickSwitchAccount)
@@ -175,7 +170,6 @@ private class SettingsUiState(context: Context) {
     var pickFeedLeft by mutableStateOf(false)
     var pickFeedCenter by mutableStateOf(false)
     var pickFeedRight by mutableStateOf(false)
-    var pickSearchPanelAnimation by mutableStateOf(false)
     var pickHotBoards by mutableStateOf(false)
     var pickAccentColor by mutableStateOf(false)
     var syncingLocalFavorites by mutableStateOf(false)
@@ -351,22 +345,17 @@ private fun LazyListScope.displaySettingsItems(
                 },
                 onClick = { state.pickAccentColor = true },
             )
-            OverlayDropdownPreference(
-                items = MeIconStyle.entries.map { it.label },
-                selectedIndex = state.meIconStyle.ordinal,
-                title = "「我」页图标样式",
-                modifier = Modifier.testTag("settings_me_icon_style"),
-                onSelectedIndexChange = { index ->
-                    val picked = MeIconStyle.entries.getOrElse(index) { MeIconStyle.Colorful }
-                    state.meIconStyle = picked
-                    App.settings.applyMeIconStyle(picked)
+            SliderPreference(
+                value = state.fontScale,
+                onValueChange = {
+                    state.fontScale = it
+                    App.settings.applyFontScale(it)
                 },
-            )
-            ArrowPreference(
                 title = "字号",
+                summary = "全局字体缩放，100% 为标准大小",
+                valueText = "${(state.fontScale * 100).toInt()}%",
+                valueRange = 0.8f..1.2f,
                 modifier = Modifier.testTag("settings_font"),
-                summary = "${(state.fontScale * 100).toInt()}%",
-                onClick = { state.fontScale = App.settings.cycleFontScale() },
             )
             ArrowPreference(
                 title = "预测性返回手势设置",
@@ -420,22 +409,6 @@ private fun LazyListScope.displaySettingsItems(
                 valueText = "${state.barOffsetY.toInt()}dp",
                 valueRange = -32f..32f,
                 modifier = Modifier.testTag("settings_bar_offset_y"),
-            )
-            SwitchPreference(
-                checked = state.allowLandscape,
-                onCheckedChange = {
-                    state.allowLandscape = it
-                    App.settings.applyAllowLandscape(it)
-                },
-                title = "允许横屏",
-                summary = "关闭后固定竖屏，不再进入左右双页",
-                modifier = Modifier.testTag("settings_allow_landscape"),
-            )
-            ArrowPreference(
-                title = "搜索面板动画",
-                modifier = Modifier.testTag("settings_search_panel_anim"),
-                summary = state.searchPanelAnimation.label,
-                onClick = { state.pickSearchPanelAnimation = true },
             )
             SwitchPreference(
                 checked = App.settings.livePhotoAutoPlay,
@@ -939,23 +912,6 @@ private fun SettingsDialogs(
                 App.settings.applyFeedRightTab(selection)
                 state.feedRightTab = selection
                 state.pickFeedRight = false
-            },
-        )
-    }
-
-    if (state.pickSearchPanelAnimation) {
-        OptionPicker(
-            title = "搜索面板动画",
-            options = SearchPanelAnimation.entries.map { it.key to it.label },
-            selectedKey = state.searchPanelAnimation.key,
-            tagPrefix = "search_panel_anim",
-            groupKey = "search-panel-anim",
-            onDismiss = { state.pickSearchPanelAnimation = false },
-            onPick = { key ->
-                val picked = SearchPanelAnimation.fromKey(key)
-                App.settings.applySearchPanelAnimation(picked)
-                state.searchPanelAnimation = picked
-                state.pickSearchPanelAnimation = false
             },
         )
     }
