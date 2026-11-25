@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.size
@@ -46,6 +47,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -110,6 +112,8 @@ import top.yukonga.miuix.kmp.basic.TextFieldDefaults
 import top.yukonga.miuix.kmp.basic.TopAppBarDefaults
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.ExpandLess
+import top.yukonga.miuix.kmp.icon.extended.Search
 import top.yukonga.miuix.kmp.icon.extended.Undo
 import top.yukonga.miuix.kmp.layout.DialogDefaults
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
@@ -409,6 +413,7 @@ private fun LazyListScope.displaySettingsItems(
                 valueRange = -32f..32f,
                 modifier = Modifier.testTag("settings_bar_offset_y"),
             )
+            BottomBarPositionPreview(offsetX = state.barOffsetX, offsetY = state.barOffsetY)
             SwitchPreference(
                 checked = App.settings.livePhotoAutoPlay,
                 onCheckedChange = { App.settings.applyLivePhotoAutoPlay(it) },
@@ -949,6 +954,89 @@ private val RainbowSwatchColors = listOf(
     Color(0xFFAF52DE),
     Color(0xFFFF3B30),
 )
+
+/**
+ * 底栏位置预览：设置页里看不到真正的悬浮底栏，拖偏移滑杆时用这个示意底栏同步移动，
+ * 位置与主页底栏将生效的偏移一致（舞台高 128dp，示意底栏默认离舞台底 34dp，
+ * 上下 ±32dp 都不出界）。
+ */
+@Composable
+private fun BottomBarPositionPreview(offsetX: Float, offsetY: Float) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .height(128.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(MiuixTheme.colorScheme.surfaceContainer),
+    ) {
+        Text(
+            text = "底栏位置预览",
+            fontSize = 12.sp,
+            color = MiuixTheme.colorScheme.onSurfaceSecondary,
+            modifier = Modifier.padding(start = 14.dp, top = 10.dp),
+        )
+        Row(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .fillMaxWidth()
+                .offset(x = offsetX.dp, y = offsetY.dp)
+                .padding(bottom = 34.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Row(
+                modifier = Modifier
+                    .padding(start = 12.dp)
+                    .clip(CircleShape)
+                    .background(MiuixTheme.colorScheme.surface)
+                    .border(1.dp, MiuixTheme.colorScheme.outline, CircleShape)
+                    .padding(horizontal = 6.dp, vertical = 5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                BottomBarPreviewItem(MiboIcons.MessagesOutline, "消息")
+                BottomBarPreviewItem(MiboIcons.FeedOutline, "微博")
+                BottomBarPreviewItem(MiuixIcons.Search, "搜索")
+            }
+            Spacer(Modifier.weight(1f))
+            Box(
+                modifier = Modifier
+                    .padding(end = 36.dp)
+                    .size(52.dp)
+                    .clip(CircleShape)
+                    .background(MiuixTheme.colorScheme.surface)
+                    .border(1.dp, MiuixTheme.colorScheme.outline, CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = MiuixIcons.ExpandLess,
+                    contentDescription = null,
+                    modifier = Modifier.size(24.dp),
+                    tint = MiuixTheme.colorScheme.onSurface,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun BottomBarPreviewItem(icon: ImageVector, label: String) {
+    Column(
+        modifier = Modifier.width(56.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(22.dp),
+            tint = MiuixTheme.colorScheme.onSurface,
+        )
+        Text(
+            text = label,
+            fontSize = 10.sp,
+            color = MiuixTheme.colorScheme.onSurface,
+        )
+    }
+}
 
 /** 打赏浮窗：只展示作者的微信赞赏码图片，无标题无边框，点浮窗外关闭。 */
 @Composable
