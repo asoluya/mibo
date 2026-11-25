@@ -321,8 +321,11 @@ fun MainShell(nav: NavState) {
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
     LaunchedEffect(friendsStore.generation) { hasNewFollow = false }
-    LaunchedEffect(appResumed, guest) {
-        if (!appResumed || guest) return@LaunchedEffect
+    LaunchedEffect(appResumed, guest, App.settings.monitorNewPosts) {
+        if (!appResumed || guest || !App.settings.monitorNewPosts) {
+            hasNewFollow = false
+            return@LaunchedEffect
+        }
         while (true) {
             delay(20_000)
             if (!friendsStore.loaded || friendsStore.refreshing || friendsStore.loading) continue

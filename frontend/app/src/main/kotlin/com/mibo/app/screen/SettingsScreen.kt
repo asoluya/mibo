@@ -412,6 +412,13 @@ private fun LazyListScope.feedSettingsItems(
                 onClick = { state.pickFeedRight = true },
             )
             SwitchPreference(
+                checked = App.settings.monitorNewPosts,
+                onCheckedChange = { App.settings.applyMonitorNewPosts(it) },
+                title = "监测新帖",
+                summary = "前台时每 20 秒检测关注流，有新微博时刷新按钮会发光提醒",
+                modifier = Modifier.testTag("settings_monitor_new_posts"),
+            )
+            SwitchPreference(
                 checked = App.settings.livePhotoAutoPlay,
                 onCheckedChange = { App.settings.applyLivePhotoAutoPlay(it) },
                 title = "实况图自动播放",

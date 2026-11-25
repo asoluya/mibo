@@ -256,6 +256,10 @@ class Settings(context: Context) {
     var livePhotoSound by mutableStateOf(sp.getBoolean("live_photo_sound", true))
         private set
 
+    /** 前台监测新帖：应用在前台时每 20 秒检测一次关注流，有新微博时刷新按钮发光提醒。默认开。 */
+    var monitorNewPosts by mutableStateOf(sp.getBoolean("monitor_new_posts", true))
+        private set
+
     /** 上次检查更新的时间戳。 */
     var updateCheckedAt by mutableLongStateOf(sp.getLong("update_checked_at", 0L))
         private set
@@ -516,6 +520,11 @@ class Settings(context: Context) {
     fun applyLivePhotoSound(value: Boolean) {
         livePhotoSound = value
         sp.edit().putBoolean("live_photo_sound", value).apply()
+    }
+
+    fun applyMonitorNewPosts(value: Boolean) {
+        monitorNewPosts = value
+        sp.edit().putBoolean("monitor_new_posts", value).apply()
     }
 
 
