@@ -1045,13 +1045,13 @@ fun ProfileHubContent(
                             onClick = { nav.push(Route.Notifications(NotificationTab.Like)) },
                         )
                         ArrowPreference(
-                            title = "收到的评论",
+                            title = "收到评论",
                             startAction = { HubRowIcon(MeIcons.ReceivedComments) },
                             modifier = Modifier.testTag("hub_received_comments"),
                             onClick = { nav.push(Route.Notifications(NotificationTab.Comment)) },
                         )
                         ArrowPreference(
-                            title = "发出的评论",
+                            title = "发出评论",
                             startAction = { HubRowIcon(MeIcons.SentComments) },
                             modifier = Modifier.testTag("hub_sent_comments"),
                             onClick = { nav.push(Route.Notifications(NotificationTab.SentComment)) },
@@ -1083,13 +1083,13 @@ fun ProfileHubContent(
                         onClick = { showRewardCode = true },
                     )
                     ArrowPreference(
-                        title = "草稿箱",
+                        title = "草稿",
                         startAction = { HubRowIcon(MeIcons.Drafts) },
                         modifier = Modifier.testTag("hub_drafts"),
                         onClick = { nav.push(Route.Drafts) },
                     )
                     ArrowPreference(
-                        title = "浏览历史",
+                        title = "历史",
                         startAction = { HubRowIcon(MeIcons.History) },
                         modifier = Modifier.testTag("hub_history"),
                         onClick = { nav.push(Route.History) },

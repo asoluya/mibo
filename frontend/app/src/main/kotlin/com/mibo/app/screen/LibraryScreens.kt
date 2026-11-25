@@ -121,7 +121,7 @@ fun DraftsScreen(nav: NavState) {
             PinnedBarDensity {
                 SmallTopAppBar(
                     color = pageContainerColor(),
-                    title = "草稿箱",
+                    title = "草稿",
                     navigationIcon = { BackIconButton { nav.pop() } },
                 )
             }
@@ -287,7 +287,7 @@ fun HistoryScreen(nav: NavState) {
             ) {
             Column(Modifier.fillMaxWidth()) {
                 SmallTopAppBar(
-                    title = "浏览历史",
+                    title = "历史",
                     color = Color.Transparent,
                     navigationIcon = { BackIconButton { nav.pop() } },
                     actions = {
@@ -336,7 +336,7 @@ fun HistoryScreen(nav: NavState) {
                                     expanded = filterOpen,
                                     onExpandedChange = {},
                                     modifier = Modifier.fillMaxWidth().testTag("history_filter_input"),
-                                    label = "搜索浏览历史",
+                                    label = "搜索历史",
                                 )
                             }
                         }
