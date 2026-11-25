@@ -1095,7 +1095,7 @@ fun ProfileHubContent(
                         )
                     }
                     ArrowPreference(
-                        title = "赞赏码",
+                        title = "打赏",
                         startAction = { HubRowIcon(MiboIcons.PraiseThumb) },
                         modifier = Modifier.testTag("hub_reward_code"),
                         onClick = { showRewardCode = true },
