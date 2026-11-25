@@ -722,7 +722,7 @@ fun MainShell(nav: NavState) {
         CompositionLocalProvider(
             LocalBackdrop provides if (blur) backdrop else null,
         ) {
-            PinnedBarDensity {
+            ScaledBarDensity(App.settings.barScale) {
                 FloatingBottomBar(
                     tab = tab,
                     guest = guest,
@@ -750,7 +750,7 @@ fun MainShell(nav: NavState) {
             CompositionLocalProvider(
                 LocalBackdrop provides if (blur) backdrop else null,
             ) {
-              PinnedBarDensity {
+              ScaledBarDensity(App.settings.barScale) {
                 AnimatedVisibility(
                     visible = fabExpanded,
                     enter = fadeIn(tween(180)),

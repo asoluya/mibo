@@ -224,6 +224,10 @@ class Settings(context: Context) {
     var barOffsetY by mutableFloatStateOf(sp.getFloat("bar_offset_y", 0f))
         private set
 
+    /** 悬浮底栏大小比例：1 为原大小，范围 0.85..1.15，经缩放密度作用于底栏与展开三钮。 */
+    var barScale by mutableFloatStateOf(sp.getFloat("bar_scale", 1f))
+        private set
+
     /** 点赞前确认：点爱心之后先弹窗问一句，避免手滑。默认关，和以前一样点一下就赞；取消赞不拦。 */
     var confirmLike by mutableStateOf(sp.getBoolean("confirm_like", false))
         private set
@@ -490,6 +494,12 @@ class Settings(context: Context) {
         val clamped = value.coerceIn(-32f, 32f)
         barOffsetY = clamped
         sp.edit().putFloat("bar_offset_y", clamped).apply()
+    }
+
+    fun applyBarScale(value: Float) {
+        val clamped = value.coerceIn(0.85f, 1.15f)
+        barScale = clamped
+        sp.edit().putFloat("bar_scale", clamped).apply()
     }
 
 

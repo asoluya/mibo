@@ -39,6 +39,18 @@ fun PinnedBarDensity(content: @Composable () -> Unit) {
 }
 
 /**
+ * 底栏专用密度：在钉住密度之上再乘用户调的大小比例（设置「底栏调节」里的大小滑杆）。
+ * 底栏本体、展开钮与展开三钮共用同一份缩放密度，所有尺寸与间距同比例缩放，
+ * 三钮与展开钮的对齐关系在任何大小下都不变。
+ */
+@Composable
+fun ScaledBarDensity(scale: Float, content: @Composable () -> Unit) {
+    val base = rememberBarDensity()
+    val scaled = remember(base, scale) { Density(base.density * scale, base.fontScale) }
+    CompositionLocalProvider(LocalDensity provides scaled, content = content)
+}
+
+/**
  * 计算顶栏和底栏使用的密度。
  *
  * 原先基准来自 COUI 的 rememberGalleryDensity（读 ColorOS 相册密度）；Miuix 没有对应物，

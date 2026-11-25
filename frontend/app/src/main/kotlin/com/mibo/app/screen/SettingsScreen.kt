@@ -75,6 +75,7 @@ import com.mibo.app.ui.MiboIcons
 import com.mibo.app.ui.DefaultAccentSwatchColor
 import com.mibo.app.ui.NavState
 import com.mibo.app.ui.PinnedBarDensity
+import com.mibo.app.ui.ScaledBarDensity
 import com.mibo.app.ui.FloatingBottomBar
 import com.mibo.app.ui.Route
 import com.mibo.app.ui.accentColorSummary
@@ -368,8 +369,8 @@ private fun LazyListScope.displaySettingsItems(
                 modifier = Modifier.testTag("settings_bar_glass_alpha"),
             )
             ArrowPreference(
-                title = "底栏位置调节",
-                summary = "左右 ${App.settings.barOffsetX.toInt()}dp · 上下 ${App.settings.barOffsetY.toInt()}dp，点开对着底栏调",
+                title = "底栏调节",
+                summary = "左右 ${App.settings.barOffsetX.toInt()}dp · 上下 ${App.settings.barOffsetY.toInt()}dp · 大小 ${(App.settings.barScale * 100).toInt()}%，点开对着底栏调",
                 onClick = { nav.push(Route.BarPosition) },
                 modifier = Modifier.testTag("settings_bar_position"),
             )
@@ -895,13 +896,14 @@ fun AccountRelatedScreen(nav: NavState) {
 }
 
 /**
- * 底栏位置调节页：全屏只有调节滑杆和底栏本体。底栏按主页同一套定位贴在屏幕底部
+ * 底栏调节页：全屏只有调节滑杆和底栏本体。底栏按主页同一套定位贴在屏幕底部
  * （导航栏让位 + 底边 8dp + 当前偏移），拖滑杆时实时跟随，位置所见即所得。
  */
 @Composable
 fun BarPositionScreen(nav: NavState) {
     var offsetX by remember { mutableFloatStateOf(App.settings.barOffsetX) }
     var offsetY by remember { mutableFloatStateOf(App.settings.barOffsetY) }
+    var scale by remember { mutableFloatStateOf(App.settings.barScale) }
     val blurEffects = blurEffectsEnabled()
     val pageColor = pageContainerColor()
     val backdrop = rememberLayerBackdrop()
@@ -944,15 +946,29 @@ fun BarPositionScreen(nav: NavState) {
                         valueRange = -32f..32f,
                         modifier = Modifier.testTag("bar_position_offset_y"),
                     )
+                    SliderPreference(
+                        value = scale,
+                        onValueChange = {
+                            scale = it
+                            App.settings.applyBarScale(it)
+                        },
+                        title = "底栏大小",
+                        summary = "整体缩放悬浮底栏与展开的三个按钮，100% 为原大小",
+                        valueText = "${(scale * 100).toInt()}%",
+                        valueRange = 0.85f..1.15f,
+                        modifier = Modifier.testTag("bar_position_scale"),
+                    )
                 }
-                if (offsetX != 0f || offsetY != 0f) {
+                if (offsetX != 0f || offsetY != 0f || scale != 1f) {
                     TextButton(
-                        text = "恢复默认位置",
+                        text = "恢复默认",
                         onClick = {
                             offsetX = 0f
                             offsetY = 0f
+                            scale = 1f
                             App.settings.applyBarOffsetX(0f)
                             App.settings.applyBarOffsetY(0f)
+                            App.settings.applyBarScale(1f)
                         },
                         modifier = Modifier.testTag("bar_position_reset"),
                     )
@@ -960,12 +976,12 @@ fun BarPositionScreen(nav: NavState) {
             }
         }
 
-        // 直接渲染主页同款底栏组件（同样的 PinnedBarDensity 与玻璃 backdrop），
+        // 直接渲染主页同款底栏组件（同样的缩放密度与玻璃 backdrop），
         // 大小、位置与主页完全一致；guest=true 让「消息」只是普通项，回调全为空操作。
         CompositionLocalProvider(
             LocalBackdrop provides if (blurEffects) backdrop else null,
         ) {
-            PinnedBarDensity {
+            ScaledBarDensity(scale) {
                 FloatingBottomBar(
                     tab = 0,
                     guest = true,
@@ -989,7 +1005,7 @@ fun BarPositionScreen(nav: NavState) {
                     scrollFraction = { 0f },
                 ) {
                     SmallTopAppBar(
-                        title = "底栏位置调节",
+                        title = "底栏调节",
                         color = Color.Transparent,
                         navigationIcon = { BackIconButton { nav.pop() } },
                     )
