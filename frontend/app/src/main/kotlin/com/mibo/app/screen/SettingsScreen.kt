@@ -1018,7 +1018,7 @@ fun BarPositionScreen(nav: NavState) {
                 AppBarSurface(
                     modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth(),
                     containerColor = pageColor,
-                    scrollFraction = 0f,
+                    scrollFraction = { 0f },
                 ) {
                     SmallTopAppBar(
                         title = "底栏位置调节",
