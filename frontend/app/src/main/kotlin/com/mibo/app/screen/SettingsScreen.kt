@@ -711,6 +711,12 @@ fun AccountRelatedScreen(nav: NavState) {
                         insideMargin = PaddingValues(0.dp),
                     ) {
                         ArrowPreference(
+                            title = "账号管理",
+                            summary = "切换、重新登录或删除账号",
+                            onClick = { nav.push(Route.Accounts) },
+                            modifier = Modifier.testTag("account_related_manage_accounts"),
+                        )
+                        ArrowPreference(
                             title = "本地关注使用账号",
                             summary = localFollowSummary,
                             onClick = { pickLocalFollow = true },

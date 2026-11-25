@@ -862,7 +862,6 @@ fun MainShell(nav: NavState) {
                                             nav.reset(Route.Main)
                                         },
                                         onAddAccount = { nav.push(Route.SmsLogin(addAccount = true)) },
-                                        onManageAccounts = { nav.push(Route.Accounts) },
                                         onAccountRelated = { nav.push(Route.AccountRelated) },
                                     )
                             },
@@ -2559,20 +2558,17 @@ private fun ProfileQuickSwitchMenu(
     guest: Boolean,
     onSwitchAccount: (Account) -> Unit,
     onAddAccount: () -> Unit,
-    onManageAccounts: () -> Unit,
     onAccountRelated: () -> Unit,
 ) {
     val accounts = remember { App.store.accounts() }
     val currentUid = remember { App.repo.session?.uid }
     val currentCookie = remember { App.repo.cookie() }
     val dismiss = LocalDismissState.current
-    val showManage = accounts.isNotEmpty()
     // 「账号相关」只在已登录且当前账号在册时出现。
     val currentAccount = accounts.firstOrNull {
         !guest && (it.uid == currentUid || it.cookie == currentCookie)
     }
-    val totalCount = accounts.size + 1 + (if (showManage) 1 else 0) +
-        (if (currentAccount != null) 1 else 0)
+    val totalCount = accounts.size + 1 + (if (currentAccount != null) 1 else 0)
     val actionIconTint = MiuixTheme.colorScheme.onSurfaceContainer
 
     // Miuix 的 DropdownImpl 没有 COUI 的 groupKey 与 modifier 参数：
@@ -2622,28 +2618,6 @@ private fun ProfileQuickSwitchMenu(
         )
     }
 
-    if (showManage) {
-        Box(Modifier.testTag("quick_switch_manage_accounts")) {
-            DropdownImpl(
-                item = DropdownItem(
-                    text = "账号管理",
-                    icon = { iconModifier ->
-                        Box(iconModifier, contentAlignment = Alignment.Center) {
-                            Icon(MiuixIcons.Settings, null, Modifier.size(20.dp), tint = actionIconTint)
-                        }
-                    },
-                ),
-                optionSize = totalCount,
-                isSelected = false,
-                index = addIndex + 1,
-                onSelectedIndexChange = {
-                    dismiss?.invoke()
-                    onManageAccounts()
-                },
-            )
-        }
-    }
-
     if (currentAccount != null) {
         Box(Modifier.testTag("quick_switch_account_related")) {
             DropdownImpl(
@@ -2657,7 +2631,7 @@ private fun ProfileQuickSwitchMenu(
                 ),
                 optionSize = totalCount,
                 isSelected = false,
-                index = addIndex + 2,
+                index = addIndex + 1,
                 onSelectedIndexChange = {
                     dismiss?.invoke()
                     onAccountRelated()
