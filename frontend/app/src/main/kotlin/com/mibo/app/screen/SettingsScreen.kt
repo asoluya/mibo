@@ -960,6 +960,7 @@ internal fun RewardCodeDialog(onDismiss: () -> Unit) {
         show = show,
         title = "赞赏码",
         outsideMargin = DpSize(16.dp, 8.dp),
+        largeScreen = true,
         onDismissRequest = { show = false },
         onDismissFinished = onDismiss,
     ) {
