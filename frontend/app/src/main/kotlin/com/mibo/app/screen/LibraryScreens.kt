@@ -15,6 +15,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import kotlin.math.roundToInt
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -45,6 +46,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -413,8 +417,6 @@ fun AccountsScreen(nav: NavState) {
     var currentUid by remember { mutableStateOf(App.repo.takeUnless { it.guest }?.session?.uid) }
     var currentCookie by remember { mutableStateOf(if (App.repo.guest) null else App.repo.cookie()) }
     var pendingDelete by remember { mutableStateOf<Account?>(null) }
-    // 同一时间只展开一行，和通知栏一样：拉开新的一行，上一行自己收回去。
-    var openUid by remember { mutableStateOf<String?>(null) }
     var renewing by remember { mutableStateOf(false) }
     val screenScope = rememberCoroutineScope()
 
@@ -483,7 +485,7 @@ fun AccountsScreen(nav: NavState) {
             } else {
                 item {
                     Text(
-                        "左滑账号可重新登录或删除",
+                        "长按账号可重新登录或删除",
                         fontSize = 12.sp,
                         color = MiuixTheme.colorScheme.onSurfaceSecondary,
                         modifier = Modifier.padding(horizontal = 4.dp),
@@ -493,79 +495,83 @@ fun AccountsScreen(nav: NavState) {
             itemsIndexed(accounts, key = { _, account -> account.uid }) { index, account ->
                 val current = isCurrentAccount(account, currentUid, currentCookie, App.repo.guest)
                 val name = account.name.ifBlank { "微博账号" }
-                val swipe = rememberNotificationSwipeState()
-                val scope = rememberCoroutineScope()
-                LaunchedEffect(swipe.isRevealed) {
-                    if (swipe.isRevealed) openUid = account.uid
-                }
-                LaunchedEffect(openUid) {
-                    if (openUid != account.uid && swipe.isRevealed) swipe.close()
-                }
-                NotificationSwipeBox(
-                    onSettings = {
-                        openUid = null
-                        nav.push(Route.SmsLogin(addAccount = true, relogin = name))
-                    },
-                    onDismiss = { pendingDelete = account },
-                    settingsIcon = MiuixIcons.Refresh,
-                    dismissIcon = null,
+                var rowBounds by remember { mutableStateOf(Rect.Zero) }
+                Row(
                     modifier = Modifier
                         .animateItem(fadeInSpec = null, placementSpec = HistoryPlacementSpec, fadeOutSpec = null)
-                        .testTag("account_row_$index"),
-                    state = swipe,
-                    minHeight = 0.dp,
-                    containerColor = CardDefaults.defaultColors().color,
-                    dismissOnFullSwipe = true,
-                    settingsDescription = "重新登录",
-                    dismissDescription = "删除账号",
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                if (swipe.isRevealed) {
-                                    scope.launch { swipe.close() }
-                                } else {
-                                    App.repo.switchAccount(account)
-                                    currentUid = account.uid
-                                    currentCookie = account.cookie
-                                    nav.reset(Route.Main)
-                                }
-                            }
-                            .padding(horizontal = 14.dp, vertical = 14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Avatar(account.avatar, 40.dp)
-                        Spacer(Modifier.width(12.dp))
-                        Column(Modifier.weight(1f)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    name,
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Medium,
-                                )
-                                if (current) {
-                                    Spacer(Modifier.width(8.dp))
-                                    Text(
-                                        "当前",
-                                        fontSize = 10.sp,
-                                        color = MiuixTheme.colorScheme.onPrimary,
-                                        modifier = Modifier
-                                            .background(MiuixTheme.colorScheme.primary, CircleShape)
-                                            .padding(horizontal = 7.dp, vertical = 2.dp),
-                                    )
-                                }
-                            }
-                            Text(
-                                "UID ${account.uid}",
-                                fontSize = 11.sp,
-                                color = MiuixTheme.colorScheme.onSurfaceSecondary,
+                        .testTag("account_row_$index")
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(CardDefaults.CornerRadius))
+                        .background(CardDefaults.defaultColors().color)
+                        .onGloballyPositioned { coordinates ->
+                            val pos = coordinates.positionInWindow()
+                            rowBounds = Rect(
+                                pos.x,
+                                pos.y,
+                                pos.x + coordinates.size.width.toFloat(),
+                                pos.y + coordinates.size.height.toFloat(),
                             )
                         }
+                        .combinedClickable(
+                            onClick = {
+                                App.repo.switchAccount(account)
+                                currentUid = account.uid
+                                currentCookie = account.cookie
+                                nav.reset(Route.Main)
+                            },
+                            onLongClick = {
+                                App.showGlassMenu(
+                                    rowBounds,
+                                    listOf(
+                                        App.GlassMenuItem(
+                                            text = "重新登录",
+                                            icon = MiuixIcons.Refresh,
+                                            onClick = {
+                                                nav.push(Route.SmsLogin(addAccount = true, relogin = name))
+                                            },
+                                        ),
+                                        App.GlassMenuItem(
+                                            text = "删除",
+                                            danger = true,
+                                            onClick = { pendingDelete = account },
+                                        ),
+                                    ),
+                                )
+                            },
+                        )
+                        .padding(horizontal = 14.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Avatar(account.avatar, 40.dp)
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                name,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Medium,
+                            )
+                            if (current) {
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    "当前",
+                                    fontSize = 10.sp,
+                                    color = MiuixTheme.colorScheme.onPrimary,
+                                    modifier = Modifier
+                                        .background(MiuixTheme.colorScheme.primary, CircleShape)
+                                        .padding(horizontal = 7.dp, vertical = 2.dp),
+                                )
+                            }
+                        }
+                        Text(
+                            "UID ${account.uid}",
+                            fontSize = 11.sp,
+                            color = MiuixTheme.colorScheme.onSurfaceSecondary,
+                        )
                     }
                 }
+                }
             }
-        }
     }
 
     pendingDelete?.let { account ->
@@ -573,10 +579,7 @@ fun AccountsScreen(nav: NavState) {
             title = "移除账号",
             message = "只删除本地保存的登录信息，不会影响微博账号本身。",
             confirmText = "移除",
-            onDismiss = {
-                pendingDelete = null
-                openUid = null
-            },
+            onDismiss = { pendingDelete = null },
             onConfirm = {
                 App.store.removeAccount(account.uid)
                 accounts = App.store.accounts()
