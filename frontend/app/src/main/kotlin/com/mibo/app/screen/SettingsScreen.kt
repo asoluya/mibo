@@ -318,10 +318,10 @@ private fun LazyListScope.displaySettingsItems(
             )
             SliderPreference(
                 value = state.fontScale,
-                onValueChange = {
-                    state.fontScale = it
-                    App.settings.applyFontScale(it)
-                },
+                // 拖动时只动本地状态（滑块和百分比）：字号是全局密度，逐帧应用会让整棵界面
+                // 每帧按新字号重排，必然卡顿。松手时一次性应用到全局。
+                onValueChange = { state.fontScale = it },
+                onValueChangeFinished = { App.settings.applyFontScale(state.fontScale) },
                 title = "字号",
                 summary = "全局字体缩放，100% 为标准大小",
                 valueText = "${(state.fontScale * 100).toInt()}%",
