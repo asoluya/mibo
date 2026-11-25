@@ -1,0 +1,2470 @@
+package com.mibo.app.ui
+
+import android.os.Build
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.PagerState
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.LineHeightStyle
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.mibo.app.App
+import com.mibo.app.R
+import com.mibo.app.data.Account
+import com.mibo.app.data.FeedPage
+import com.mibo.app.data.FeedTabItem
+import com.mibo.app.data.FeedTabSelection
+import com.mibo.app.data.FollowGroup
+import com.mibo.app.data.SearchPanelAnimation
+import com.mibo.app.data.WEIBO_PROFILE_EDIT_URL
+import com.mibo.app.data.feedTabOptions
+import com.mibo.app.data.nearbyCoords
+import com.mibo.app.screen.BindSearchSuggestionsEffect
+import com.mibo.app.screen.FeedFilter
+import com.mibo.app.screen.FeedStore
+import com.mibo.app.screen.LocalMessagesPlaceholder
+import com.mibo.app.screen.MessagesScreen
+import com.mibo.app.screen.MessagesTabState
+import com.mibo.app.screen.ProfileHubContent
+import com.mibo.app.screen.ProfileTabState
+import com.mibo.app.screen.SearchDiscoverState
+import com.mibo.app.screen.SearchFilterMenu
+import com.mibo.app.screen.SearchResultsState
+import com.mibo.app.screen.SearchTab
+import com.mibo.app.screen.TimelineScreen
+import com.mibo.app.screen.TimelineScrollHolder
+import com.mibo.app.screen.dismissHistoryEditingOnTap
+import com.mibo.app.screen.rememberCoverContrast
+import com.mibo.app.screen.rememberSearchDiscoverState
+import com.mibo.app.screen.rememberSearchFilterTabs
+import com.mibo.app.screen.rememberSearchResultsState
+import com.mibo.app.screen.searchDiscoverItems
+import com.mibo.app.screen.searchHorizontalPadding
+import com.mibo.app.screen.searchResultsItems
+import com.mibo.app.ui.components.Avatar
+import com.mibo.app.ui.components.LoadingState
+import com.mibo.app.ui.components.ProfileEditDialog
+import com.mibo.app.ui.components.navBottomPadding
+import top.yukonga.miuix.kmp.anim.AccelerateEasing
+import top.yukonga.miuix.kmp.anim.DecelerateEasing
+import top.yukonga.miuix.kmp.basic.DropdownEntry
+import top.yukonga.miuix.kmp.basic.DropdownImpl
+import top.yukonga.miuix.kmp.basic.DropdownItem
+import top.yukonga.miuix.kmp.basic.FloatingNavigationBar
+import top.yukonga.miuix.kmp.basic.FloatingNavigationBarDefaults
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.InputField
+import top.yukonga.miuix.kmp.basic.ListPopupColumn
+import top.yukonga.miuix.kmp.basic.ListPopupDefaults
+import top.yukonga.miuix.kmp.basic.PopupPositionProvider
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.basic.TopAppBarDefaults
+import top.yukonga.miuix.kmp.blur.BlendColorEntry
+import top.yukonga.miuix.kmp.blur.BlurColors
+import top.yukonga.miuix.kmp.blur.LayerBackdrop
+import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
+import top.yukonga.miuix.kmp.blur.textureBlur
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Add
+import top.yukonga.miuix.kmp.icon.extended.Edit
+import top.yukonga.miuix.kmp.icon.extended.GridView
+import top.yukonga.miuix.kmp.icon.extended.Refresh
+import top.yukonga.miuix.kmp.icon.extended.Search
+import top.yukonga.miuix.kmp.icon.extended.Settings
+import top.yukonga.miuix.kmp.overlay.OverlayCascadingListPopup
+import top.yukonga.miuix.kmp.overlay.OverlayListPopup
+import top.yukonga.miuix.kmp.theme.LocalDismissState
+import top.yukonga.miuix.kmp.glass.glassPanel
+import top.yukonga.miuix.kmp.glass.GlassPopupDefaults
+import top.yukonga.miuix.kmp.material.GlassDefaults
+import top.yukonga.miuix.kmp.material.GlassEdgeStrokes
+import top.yukonga.miuix.kmp.material.GlassMaterials
+import top.yukonga.miuix.kmp.material.GlassShape
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.utils.scrollEndHaptic
+import kotlin.math.PI
+import kotlin.math.abs
+import kotlin.math.max
+import kotlin.math.roundToInt
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+
+/** 搜索面板进出场曲线（原 COUIInEase / COUIOutEase 的近似）。 */
+private val PanelInEasing = AccelerateEasing()
+private val PanelOutEasing = DecelerateEasing()
+
+/** 搜索筛选胶囊的行高（原 ChipTabDefaults.Height 的近似值）。 */
+internal val SearchFilterChipHeight = 40.dp
+
+/** 搜索结果两行顶栏第二行的底部留白（原 TwoRowTopAppBarDefaults.SecondRowBottom 的近似值）。 */
+internal val SearchSecondRowBottom = 8.dp
+
+/** 导航弹窗菜单的尺寸默认值（原 COUI NavigationPopupMenuDefaults；Miuix 无对应常量，取近似值）。 */
+internal object MiboPopupMenuDefaults {
+    val MaxHeight = 480.dp
+    val MinWidth = 200.dp
+    val HorizontalMargin = 16.dp
+    val VerticalMargin = 8.dp
+}
+
+/** 顶栏动作项的固定占位（原 couiTopAppBarActionItem 的近似：48dp 见方触控区）。 */
+internal fun Modifier.topAppBarActionItem(): Modifier = size(48.dp)
+
+internal sealed class FeedTabSpec {
+    abstract val key: String
+    abstract val position: String
+    abstract val label: String
+    abstract val tag: String
+    abstract val emptyText: String
+    abstract val isFollow: Boolean
+
+    /** 只有中间栏带「更多」菜单：它列的就是「微博中间栏内容」那份选项。 */
+    abstract val isCenter: Boolean
+
+    data class Custom(val selection: FeedTabSelection, override val position: String, val guest: Boolean) : FeedTabSpec() {
+        override val key: String get() = "${position}_${selection.key}"
+        override val label: String get() = selection.label
+        override val tag: String get() = if (selection.isGroup) {
+            "feed_tab_group_${selection.group?.gid.orEmpty()}"
+        } else {
+            selection.item.tag
+        }
+        override val isFollow: Boolean get() = false
+        override val isCenter: Boolean get() = position == "center"
+        override val emptyText: String get() = when {
+            selection.isGroup -> "「${selection.label}」还没有内容"
+            else -> when (selection.item) {
+                FeedTabItem.Follow -> if (guest) "还没有本地关注的人\n在别人主页点「本地关注」，他的微博会出现在这里" else "还没有关注的人"
+                FeedTabItem.Circle -> "好友还没有内容"
+                FeedTabItem.Recommend -> "这里还没有微博"
+                FeedTabItem.Local -> if (guest) "还没有本地关注的人\n在别人主页点「本地关注」，他的微博会出现在这里" else "还没有本地关注"
+                FeedTabItem.Original -> "还没有原创微博"
+                FeedTabItem.Special -> "特别关注还没有内容"
+                FeedTabItem.Secret -> "还没有悄悄关注的人"
+                FeedTabItem.Favorites -> "还没有收藏的微博"
+                FeedTabItem.Nearby -> "附近需要定位\n到设置的「附近」里打开定位，或选一座城市"
+                FeedTabItem.Group -> "在顶栏的「更多」里选一个关注分组"
+                FeedTabItem.None -> "这里还没有微博"
+            }
+        }
+    }
+
+    data class Follow(val filter: FeedFilter, val guest: Boolean, override val position: String = "center") : FeedTabSpec() {
+        override val key: String get() = if (position == "center") "follow" else "${position}_follow"
+        override val label: String get() = if (guest) "本地关注" else filter.label
+        override val tag: String get() = "feed_tab_follow"
+        override val isFollow: Boolean get() = true
+        override val isCenter: Boolean get() = position == "center"
+        override val emptyText: String get() = if (guest) {
+            "还没有本地关注的人\n在别人主页点「本地关注」，他的微博会出现在这里"
+        } else {
+            filter.emptyText
+        }
+    }
+}
+
+@Composable
+fun MainShell(nav: NavState) {
+    val tab = nav.mainTab
+    val holder = rememberSaveableStateHolder()
+    val backdrop = rememberLayerBackdrop()
+    val searchBackdrop = rememberLayerBackdrop()
+    val blur = blurEffectsEnabled()
+    val scope = rememberCoroutineScope()
+    // The bar floats over all three pages, so the line it ends at is reported once here and read
+    // by whatever has to be placed clear of it.
+    val topBarBounds = remember { TopBarBounds() }
+
+    // 纯本地模式：没有账号可读关注流，首页只剩「本地关注」和「推荐」两段，筛选菜单也收起来。
+    // 登录 / 退出都会 reset 导航栈，这个值在整个 MainShell 生命周期里不会变。
+    val guest = remember { App.repo.guest }
+    val accountOwner = remember { App.repo.session?.uid.orEmpty() }
+    LaunchedEffect(Unit) { App.repo.refreshSessionIfStale() }
+    val leftTab = App.settings.feedLeftTab
+    val centerTab = App.settings.feedCenterTab
+    val rightTab = App.settings.feedRightTab
+
+    // 中间栏看哪条流由「中间栏内容」决定，菜单只是把这一项搬到页面上。原来的「筛选」只剩
+    // 一份好友流，显示时统一叫「全部」；纯本地模式没有好友流，仍按「本地关注」走。
+    val filter = if (guest) FeedFilter.Local else FeedFilter.All
+    val friendsStore = remember {
+        FeedStore("friends", resumable = true, supportsReverseBrowse = true, snapshotOwner = { accountOwner }) { cursor, force ->
+            App.repo.friends(cursor, force)
+        }
+    }
+    val filterStores = remember {
+        mapOf(
+            FeedFilter.All to friendsStore,
+            FeedFilter.Following to friendsStore,
+            FeedFilter.Original to FeedStore("original", resumable = true, supportsReverseBrowse = true, snapshotOwner = { accountOwner }) { cursor, force ->
+                originalFeed(cursor, force)
+            },
+            FeedFilter.Unread to FeedStore("unread", snapshotOwner = { accountOwner }) { _, _ -> FeedPage(emptyList(), null) },
+            FeedFilter.Favorites to FeedStore("favorites") { cursor, force ->
+                App.repo.favorites(cursor, force)
+            },
+            FeedFilter.Special to FeedStore("special", resumable = true, supportsReverseBrowse = true, snapshotOwner = { accountOwner }) { cursor, force ->
+                App.repo.special(cursor, force)
+            },
+            FeedFilter.Circle to FeedStore("circle", resumable = true, supportsReverseBrowse = true, snapshotOwner = { accountOwner }) { cursor, force ->
+                App.repo.circle(cursor, force)
+            },
+            FeedFilter.Secret to FeedStore("secret", resumable = true, supportsReverseBrowse = true, snapshotOwner = { accountOwner }) { cursor, force ->
+                App.repo.secret(cursor, force)
+            },
+            FeedFilter.Local to FeedStore("local", readOnly = true, resumable = true, supportsReverseBrowse = true, snapshotOwner = { accountOwner }) { cursor, force ->
+                App.repo.localFollows(cursor, force)
+            },
+        )
+    }
+    val favoritesVersion = App.repo.favoritesVersion
+    LaunchedEffect(favoritesVersion) {
+        val favStore = filterStores[FeedFilter.Favorites] ?: return@LaunchedEffect
+        if (favoritesVersion > 0 && favStore.loaded) favStore.refresh()
+    }
+    val recommendStore = remember { FeedStore("102803", readOnly = guest, resumable = true, snapshotOwner = { accountOwner }) }
+    val circleStore = filterStores.getValue(FeedFilter.Circle)
+    val followStore = filterStores.getValue(filter)
+
+    // 关注分组：分组是账号里的数据，gid 不同就是不同的一条流，一组一个 store。
+    val groupStores = remember { HashMap<String, FeedStore>() }
+
+    // 附近：坐标来自设备定位或用户选的城市，换位置之后这条流要整条重来。
+    val nearbyStore = remember {
+        FeedStore("nearby", resumable = true, snapshotOwner = { accountOwner }) { cursor, force ->
+            val coords = nearbyCoords(App.context)
+            if (coords == null) {
+                FeedPage(emptyList(), null)
+            } else {
+                App.repo.nearby(coords.first.toString(), coords.second.toString(), cursor, force)
+            }
+        }
+    }
+    val nearbyLocationKey = "${App.settings.nearbyCustom}:${App.settings.nearbyPlaceName}"
+    var lastNearbyLocationKey by remember { mutableStateOf(nearbyLocationKey) }
+    LaunchedEffect(nearbyLocationKey) {
+        if (nearbyLocationKey != lastNearbyLocationKey) {
+            lastNearbyLocationKey = nearbyLocationKey
+            nearbyStore.refresh()
+        }
+    }
+
+    fun storeFor(selection: FeedTabSelection): FeedStore = when (selection.item) {
+        FeedTabItem.Follow -> followStore
+        FeedTabItem.Circle -> circleStore
+        FeedTabItem.Recommend -> recommendStore
+        FeedTabItem.Local -> filterStores.getValue(FeedFilter.Local)
+        FeedTabItem.Original -> filterStores.getValue(FeedFilter.Original)
+        FeedTabItem.Special -> filterStores.getValue(FeedFilter.Special)
+        FeedTabItem.Secret -> filterStores.getValue(FeedFilter.Secret)
+        FeedTabItem.Favorites -> filterStores.getValue(FeedFilter.Favorites)
+        FeedTabItem.Nearby -> nearbyStore
+        FeedTabItem.Group -> selection.group?.let { group ->
+            groupStores.getOrPut(group.gid) {
+                FeedStore("group_${group.gid}", resumable = true, supportsReverseBrowse = true, snapshotOwner = { accountOwner }) { cursor, _ ->
+                    App.repo.groupFeed(group.gid, cursor)
+                }
+            }
+        } ?: friendsStore
+        FeedTabItem.None -> friendsStore
+    }
+
+    // 动态构建主页 Tab 列表：左栏（若非隐藏） + 中间栏（不可隐藏） + 右栏（若非隐藏）
+    val feedTabs: List<FeedTabSpec> = remember(leftTab, centerTab, rightTab, filter, guest) {
+        buildList {
+            // 关注分组是账号里的数据：纯本地模式读不到，这一栏退回「本地关注」。
+            fun addColumn(selection: FeedTabSelection, position: String) {
+                val effective = if (guest && selection.isGroup) FeedTabSelection(FeedTabItem.Follow) else selection
+                when (effective.item) {
+                    FeedTabItem.None -> Unit
+                    FeedTabItem.Follow -> add(FeedTabSpec.Follow(filter, guest, position))
+                    else -> add(FeedTabSpec.Custom(effective, position, guest))
+                }
+            }
+            addColumn(leftTab, "left")
+            addColumn(centerTab, "center")
+            addColumn(rightTab, "right")
+        }
+    }
+
+    val feedStores = feedTabs.map { spec ->
+        when (spec) {
+            is FeedTabSpec.Follow -> followStore
+            is FeedTabSpec.Custom -> storeFor(spec.selection)
+        }
+    }
+    val feedEmptyTexts = feedTabs.map { it.emptyText }
+
+    // 「更多」菜单里的关注分组。分组列表在网页版，只在打开菜单时取一次（Repo 里还有一层缓存）；
+    // 拉不到就只显示内置流，不影响其它栏。
+    var feedGroups by remember { mutableStateOf<List<FollowGroup>>(emptyList()) }
+    val loadFeedGroups: () -> Unit = {
+        if (!guest) {
+            scope.launch {
+                runCatching { App.repo.followGroups() }
+                    .onSuccess { feedGroups = it }
+            }
+        }
+    }
+    LaunchedEffect(guest) { loadFeedGroups() }
+    val centerOptions = feedTabOptions(feedGroups, allowNone = false, current = centerTab)
+
+    val followIndex = feedTabs.indexOfFirst { it.isFollow }.coerceAtLeast(0)
+    val initialPage = feedTabs.indexOfFirst { it.key == App.settings.feedTabKey }.takeIf { it >= 0 }
+        ?: followIndex
+
+    val feedPager = rememberPagerState(
+        initialPage = initialPage.coerceIn(0, (feedTabs.size - 1).coerceAtLeast(0)),
+        pageCount = { feedTabs.size },
+    )
+    LaunchedEffect(feedPager.currentPage, feedTabs) {
+        val currentTab = feedTabs.getOrNull(feedPager.currentPage)
+        if (currentTab != null) {
+            App.settings.applyFeedTabKey(currentTab.key)
+            val legacyKind = when {
+                currentTab.isFollow -> 1
+                currentTab is FeedTabSpec.Custom && currentTab.selection.item == FeedTabItem.Circle -> 0
+                else -> 2
+            }
+            App.settings.applyFeedTab(legacyKind)
+        }
+    }
+
+    LaunchedEffect(feedTabs.size) {
+        if (feedPager.currentPage >= feedTabs.size) {
+            feedPager.scrollToPage(followIndex)
+        }
+    }
+
+    val feedHasTabs = feedTabs.size > 1
+    val feedSlotKeys = feedTabs.map { it.position }
+    val barDensity = rememberBarDensity()
+    val barTitleHeightPx = with(barDensity) { FeedTitleRowHeight.toPx() }
+    // The top bar floats over the lists; the first row starts below it and later rows scroll under.
+    // 栏钉在自己的密度上，页面按系统密度排版，所以这里要按像素换算回当前密度。
+    // 消息 and 我 wear the feed's title row alone, so their bar is exactly one row tall.
+    val topBarHeight = pinnedHeight(FeedTitleRowHeight)
+    // The feed header is two rows: the title row folds away as the list scrolls, the segment row
+    // stays pinned under the status bar.
+    val feedTopBarHeight = if (feedHasTabs) {
+        pinnedHeight(FeedTitleRowHeight, TopAppBarDefaults.SmallTopAppBarCenterHeight)
+    } else {
+        topBarHeight
+    }
+    // 标题行去掉后页面顶 inset 收紧：只剩状态栏下留白（微博页再加分段行）；搜索面板仍用 topBarHeight 原值。
+    val pageTopInset = pinnedHeight(CompactTitleGap)
+    val feedPageTopInset = if (feedHasTabs) {
+        pinnedHeight(CompactTitleGap, TopAppBarDefaults.SmallTopAppBarCenterHeight)
+    } else {
+        pageTopInset
+    }
+    var feedCollapse by remember { mutableFloatStateOf(0f) }
+    val timelineScrollHolder = remember { TimelineScrollHolder() }
+    val messagesState = remember { MessagesTabState() }
+    val profileTabState = remember { ProfileTabState() }
+    var editProfileOpen by remember { mutableStateOf(false) }
+    val profileListState = rememberLazyListState()
+    var profileActiveCover by remember { mutableStateOf<String?>(null) }
+    val profileScrolledPast by remember(profileListState, barDensity) {
+        derivedStateOf {
+            listScrollAlpha(profileListState, barDensity) >= 0.45f
+        }
+    }
+    val isTopRoute = rememberIsTopRoute(nav)
+    val profileCoverContrast = rememberCoverContrast(
+        coverUrl = if (guest) null else profileActiveCover,
+        topBarHeight = pageTopInset,
+        active = tab == 2 && !guest && !profileScrolledPast && isTopRoute,
+        manageStatusBar = isTopRoute,
+    )
+    val meTitleColor = if (profileCoverContrast.useWhiteContent) Color.White else MiuixTheme.colorScheme.onSurface
+    var feedSearchQuery by remember { mutableStateOf("") }
+    var feedSearchExpanded by remember { mutableStateOf(false) }
+    val panelAnimation = App.settings.searchPanelAnimation
+    val panelProgress = remember { Animatable(0f) }
+    val panelAlpha = remember { Animatable(0f) }
+    val panelMounted by remember {
+        derivedStateOf {
+            feedSearchExpanded || panelProgress.value > 0.001f || panelAlpha.value > 0.001f
+        }
+    }
+    val discoverState = rememberSearchDiscoverState()
+    LaunchedEffect(Unit) { discoverState.ensureHotLoaded() }
+    val keyboard = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
+
+    // 首页搜索展开期间锁定标题行不折叠，防止部分折叠或软键盘弹出时挤压/裁切搜索胶囊；收起后恢复跟踪列表滚动。
+    val rawCollapseTarget = (feedCollapse / barTitleHeightPx).coerceIn(0f, 1f)
+    // 顶栏悬浮常驻：下滑时也不折叠，标题行与分段行始终可见可点（原折叠目标停用）。
+    val collapseTarget = 0f
+    val collapseShown = remember { Animatable(collapseTarget) }
+    var wasSearchExpanded by remember { mutableStateOf(feedSearchExpanded) }
+    LaunchedEffect(collapseTarget, feedSearchExpanded) {
+        val searchTransition = (wasSearchExpanded != feedSearchExpanded) || (feedSearchExpanded && collapseShown.value > 0f)
+        wasSearchExpanded = feedSearchExpanded
+        if (abs(collapseTarget - collapseShown.value) > 0.6f || searchTransition) {
+            collapseShown.animateTo(collapseTarget, tween(MainTabFadeMillis))
+        } else {
+            collapseShown.snapTo(collapseTarget)
+        }
+    }
+    val collapsed = collapseShown.value
+
+    val homeResultsState = rememberSearchResultsState(scope)
+    val searchListState = rememberLazyListState()
+
+    // 搜索面板的两种中间态：关键词还没提交（「建议中」，底下仍是热搜/历史），以及已有结果在显示。
+    // 顶栏的筛选行与列表区都读同一份判断，避免两处各写一份后漂移。
+    val searchSuggesting =
+        feedSearchQuery.isNotBlank() && feedSearchQuery.trim() != homeResultsState.submitted
+    val searchShowingResults =
+        homeResultsState.submitted.isNotBlank() && !searchSuggesting && feedSearchQuery.isNotBlank()
+    var searchFilterMenuOpen by remember { mutableStateOf(false) }
+    LaunchedEffect(searchShowingResults) {
+        if (!searchShowingResults) searchFilterMenuOpen = false
+    }
+
+    // 搜索页两种内容的进出场由本文件内的 SearchResultContainer 本地实现编排（原 COUI 同名组件的替代）：
+    // 提交后先淡出旧内容再翻到结果页淡入，加载指示器叠在列表顶部留白处；
+    // 返回搜索页时结果淡出、再淡入热搜与历史，顶栏搜索框本身保持稳住不闪烁。
+    // queryKey 只认提交的关键词：换分类、换排序走的是较轻的「刷新上浮」，换关键词才整段重新上浮。
+    val searchTransition = rememberSearchResultsTransitionState(
+        showingResults = searchShowingResults,
+        loading = homeResultsState.loading,
+        queryKey = homeResultsState.submitted,
+    )
+
+    val openFeedSearch: () -> Unit = {
+        discoverState.clearEditing()
+        homeResultsState.clearResults()
+        feedSearchQuery = ""
+        feedSearchExpanded = true
+    }
+    val cancelFeedSearch: () -> Unit = {
+        keyboard?.hide()
+        focusManager.clearFocus()
+        discoverState.clearEditing()
+        feedSearchExpanded = false
+    }
+    val closeFeedSearchImmediately: suspend () -> Unit = {
+        keyboard?.hide()
+        focusManager.clearFocus()
+        discoverState.clearEditing()
+        homeResultsState.clearResults()
+        feedSearchQuery = ""
+        feedSearchExpanded = false
+        panelProgress.snapTo(0f)
+        panelAlpha.snapTo(0f)
+    }
+    val submitHomeSearch: (String) -> Unit = { raw ->
+        val keyword = raw.trim()
+        if (keyword.isNotEmpty()) {
+            feedSearchQuery = keyword
+            keyboard?.hide()
+            focusManager.clearFocus()
+            discoverState.clearEditing()
+            homeResultsState.runSearch(keyword, discoverState)
+        }
+    }
+
+    LaunchedEffect(feedSearchExpanded) {
+        if (feedSearchExpanded) {
+            scope.launch { discoverState.ensureHotLoaded() }
+            when (panelAnimation) {
+                // 面板从搜索栏下沿往下长出来。
+                SearchPanelAnimation.Vertical -> coroutineScope {
+                    launch {
+                        panelAlpha.animateTo(
+                            targetValue = 1f,
+                            animationSpec = tween(durationMillis = SearchPanelFadeMillis, easing = PanelInEasing),
+                        )
+                    }
+                    launch {
+                        panelProgress.animateTo(
+                            targetValue = 1f,
+                            animationSpec = spring(
+                                dampingRatio = SearchSpringDamping,
+                                stiffness = SearchSpringStiffnessExpand,
+                                visibilityThreshold = 0.001f,
+                            ),
+                        )
+                    }
+                }
+                // 整块面板淡入，没有几何变化。
+                SearchPanelAnimation.Fade -> {
+                    panelProgress.snapTo(1f)
+                    panelAlpha.animateTo(
+                        targetValue = 1f,
+                        animationSpec = tween(durationMillis = SearchPanelFadeMillis, easing = PanelInEasing),
+                    )
+                }
+            }
+        } else if (panelProgress.value > 0f || panelAlpha.value > 0f) {
+            when (panelAnimation) {
+                SearchPanelAnimation.Vertical -> coroutineScope {
+                    launch {
+                        panelAlpha.animateTo(
+                            targetValue = 0f,
+                            animationSpec = tween(
+                                durationMillis = SearchPanelFadeMillis,
+                                delayMillis = 200,
+                                easing = PanelOutEasing,
+                            ),
+                        )
+                    }
+                    launch {
+                        panelProgress.animateTo(
+                            targetValue = 0f,
+                            animationSpec = spring(
+                                dampingRatio = SearchSpringDamping,
+                                stiffness = SearchSpringStiffnessCollapse,
+                                visibilityThreshold = 0.001f,
+                            ),
+                        )
+                    }
+                }
+                SearchPanelAnimation.Fade -> panelAlpha.animateTo(
+                    targetValue = 0f,
+                    animationSpec = tween(durationMillis = SearchPanelFadeMillis, easing = PanelOutEasing),
+                )
+            }
+            panelProgress.snapTo(0f)
+            if (!feedSearchExpanded) {
+                homeResultsState.clearResults()
+                feedSearchQuery = ""
+                discoverState.clearEditing()
+            }
+        }
+    }
+
+    LaunchedEffect(tab) {
+        if (tab != 0 && (feedSearchExpanded || feedSearchQuery.isNotEmpty() ||
+                panelProgress.value > 0f || panelAlpha.value > 0f)
+        ) {
+            closeFeedSearchImmediately()
+        }
+    }
+
+    BindSearchSuggestionsEffect(
+        state = discoverState,
+        query = feedSearchQuery,
+        active = tab == 0 && feedSearchExpanded,
+        submitted = homeResultsState.submitted,
+    )
+
+    val feedPanelCovering = tab == 0 && panelMounted
+
+    Box(Modifier.fillMaxSize()) {
+        // The bar floats over the page, so the line it ends at is reported from the bar itself and
+        // read by anything that has to be placed clear of it.
+        CompositionLocalProvider(LocalTopBarBounds provides topBarBounds) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .layerBackdropIf(blur, backdrop)
+                    .background(pageContainerColor())
+                    .then(if (feedPanelCovering) Modifier.clearAndSetSemantics {} else Modifier),
+            ) {
+                CompositionLocalProvider(LocalBackdrop provides if (blur) backdrop else null) {
+                    // The bottom bar only switches on tap, so the page carries the transition itself:
+                    // both tabs stay composed through the same state holder and cross-fade.
+                    Crossfade(
+                        targetState = tab,
+                        animationSpec = tween(MainTabFadeMillis),
+                        modifier = Modifier.fillMaxSize(),
+                        label = "mainTabPage",
+                    ) { page ->
+                        holder.SaveableStateProvider(page) {
+                            when (page) {
+                                0 -> TimelineScreen(
+                                    nav = nav,
+                                    pagerState = feedPager,
+                                    stores = feedStores,
+                                    emptyTexts = feedEmptyTexts,
+                                    followStore = followStore,
+                                    recommendStore = recommendStore,
+                                    topInset = feedPageTopInset,
+                                    onScrollOffset = { feedCollapse = it },
+                                    slotKeys = feedSlotKeys,
+                                    scrollHolder = timelineScrollHolder,
+                                )
+                                1 -> if (guest) {
+                                    LocalMessagesPlaceholder(nav, pageTopInset)
+                                } else {
+                                    MessagesScreen(nav, pageTopInset, state = messagesState)
+                                }
+                                else -> ProfileHubContent(
+                                    nav = nav,
+                                    guest = guest,
+                                    modifier = Modifier.fillMaxSize(),
+                                    topInset = pageTopInset,
+                                    extraBottom = FloatingBarContentGap,
+                                    listState = profileListState,
+                                    state = profileTabState,
+                                    onActiveCover = { profileActiveCover = it },
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Layer 2: 顶栏模糊材质层 + 首页分段标签行（在搜索面板之下，展开时会被面板盖住）。
+        // （COUI 的 LocalEdgeToEdge 在 Miuix 无对应，Miuix 组件各自处理窗口插图，已去掉。）
+        CompositionLocalProvider(
+            LocalBackdrop provides if (blur) backdrop else null,
+        ) {
+            PinnedBarDensity {
+                MainBarUnderlay(
+                    tab = tab,
+                    feedPager = feedPager,
+                    feedTabs = feedTabs,
+                    feedSlotKeys = feedSlotKeys,
+                    guest = guest,
+                    centerTab = centerTab,
+                    centerOptions = centerOptions,
+                    collapsed = collapsed,
+                    titleHeightPx = barTitleHeightPx,
+                    timelineScrollHolder = timelineScrollHolder,
+                    messagesState = messagesState,
+                    profileListState = profileListState,
+                    searchExpanded = feedSearchExpanded,
+                    panelCovering = feedPanelCovering,
+                    bounds = topBarBounds,
+                    onMenuOpened = loadFeedGroups,
+                    onScrollToTop = { if (!feedPanelCovering) App.requestFeedTop(scrollToTop = true) },
+                    onCenterSelected = { selection ->
+                        App.settings.applyFeedCenterTab(selection)
+                        // 只补一次「还没拉到过 / 上次失败」的流：已经加载好的分组和它的续看位置
+                        // 留给 TimelinePage，不要在切回来的时候冲掉。
+                        val target = storeFor(selection)
+                        if (target.error != null) scope.launch { target.refresh() }
+                        val targetPage = if (leftTab.item != FeedTabItem.None) 1 else 0
+                        scope.launch { feedPager.animateScrollToPage(targetPage) }
+                    },
+                    modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth(),
+                )
+            }
+        }
+
+        // Layer 3: 悬浮底部导航栏（在面板之下，展开时被面板盖住）。
+        val quickSwitchAccount = App.settings.quickSwitchAccount
+        val profileTabAvatar = App.settings.profileTabAvatar
+        val activeUid = App.repo.session?.uid.orEmpty()
+        var profileAvatarUrl by remember(activeUid, guest) {
+            mutableStateOf(
+                if (guest || activeUid.isBlank()) null
+                else App.store.accounts().firstOrNull { it.uid == activeUid }?.avatar?.takeIf { it.isNotBlank() },
+            )
+        }
+        LaunchedEffect(activeUid, guest, profileTabAvatar) {
+            if (guest || !profileTabAvatar || activeUid.isBlank() || !profileAvatarUrl.isNullOrBlank()) {
+                return@LaunchedEffect
+            }
+            val fetched = runCatching { App.repo.profile(activeUid) }.getOrNull() ?: return@LaunchedEffect
+            val avatar = fetched.avatar.takeIf { it.isNotBlank() } ?: return@LaunchedEffect
+            profileAvatarUrl = avatar
+            App.store.accounts().firstOrNull { it.uid == activeUid }?.let { existing ->
+                App.store.saveAccount(
+                    existing.copy(
+                        name = fetched.name.ifBlank { existing.name },
+                        avatar = avatar,
+                    ),
+                )
+            }
+        }
+        LaunchedEffect(activeUid, guest) {
+            if (guest || activeUid.isBlank()) return@LaunchedEffect
+            App.profileUpdatedEvents.collect { updated ->
+                if (updated.id == activeUid && updated.avatar.isNotBlank()) {
+                    profileAvatarUrl = updated.avatar
+                }
+            }
+        }
+        // （COUI 的 LocalPlatformBottomBarMaterialEnabled 是其自家玻璃引擎开关，Miuix 无对应，已去掉；
+        // Miuix FloatingNavigationBar 用自己的材质采样同一块页面 backdrop。）
+        CompositionLocalProvider(
+            LocalBackdrop provides if (blur) backdrop else null,
+        ) {
+            PinnedBarDensity {
+                FloatingBottomBar(
+                    tab = tab,
+                    guest = guest,
+                    onNotifications = { if (!feedPanelCovering) nav.push(Route.Notifications()) },
+                    onSearch = {
+                        if (!feedPanelCovering) {
+                            nav.setTab(0)
+                            openFeedSearch()
+                        }
+                    },
+                    onTab = { target -> if (!feedPanelCovering) nav.setTab(target) },
+                    onFeedTop = { if (!feedPanelCovering) App.requestFeedTop(scrollToTop = true) },
+                    onPublish = {
+                        if (!feedPanelCovering) {
+                            if (guest) App.toast("纯本地模式不能发微博，登录后可用") else nav.push(Route.Publish())
+                        }
+                    },
+                    profileAvatarUrl = if (profileTabAvatar && !guest) profileAvatarUrl else null,
+                    profileOverflowMenu = if (quickSwitchAccount && !feedPanelCovering) {
+                        {
+                            ProfileQuickSwitchMenu(
+                                guest = guest,
+                                onSwitchAccount = { account ->
+                                    App.repo.switchAccount(account)
+                                    nav.reset(Route.Main)
+                                },
+                                onAddAccount = { nav.push(Route.SmsLogin(addAccount = true)) },
+                                onManageAccounts = { nav.push(Route.Accounts) },
+                            )
+                        }
+                    } else {
+                        null
+                    },
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .then(if (feedPanelCovering) Modifier.clearAndSetSemantics {} else Modifier),
+                )
+            }
+        }
+
+        // Layer 4: 首页搜索向下展开的整屏面板（从屏幕顶 0 铺满到屏幕底部，位于顶栏渐变材质之下、底栏之上）。
+        if (tab == 0 && panelMounted) {
+            HomeSearchOverlay(
+                topBarHeight = topBarHeight,
+                blur = blur,
+                searchBackdrop = searchBackdrop,
+                searchExpanded = feedSearchExpanded,
+                panelAnimation = panelAnimation,
+                panelProgress = { panelProgress.value },
+                panelAlpha = { panelAlpha.value },
+                searchQuery = feedSearchQuery,
+                showingResults = searchShowingResults,
+                discoverState = discoverState,
+                resultsState = homeResultsState,
+                transitionState = searchTransition,
+                listState = searchListState,
+                nav = nav,
+                scope = scope,
+                onSelectKeyword = submitHomeSearch,
+                onRetryHot = { scope.launch { discoverState.loadHot(force = true) } },
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+
+        // Layer 5: 标题行与展开后的搜索栏（在最顶层，确保搜索胶囊和“取消”按钮不被面板遮挡）。
+        CompositionLocalProvider(
+            LocalBackdrop provides if (blur) {
+                if (tab == 0 && panelMounted) searchBackdrop else backdrop
+            } else {
+                null
+            },
+        ) {
+            PinnedBarDensity {
+                MainTitleRow(
+                    tab = tab,
+                    nav = nav,
+                    guest = guest,
+                    meTitleColor = meTitleColor,
+                    collapsed = collapsed,
+                    titleHeightPx = barTitleHeightPx,
+                    searchQuery = feedSearchQuery,
+                    onSearchQueryChange = { next ->
+                        if (next != feedSearchQuery) discoverState.clearEditing()
+                        feedSearchQuery = next
+                        if (next.isBlank()) {
+                            homeResultsState.clearResults()
+                            scope.launch { discoverState.ensureHotLoaded() }
+                        }
+                    },
+                    searchExpanded = feedSearchExpanded,
+                    onSearchOpen = openFeedSearch,
+                    onSearchCancel = cancelFeedSearch,
+                    onSearchSubmit = submitHomeSearch,
+                    filtersVisible = searchTransition.filtersVisible,
+                    resultsState = homeResultsState,
+                    searchListState = searchListState,
+                    panelAlpha = { panelAlpha.value },
+                    onFilterMenuOpen = { searchFilterMenuOpen = true },
+                    onFeedTitleClick = { if (!feedPanelCovering) App.requestFeedTop(scrollToTop = true) },
+                    onEditProfile = { editProfileOpen = true },
+                    modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth(),
+                )
+                // 筛选行左侧四宫格圆钮的菜单：菜单渲染在根 Scaffold，锚点按筛选行的行高与
+                // 间距落在那颗圆钮上，栏的几何一改这里跟着走，不用两边各写一份坐标。
+                if (searchShowingResults) {
+                    val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(top = statusBarTop + FeedTitleRowHeight + SearchChipRowGap),
+                    ) {
+                        SearchFilterMenu(
+                            state = homeResultsState,
+                            expanded = searchFilterMenuOpen,
+                            onExpandedChange = { searchFilterMenuOpen = it },
+                            horizontalPadding = searchHorizontalPadding(),
+                            modifier = Modifier
+                                .align(Alignment.CenterStart)
+                                .padding(start = searchHorizontalPadding())
+                                .size(SearchFilterChipHeight),
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    val inHomeSearchResults =
+        nav.stack.size == 1 && tab == 0 && feedSearchExpanded && homeResultsState.submitted.isNotEmpty()
+    // 搜索面板开着时按返回 = 关面板回主页，而不是退出应用（结果页、发现页都一样）。
+    if (nav.stack.size == 1 && tab == 0 && feedSearchExpanded) {
+        BackHandler { cancelFeedSearch() }
+    }
+    key(feedSearchExpanded, inHomeSearchResults) { MiboPredictiveBackHandler(nav) }
+
+    if (editProfileOpen) {
+        ProfileEditDialog(
+            user = profileTabState.user,
+            onOpenWeb = { nav.push(Route.Web(WEIBO_PROFILE_EDIT_URL, "编辑资料")) },
+            onDismiss = { editProfileOpen = false },
+        )
+    }
+}
+
+/**
+ * The "原创微博" filter keeps only posts that are not reposts. Pages with nothing but reposts are
+ * skipped so the first screen is not an empty state with more pages behind it.
+ */
+private suspend fun originalFeed(cursor: String?, force: Boolean): FeedPage {
+    var next = cursor
+    var first = true
+    repeat(5) {
+        val page = App.repo.friends(next, force && first)
+        val originals = page.items.filter { it.retweeted == null }
+        if (originals.isNotEmpty()) return FeedPage(originals, page.sinceId)
+        if (page.items.isEmpty() || page.sinceId.isNullOrBlank()) return FeedPage(emptyList(), null)
+        next = page.sinceId
+        first = false
+    }
+    return FeedPage(emptyList(), next)
+}
+
+private val FloatingBarContentGap = 80.dp
+
+/** Cross-fade length for a bottom-bar tab switch. */
+private const val MainTabFadeMillis = 220
+
+@Composable
+private fun MainBarUnderlay(
+    tab: Int,
+    feedPager: PagerState,
+    feedTabs: List<FeedTabSpec>,
+    feedSlotKeys: List<String>,
+    guest: Boolean,
+    centerTab: FeedTabSelection,
+    centerOptions: List<FeedTabSelection>,
+    collapsed: Float,
+    titleHeightPx: Float,
+    timelineScrollHolder: TimelineScrollHolder,
+    messagesState: MessagesTabState,
+    profileListState: LazyListState,
+    searchExpanded: Boolean,
+    panelCovering: Boolean,
+    bounds: TopBarBounds,
+    onMenuOpened: () -> Unit,
+    onCenterSelected: (FeedTabSelection) -> Unit,
+    onScrollToTop: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val scope = rememberCoroutineScope()
+    val density = LocalDensity.current
+    val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val pageBarHeight = statusBarTop + CompactTitleGap
+    val feedHasTabs = feedTabs.size > 1
+    val feedBarHeight = if (feedHasTabs) {
+        pageBarHeight + TopAppBarDefaults.SmallTopAppBarCenterHeight
+    } else {
+        pageBarHeight
+    }
+    val feedWeight = animateFloatAsState(
+        targetValue = if (tab == 0) 1f else 0f,
+        animationSpec = tween(MainTabFadeMillis),
+        label = "mainBarFeedWeight",
+    )
+    val messagesWeight = animateFloatAsState(
+        targetValue = if (tab == 1) 1f else 0f,
+        animationSpec = tween(MainTabFadeMillis),
+        label = "mainBarMessagesWeight",
+    )
+    val meWeight = animateFloatAsState(
+        targetValue = if (tab == 2) 1f else 0f,
+        animationSpec = tween(MainTabFadeMillis),
+        label = "mainBarMeWeight",
+    )
+    val feedScrollAlpha = remember(feedPager, feedSlotKeys, timelineScrollHolder, density, feedHasTabs) {
+        {
+            val slotKey = feedSlotKeys.getOrElse(feedPager.currentPage) { feedPager.currentPage.toString() }
+            val listState = timelineScrollHolder.listStateFor(slotKey)
+            if (feedHasTabs) {
+                twoRowListScrollAlpha(listState, density, contentGap = 16.dp)
+            } else {
+                listScrollAlpha(listState, density)
+            }
+        }
+    }
+    val messagesScrollAlpha = remember(messagesState, guest, density) {
+        {
+            if (guest) 0f else listScrollAlpha(messagesState.listState, density)
+        }
+    }
+    val profileScrollAlpha = remember(profileListState, density) {
+        { listScrollAlpha(profileListState, density) }
+    }
+    val materialShift = { (collapsed * titleHeightPx * feedWeight.value).roundToInt() }
+    val materialHeight = animateDpAsState(
+        targetValue = if (tab == 0) feedBarHeight else pageBarHeight,
+        animationSpec = tween(MainTabFadeMillis),
+        label = "mainBarMaterialHeight",
+    )
+    var filterMenuExpanded by remember { mutableStateOf(false) }
+    LaunchedEffect(searchExpanded, tab) {
+        if (searchExpanded || tab != 0) filterMenuExpanded = false
+    }
+    // 打开菜单时补一次分组列表：设置里改过分组、或者在网页版新加了分组，这里跟着更新。
+    LaunchedEffect(filterMenuExpanded) {
+        if (filterMenuExpanded) onMenuOpened()
+    }
+
+    Box(modifier) {
+        AppBarSurface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp)
+                .offset { IntOffset(0, -materialShift()) }
+                .reportTopBarBottom(bounds),
+            containerColor = pageContainerColor(),
+            cornerRadius = 24.dp,
+            transparent = true,
+            scrollFraction = {
+                (feedWeight.value * feedScrollAlpha() +
+                    messagesWeight.value * messagesScrollAlpha() +
+                    meWeight.value * profileScrollAlpha()).coerceIn(0f, 1f)
+            },
+        ) {
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .layout { measurable, constraints ->
+                        val height = materialHeight.value.roundToPx()
+                        val placeable = measurable.measure(
+                            Constraints.fixed(constraints.maxWidth, height)
+                        )
+                        layout(placeable.width, height) { placeable.place(0, 0) }
+                    }
+            )
+        }
+        AnimatedVisibility(
+            visible = tab == 0 && feedHasTabs && !searchExpanded,
+            enter = fadeIn(tween(200)),
+            exit = fadeOut(tween(150)),
+        ) {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(top = statusBarTop)
+                    .then(if (panelCovering) Modifier.clearAndSetSemantics {} else Modifier),
+            ) {
+                Spacer(Modifier.height(CompactTitleGap))
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(TopAppBarDefaults.SmallTopAppBarCenterHeight)
+                        .graphicsLayer { translationY = -collapsed * titleHeightPx },
+                ) {
+                    FeedTabs(
+                        pager = feedPager,
+                        feedTabs = feedTabs,
+                        filterMenu = !guest,
+                        centerTab = centerTab,
+                        centerOptions = centerOptions,
+                        filterMenuExpanded = filterMenuExpanded,
+                        onFilterMenuDismiss = { filterMenuExpanded = false },
+                        onCenterSelected = {
+                            filterMenuExpanded = false
+                            onCenterSelected(it)
+                        },
+                        onSelect = { page -> scope.launch { feedPager.animateScrollToPage(page) } },
+                        onFilterClick = { filterMenuExpanded = true },
+                        onScrollToTop = onScrollToTop,
+                        modifier = Modifier.align(Alignment.Center),
+                    )
+                }
+            }
+        }
+    }
+}
+
+private const val SearchPanelFadeMillis = 220
+
+private const val SearchSpringDamping = 0.8f
+private val SearchSpringStiffnessExpand = ((2.0 * Math.PI / 0.55) * (2.0 * Math.PI / 0.55)).toFloat()
+private val SearchSpringStiffnessCollapse = ((2.0 * Math.PI / 0.45) * (2.0 * Math.PI / 0.45)).toFloat()
+
+/** 上下扩展：从搜索栏下沿往下放，裁掉还没展开的部分。 */
+private class SearchPanelClipShape(
+    private val progress: Float,
+    private val topBarHeightPx: Float,
+) : Shape {
+    override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
+        val p = progress.coerceIn(0f, 1f)
+        val bottom = (topBarHeightPx + (size.height - topBarHeightPx) * p)
+            .coerceIn(0f, size.height)
+        return Outline.Rectangle(Rect(0f, 0f, size.width, bottom))
+    }
+
+    override fun equals(other: Any?): Boolean =
+        other is SearchPanelClipShape &&
+            other.progress == progress &&
+            other.topBarHeightPx == topBarHeightPx
+
+    override fun hashCode(): Int = 31 * progress.hashCode() + topBarHeightPx.hashCode()
+}
+
+/**
+ * 搜索「发现页 ↔ 结果页」切换的过渡状态（原 COUI SearchResultsTransitionState 的本地等价物）。
+ * [shownResults] 是当前实际在画的内容：切换时先把旧内容淡出、再翻转、再淡入，
+ * 避免提交瞬间发现页在淡出前往下跳一截。
+ */
+@Stable
+private class SearchResultsTransitionState {
+    var shownResults by mutableStateOf(false)
+    var resultsVisible by mutableStateOf(false)
+    var filtersVisible by mutableStateOf(false)
+    var loading by mutableStateOf(false)
+    val contentAlpha = Animatable(1f)
+}
+
+@Composable
+private fun rememberSearchResultsTransitionState(
+    showingResults: Boolean,
+    loading: Boolean,
+    queryKey: String,
+): SearchResultsTransitionState {
+    val state = remember { SearchResultsTransitionState() }
+    SideEffect {
+        state.filtersVisible = showingResults
+        state.loading = loading
+    }
+    LaunchedEffect(showingResults, queryKey) {
+        if (state.shownResults == showingResults) {
+            // 关键词变了但仍在结果态：轻微淡出再淡入，近似原来的「换关键词整段重新上浮」。
+            if (showingResults) {
+                state.contentAlpha.animateTo(0f, tween(120))
+                state.contentAlpha.animateTo(1f, tween(180))
+            }
+            return@LaunchedEffect
+        }
+        state.contentAlpha.animateTo(0f, tween(120))
+        state.shownResults = showingResults
+        state.resultsVisible = showingResults
+        state.contentAlpha.animateTo(1f, tween(180))
+    }
+    return state
+}
+
+/**
+ * 承接 [SearchResultsTransitionState] 的容器（原 COUI SearchResultContainer 的本地等价物）：
+ * 内容按状态的透明度绘制；加载中且已在结果态时，在列表顶部留白处叠加加载指示。
+ */
+@Composable
+private fun SearchResultContainer(
+    state: SearchResultsTransitionState,
+    modifier: Modifier = Modifier,
+    loadingTopPadding: Dp = 0.dp,
+    loadingContent: @Composable () -> Unit = {},
+    content: @Composable (shownResults: Boolean, resultsVisible: Boolean) -> Unit,
+) {
+    Box(modifier) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .graphicsLayer { alpha = state.contentAlpha.value },
+        ) {
+            content(state.shownResults, state.resultsVisible)
+        }
+        if (state.loading && state.shownResults) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .padding(top = loadingTopPadding),
+                contentAlignment = Alignment.TopCenter,
+            ) {
+                loadingContent()
+            }
+        }
+    }
+}
+
+@Composable
+private fun HomeSearchOverlay(
+    topBarHeight: Dp,
+    blur: Boolean,
+    searchBackdrop: LayerBackdrop,
+    searchExpanded: Boolean,
+    panelAnimation: SearchPanelAnimation,
+    panelProgress: () -> Float,
+    panelAlpha: () -> Float,
+    searchQuery: String,
+    showingResults: Boolean,
+    discoverState: SearchDiscoverState,
+    resultsState: SearchResultsState,
+    transitionState: SearchResultsTransitionState,
+    listState: LazyListState,
+    nav: NavState,
+    scope: CoroutineScope,
+    onSelectKeyword: (String) -> Unit,
+    onRetryHot: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val surfaceColor = pageContainerColor()
+    // 原 COUI 的 BindScrollToTop（点状态栏把该列表回顶）Miuix 无对应，已去掉，列表本体保留。
+    val horizontalPadding = searchHorizontalPadding()
+    val density = LocalDensity.current
+    val topBarHeightPx = with(density) { topBarHeight.toPx() }
+    val focusManager = LocalFocusManager.current
+    val keyboard = LocalSoftwareKeyboardController.current
+
+    LaunchedEffect(listState, resultsState.submitted, resultsState.tab, resultsState.stateFor(resultsState.tab).count) {
+        snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1 }
+            .collect { last ->
+                if (resultsState.submitted.isBlank()) return@collect
+                val tabState = resultsState.stateFor(resultsState.tab)
+                if (!tabState.started || tabState.end || tabState.count == 0) return@collect
+                if (last >= tabState.count - 2) resultsState.load(resultsState.tab, reset = false, force = false)
+            }
+    }
+
+    val suggesting = searchQuery.isNotBlank() && !showingResults
+
+    LaunchedEffect(showingResults) {
+        if (showingResults) {
+            keyboard?.hide()
+            focusManager.clearFocus(force = true)
+        }
+    }
+
+    LaunchedEffect(transitionState.shownResults, resultsState.submitted, suggesting, resultsState.tab, discoverState.hotBoard) {
+        // 淡出过程中旧内容还在画，先把滚动位置钉住；换完内容再回到顶部。
+        if (transitionState.shownResults != showingResults) return@LaunchedEffect
+        listState.scrollToItem(0)
+    }
+
+    val activeSelectKeyword: (String) -> Unit = { keyword ->
+        if (searchExpanded) onSelectKeyword(keyword)
+    }
+
+    Box(modifier) {
+        val history = App.settings.searchHistory
+        Box(
+            Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    val p = panelProgress()
+                    alpha = panelAlpha().coerceIn(0f, 1f)
+                    if (panelAnimation != SearchPanelAnimation.Fade && p < 0.999f) {
+                        clip = true
+                        shape = SearchPanelClipShape(p, topBarHeightPx)
+                    } else {
+                        clip = false
+                    }
+                }
+                .layerBackdropIf(blur, searchBackdrop)
+                .background(surfaceColor)
+                .then(
+                    if (searchExpanded) {
+                        Modifier
+                            .dismissHistoryEditingOnTap(discoverState)
+                            .testTag("home_search_panel")
+                    } else {
+                        Modifier.pointerInput(Unit) {}
+                    },
+                ),
+        ) {
+            CompositionLocalProvider(LocalBackdrop provides if (blur) searchBackdrop else null) {
+                // 结果态列表顶沿与加载球顶沿要给第二行筛选胶囊让出位置；
+                // 列表内容读的是 shownResults，避免提交瞬间发现页在淡出前往下跳一截。
+                val baseTopPadding = glassBarContentTop(topBarHeight, 8.dp)
+                val resultsBarTopPadding = baseTopPadding + pinnedRowsHeight(
+                    listOf(
+                        SearchChipRowGap,
+                        SearchFilterChipHeight,
+                        SearchSecondRowBottom,
+                    ),
+                )
+                val listTopPadding = if (transitionState.shownResults) resultsBarTopPadding else baseTopPadding
+                SearchResultContainer(
+                    state = transitionState,
+                    modifier = Modifier.fillMaxSize(),
+                    loadingTopPadding = resultsBarTopPadding,
+                    loadingContent = { LoadingState() },
+                ) { shownResults, resultsVisible ->
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier.fillMaxSize().scrollEndHaptic(),
+                        contentPadding = PaddingValues(
+                            start = 0.dp,
+                            top = listTopPadding,
+                            end = 0.dp,
+                            bottom = 16.dp + navBottomPadding(),
+                        ),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        if (!shownResults) {
+                            searchDiscoverItems(
+                                state = discoverState,
+                                suggesting = suggesting,
+                                history = history.toList(),
+                                onSelectKeyword = activeSelectKeyword,
+                                onRetryHot = onRetryHot,
+                                onSelectUser = { user -> nav.push(Route.Profile(user.id)) },
+                            )
+                        } else if (resultsVisible) {
+                            searchResultsItems(
+                                state = resultsState,
+                                nav = nav,
+                                horizontalPadding = horizontalPadding,
+                                scope = scope,
+                                onSelectKeyword = activeSelectKeyword,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+    }
+}
+
+@Composable
+private fun MainTitleRow(
+    tab: Int,
+    nav: NavState,
+    guest: Boolean,
+    meTitleColor: Color,
+    collapsed: Float,
+    titleHeightPx: Float,
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
+    searchExpanded: Boolean,
+    onSearchOpen: () -> Unit,
+    onSearchCancel: () -> Unit,
+    onSearchSubmit: (String) -> Unit,
+    filtersVisible: Boolean,
+    resultsState: SearchResultsState,
+    searchListState: LazyListState,
+    panelAlpha: () -> Float,
+    onFilterMenuOpen: () -> Unit,
+    onFeedTitleClick: () -> Unit,
+    onEditProfile: () -> Unit = {},
+    modifier: Modifier = Modifier,
+) {
+    Crossfade(
+        targetState = tab,
+        animationSpec = tween(MainTabFadeMillis),
+        modifier = modifier,
+        label = "mainTitleRow",
+    ) { page ->
+        when (page) {
+            0 -> FeedTitleRow(
+                collapsed = collapsed,
+                titleHeightPx = titleHeightPx,
+                searchQuery = searchQuery,
+                onSearchQueryChange = onSearchQueryChange,
+                searchExpanded = searchExpanded,
+                onSearchOpen = onSearchOpen,
+                onSearchCancel = onSearchCancel,
+                onSearchSubmit = onSearchSubmit,
+                filtersVisible = filtersVisible,
+                resultsState = resultsState,
+                searchListState = searchListState,
+                panelAlpha = panelAlpha,
+                onFilterMenuOpen = onFilterMenuOpen,
+                onTitleClick = onFeedTitleClick,
+            )
+
+            // 「通知」入口已按用户要求从标题行去掉，改到底栏「消息」Tab 的点击菜单（消息 / 通知二选一）。
+            1 -> PageTitleBar()
+
+            // 「我」页内已有设置分组入口与资料页菜单（设置 / 编辑资料），标题栏右上角不再重复放。
+            else -> PageTitleBar()
+        }
+    }
+}
+
+/**
+ * Single-row page header for the tabs that have no segment row. It repeats the feed's title row
+ * exactly — same height, title size and action slot — so the search, 通知 and 设置 buttons all land
+ * on the same pixel across the three tabs.
+ */
+@Composable
+private fun PageTitleBar(
+    actions: @Composable RowScope.() -> Unit = {},
+) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding())
+    ) {
+        Box(Modifier.fillMaxWidth().height(FeedTitleRowHeight)) {
+            Row(
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(end = TopAppBarDefaults.ActionIconPadding),
+                horizontalArrangement = Arrangement.spacedBy(
+                    // Miuix 的 TopAppBarDefaults 没有 ActionMenuItemSpacing，用 8dp 近似 COUI 的取值。
+                    8.dp,
+                    Alignment.End,
+                ),
+                verticalAlignment = Alignment.CenterVertically,
+                content = actions,
+            )
+        }
+    }
+}
+
+private const val CirclePage = 0
+private const val FollowPage = 1
+private const val RecommendPage = 2
+
+private val FeedTabLabels = listOf("好友", "关注", "推荐")
+private val FeedTabTags = listOf("feed_tab_circle", "feed_tab_follow", "feed_tab_recommend")
+
+/** Height of the feed header's title row; the list folds exactly this much away when it scrolls. */
+internal val FeedTitleRowHeight = 44.dp
+
+/** 标题行去掉后顶栏只剩分段胶囊：页面顶部留白从一整行收紧到这一点（与底栏的悬浮间距观感一致）。 */
+internal val CompactTitleGap = 8.dp
+
+/**
+ * 搜索结果态下搜索框与筛选胶囊行之间的间距：便签两行顶栏的实测视觉距离是 17dp，
+ * 44dp 的标题行里搜索框下方留 2dp，再空 15dp 正好对齐。
+ */
+internal val SearchChipRowGap = 15.dp
+
+@Composable
+private fun FeedTitleRow(
+    collapsed: Float,
+    titleHeightPx: Float,
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
+    searchExpanded: Boolean,
+    onSearchOpen: () -> Unit,
+    onSearchCancel: () -> Unit,
+    onSearchSubmit: (String) -> Unit,
+    filtersVisible: Boolean,
+    resultsState: SearchResultsState,
+    searchListState: LazyListState,
+    panelAlpha: () -> Float,
+    onFilterMenuOpen: () -> Unit,
+    onTitleClick: () -> Unit,
+) {
+    val scheme = MiuixTheme.colorScheme
+    val blur = blurEffectsEnabled()
+    val barDensity = LocalDensity.current
+
+    // 原 COUI 的 SearchFilterTopAppBar（两行顶栏 + 材质 + 胶囊采样一体）Miuix 没有对应组件，
+    // 这里用 Blur.kt 的 AppBarSurface 承担材质与滚动提白，两行布局在本函数内自己排：
+    // 第一行是标题/搜索框，第二行（仅结果态）是筛选胶囊行。
+    // 搜索框刻意不用 Miuix SearchBar 容器——它内部自带 NavigationBackHandler，
+    // 会和应用自己的预测返回手势打架；改用它的 InputField 放在普通行里。
+    AppBarSurface(
+        containerColor = pageContainerColor(),
+        transparent = true,
+        scrollFraction = {
+            val base = panelAlpha()
+            if (base <= 0f) {
+                0f
+            } else {
+                val scroll = if (filtersVisible) {
+                    twoRowListScrollAlpha(searchListState, barDensity)
+                } else {
+                    listScrollAlpha(searchListState, barDensity)
+                }
+                base * scroll
+            }
+        },
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.fillMaxWidth()) {
+            Spacer(
+                Modifier.height(
+                    WindowInsets.statusBars.asPaddingValues().calculateTopPadding(),
+                ),
+            )
+            Box(Modifier.fillMaxWidth().height(FeedTitleRowHeight)) {
+                if (searchExpanded) {
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                            .align(Alignment.Center),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        InputField(
+                            query = searchQuery,
+                            onQueryChange = onSearchQueryChange,
+                            onSearch = onSearchSubmit,
+                            expanded = true,
+                            onExpandedChange = { isExpanded ->
+                                if (!isExpanded) onSearchCancel()
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .onPreviewKeyEvent { event ->
+                                    val enter = event.key == Key.Enter ||
+                                        event.key == Key.NumPadEnter ||
+                                        event.key == Key.Search
+                                    if (event.type == KeyEventType.KeyDown && enter) {
+                                        onSearchSubmit(searchQuery)
+                                        true
+                                    } else {
+                                        false
+                                    }
+                                },
+                            label = "搜索微博 / 图片 / 视频 / 用户 / 超话",
+                            trailingIcon = {
+                                if (searchQuery.isNotEmpty()) {
+                                    val clearTint = scheme.onSurface.copy(alpha = 0.28f)
+                                    Canvas(
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .semantics { contentDescription = "清除" }
+                                            .clickable(
+                                                interactionSource = remember { MutableInteractionSource() },
+                                                indication = null,
+                                                role = Role.Button,
+                                                onClick = { onSearchQueryChange("") },
+                                            ),
+                                    ) {
+                                        val unit = size.width / 36f
+                                        drawCircle(clearTint, radius = 9f * unit)
+                                        val path = Path().apply {
+                                            moveTo(18f, 16.868f)
+                                            lineTo(15.031f, 13.898f)
+                                            lineTo(13.899f, 15.03f)
+                                            lineTo(16.869f, 18f)
+                                            lineTo(13.898f, 20.97f)
+                                            lineTo(15.03f, 22.101f)
+                                            lineTo(18f, 19.131f)
+                                            lineTo(20.97f, 22.101f)
+                                            lineTo(22.102f, 20.969f)
+                                            lineTo(19.132f, 18f)
+                                            lineTo(22.101f, 15.03f)
+                                            lineTo(20.969f, 13.899f)
+                                            close()
+                                        }
+                                        withTransform({ scale(unit, unit, Offset.Zero) }) {
+                                            drawPath(path, Color.White)
+                                        }
+                                    }
+                                }
+                            },
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        TextButton(
+                            text = "取消",
+                            onClick = onSearchCancel,
+                        )
+                    }
+                } else {
+                    // 标题、回顶点击区与搜索钮都已去掉（搜索入口移到底栏）：未展开时这一行不渲染任何东西，
+                    // 顶栏只剩 MainBarUnderlay 里的分段胶囊。
+                }
+            }
+            if (filtersVisible) {
+                Spacer(Modifier.height(SearchChipRowGap))
+                SearchFilterChipsRow(
+                    selectedIndex = resultsState.tab.ordinal,
+                    onSelected = { index ->
+                        SearchTab.entries.getOrNull(index)?.let(resultsState::selectTab)
+                    },
+                    onLeadingIconClick = onFilterMenuOpen,
+                )
+                Spacer(Modifier.height(SearchSecondRowBottom))
+            }
+        }
+    }
+}
+
+/**
+ * 搜索结果态的第二行：左侧四宫格圆钮（弹出分类/排序菜单）+ 可横滑的分类胶囊。
+ * 原 COUI ChipTab 胶囊由顶栏组件内部绘制，Miuix 无对应，这里在 Shell 内自绘；
+ * 分类数据消费 screen/SearchResults.kt 的 rememberSearchFilterTabs()
+ * （元素类型为该文件定义的 SearchFilterTab，替代已删除的 COUI ChipTabData，label/icon 不变）。
+ */
+@Composable
+private fun SearchFilterChipsRow(
+    selectedIndex: Int,
+    onSelected: (Int) -> Unit,
+    onLeadingIconClick: () -> Unit,
+) {
+    val scheme = MiuixTheme.colorScheme
+    val tabs = rememberSearchFilterTabs()
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = searchHorizontalPadding()),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier
+                .size(SearchFilterChipHeight)
+                .clip(CircleShape)
+                .background(scheme.surfaceContainer)
+                .clickable(role = Role.Button, onClick = onLeadingIconClick),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                MiuixIcons.GridView,
+                contentDescription = "筛选菜单",
+                modifier = Modifier.size(20.dp),
+                tint = scheme.onSurface,
+            )
+        }
+        Spacer(Modifier.width(8.dp))
+        Row(
+            Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            tabs.forEachIndexed { index, tab ->
+                val selected = index == selectedIndex
+                val chipBackground = if (selected) scheme.primary else scheme.surfaceContainer
+                val chipContent = if (selected) scheme.onPrimary else scheme.onSurface
+                Row(
+                    Modifier
+                        .height(SearchFilterChipHeight)
+                        .clip(RoundedCornerShape(50))
+                        .background(chipBackground)
+                        .clickable(role = Role.Tab, onClick = { onSelected(index) })
+                        .semantics { this.selected = selected }
+                        .padding(horizontal = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Icon(tab.icon, contentDescription = null, modifier = Modifier.size(16.dp), tint = chipContent)
+                    Text(
+                        tab.label,
+                        color = chipContent,
+                        fontSize = 13.sp,
+                        fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
+                        maxLines = 1,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 首页分段选择器的自绘实现（替代 COUI TabRowWithContour）。
+ *
+ * Miuix 自带的 TabRowWithContour 只收纯文本标签，不支持自定义格内容、横向拖动与逐格 testTag，
+ * 而中间格还要挂级联菜单锚点，所以这里自绘：等宽分段、选中胶囊跟随选中项与拖动、
+ * 松手时按拖动距离提交选择；玻璃档走 miuix-blur 的 textureBlur，否则退回不透明容器色。
+ * COUI 版的跟手高光（touchMotion）没有对应实现，已去掉。
+ */
+@Composable
+private fun SegmentedTabRow(
+    count: Int,
+    selectedIndex: Int,
+    onSelect: (Int) -> Unit,
+    onTap: (Int) -> Unit,
+    onLongTap: (Int) -> Unit = {},
+    segmentWidth: Dp,
+    glass: Boolean,
+    modifier: Modifier = Modifier,
+    tabModifier: (Int) -> Modifier = { Modifier },
+    tabContent: @Composable (index: Int, active: Boolean) -> Unit,
+) {
+    val scheme = MiuixTheme.colorScheme
+    val isDark = scheme.background.luminance() < 0.5f
+    val backdrop = LocalBackdrop.current
+    val density = LocalDensity.current
+    val segmentWidthPx = with(density) { segmentWidth.toPx() }
+    val selectedOffset by animateDpAsState(
+        targetValue = segmentWidth * selectedIndex,
+        animationSpec = tween(280),
+        label = "segmentedTabIndicator",
+    )
+    var dragOffsetPx by remember { mutableFloatStateOf(0f) }
+    val maxOffset = segmentWidth * (count - 1).coerceAtLeast(0)
+    val indicatorX = (selectedOffset + with(density) { dragOffsetPx.toDp() })
+        .coerceIn(0.dp, maxOffset)
+    val shape = RoundedCornerShape(50)
+    Box(
+        modifier
+            .height(45.dp)
+            .clip(shape)
+            .then(
+                if (glass && backdrop != null) {
+                    // 与底栏同款材质：OS4 柔光玻璃（薄玻璃 + 描边 + 顶栏底栏透明度）。
+                    Modifier.glassPanel(
+                        backdrop = backdrop,
+                        shape = GlassShape(50.dp),
+                        style = GlassDefaults.style(isDark),
+                        alpha = App.settings.barGlassAlpha,
+                        material = GlassMaterials.puredThinGlass(isDark),
+                        stroke = GlassEdgeStrokes.forTheme(isDark),
+                        shadow = null,
+                        shading = false,
+                    )
+                } else {
+                    Modifier.background(
+                        scheme.surfaceContainer.copy(
+                            alpha = if (App.settings.blurEffects) App.settings.barGlassAlpha else 1f,
+                        ),
+                        shape,
+                    )
+                },
+            )
+            .padding(5.dp),
+    ) {
+        Box(
+            Modifier
+                .offset(x = indicatorX)
+                .width(segmentWidth)
+                .fillMaxHeight()
+                .clip(shape)
+                .background(if (glass) scheme.surface.copy(alpha = 0.85f) else scheme.surface),
+        )
+        Row(
+            Modifier.pointerInput(count, segmentWidthPx) {
+                detectHorizontalDragGestures(
+                    onDragEnd = {
+                        val basePx = selectedIndex * segmentWidthPx
+                        val target = ((basePx + dragOffsetPx) / segmentWidthPx).roundToInt()
+                            .coerceIn(0, count - 1)
+                        dragOffsetPx = 0f
+                        if (target != selectedIndex) onSelect(target)
+                    },
+                    onDragCancel = { dragOffsetPx = 0f },
+                ) { _, dragAmount ->
+                    val basePx = selectedIndex * segmentWidthPx
+                    dragOffsetPx = (basePx + dragOffsetPx + dragAmount)
+                        .coerceIn(0f, segmentWidthPx * (count - 1).coerceAtLeast(0)) - basePx
+                }
+            },
+        ) {
+            for (index in 0 until count) {
+                Box(
+                    Modifier
+                        .width(segmentWidth)
+                        .fillMaxHeight()
+                        .then(tabModifier(index))
+                        .combinedClickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            role = Role.Tab,
+                            onLongClick = { onLongTap(index) },
+                            onClick = {
+                                onSelect(index)
+                                onTap(index)
+                            },
+                        )
+                        .semantics { selected = index == selectedIndex },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    tabContent(index, index == selectedIndex)
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 首页顶栏的分段选择器。
+ *
+ * 这里只负责三件事：把页面尺寸固定成三格等宽、把中间那格接上内置流与关注分组的二级菜单、
+ * 把点击与左右拖动都换算成翻页。外观与交互见 [SegmentedTabRow]。
+ */
+@Composable
+private fun FeedTabs(
+    pager: PagerState,
+    feedTabs: List<FeedTabSpec>,
+    filterMenu: Boolean,
+    centerTab: FeedTabSelection,
+    centerOptions: List<FeedTabSelection>,
+    filterMenuExpanded: Boolean,
+    onFilterMenuDismiss: () -> Unit,
+    onCenterSelected: (FeedTabSelection) -> Unit,
+    onSelect: (Int) -> Unit,
+    onFilterClick: () -> Unit,
+    onScrollToTop: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val scheme = MiuixTheme.colorScheme
+    val backdrop = LocalBackdrop.current
+    // 透明模糊那档要 API 34+（原生 RuntimeShader）且用户没关模糊，否则退回不透明胶囊。
+    // 这里的判断和库内一致，颜色也跟着换，免得玻璃档还挂着一层不透明底色。
+    // 与底栏同款玻璃条件：OS4 柔光玻璃开着、有 backdrop、模糊没关（glassPanel 自行处理低版本降级）。
+    val glass = backdrop != null && blurEffectsEnabled()
+    val labels = feedTabs.map { it.label }
+    // 「全部」玻璃菜单的锚点：中间格的窗口坐标，点开时交给全局玻璃菜单宿主。
+    var centerAnchorBounds by remember { mutableStateOf(Rect.Zero) }
+
+    // 三格同宽，按「4 个字 + 箭头」预留：分组名是 2/3/4 个字时胶囊和格子都不动。
+    // 用 sp 折算，系统字体放大时格子跟着变宽；先落到 px 再折算回去，容器宽度与
+    // 「格宽 × 格数 + 两侧内边距」严格相等。内边距 5dp 与 Miuix TabRowWithContour 的固定值一致。
+    val density = LocalDensity.current
+    val segmentWidthPx = with(density) { ((4 * 14).sp.toDp() + 2.dp + 10.dp + 22.dp).roundToPx() }
+    val contourPadPx = with(density) { 5.dp.roundToPx() }
+    val segmentWidth = with(density) { segmentWidthPx.toDp() }
+    val containerWidth = with(density) { (segmentWidthPx * feedTabs.size + contourPadPx * 2).toDp() }
+
+    // 点一下先把指示器挪过去、再让列表跟上；等 pager 停稳就把临时值交还给 pager。
+    // 不跟 pager 的中间页走，长距离切换时指示器不会一格一格地过。
+    var pendingPage by remember { mutableStateOf<Int?>(null) }
+    LaunchedEffect(pager.currentPage, pager.isScrollInProgress) {
+        if (!pager.isScrollInProgress) pendingPage = null
+    }
+    val selectedIndex = (pendingPage ?: pager.targetPage).coerceIn(0, max(0, feedTabs.lastIndex))
+
+    SegmentedTabRow(
+        count = feedTabs.size,
+        selectedIndex = selectedIndex,
+        onSelect = { index ->
+            if (filterMenu && feedTabs.getOrNull(index)?.isCenter == true) {
+                // 中间那格（全部）单击直接展开全部分组菜单，切到哪个分组在菜单里选。
+                onFilterClick()
+            } else if (index == pager.currentPage) {
+                // 点已选中的格子 = 回到顶部。
+                onScrollToTop()
+            } else {
+                pendingPage = index
+                onSelect(index)
+            }
+        },
+        onTap = { },
+        // 长按中间那格也展开菜单（与单击一致）。
+        onLongTap = { index ->
+            if (filterMenu && feedTabs.getOrNull(index)?.isCenter == true) onFilterClick()
+        },
+        segmentWidth = segmentWidth,
+        glass = glass,
+        modifier = modifier.width(containerWidth),
+        tabModifier = { index -> Modifier.testTag(feedTabs[index].tag) },
+        tabContent = { index, _ ->
+            val label = labels[index]
+            val menu = filterMenu && feedTabs.getOrNull(index)?.isCenter == true
+            // 两态同色，和系统 SegmentButton 一致：靠滑块和字重区分选中，不靠灰一档。
+            val labelColor = scheme.onSurface
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 6.dp)
+                    .onGloballyPositioned { if (menu) centerAnchorBounds = it.boundsInWindow() },
+                contentAlignment = Alignment.Center,
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                ) {
+                    Text(
+                        label,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = labelColor,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis,
+                        // 箭头固定占一格，文字让出这一段：长分组名不会把箭头挤出格子。
+                        modifier = Modifier.widthIn(max = segmentWidth - 12.dp - if (menu) 12.dp else 0.dp),
+                    )
+                    if (menu) {
+                        Spacer(Modifier.width(2.dp))
+                        // Hyper 风格展开标：实心小三角（宽 9dp、高 6dp），不用线条 chevron。
+                        Canvas(Modifier.size(10.dp)) {
+                            val triW = 9.dp.toPx()
+                            val triH = 6.dp.toPx()
+                            val left = (size.width - triW) / 2f
+                            val top = (size.height - triH) / 2f
+                            val path = Path().apply {
+                                moveTo(left, top)
+                                lineTo(left + triW, top)
+                                lineTo(left + triW / 2f, top + triH)
+                                close()
+                            }
+                            drawPath(path, labelColor)
+                        }
+                    }
+                }
+                if (menu) {
+                    // 菜单本体由根节点的全局玻璃菜单宿主渲染（整块柔光玻璃），这里只做触发：
+                    // 展开标记置真时把条目和锚点交出去，随即复位标记。
+                    LaunchedEffect(filterMenuExpanded) {
+                        if (filterMenuExpanded) {
+                            val items = buildCenterMenuEntries(
+                                centerOptions = centerOptions,
+                                centerTab = centerTab,
+                                collapseFollowGroups = App.settings.collapseFollowGroups,
+                                onCenterSelected = onCenterSelected,
+                            ).flatMap { it.items }.map { it.toGlassMenuItem() }
+                            App.showGlassMenu(centerAnchorBounds, items)
+                            onFilterMenuDismiss()
+                        }
+                    }
+                }
+            }
+        },
+    )
+}
+
+/**
+ * 构建首页中间栏下拉菜单分段：第一段为「全部」，第二段为其余内置流，
+ * 第三段按 [collapseFollowGroups] 将关注分组收进二级子菜单或直接全部平铺展开。
+ */
+internal fun buildCenterMenuEntries(
+    centerOptions: List<FeedTabSelection>,
+    centerTab: FeedTabSelection,
+    collapseFollowGroups: Boolean,
+    onCenterSelected: (FeedTabSelection) -> Unit,
+): List<DropdownEntry> {
+    val builtinOptions = centerOptions.filterNot { it.isGroup }
+    val groupOptions = centerOptions.filter { it.isGroup }
+    val currentGroupTitle = centerTab.group
+        ?.takeIf { centerTab.isGroup }
+        ?.title
+        ?.takeIf { it.isNotBlank() }
+    return buildList {
+        builtinOptions.firstOrNull { it.item == FeedTabItem.Follow }?.let { follow ->
+            add(
+                DropdownEntry(
+                    items = listOf(
+                        DropdownItem(
+                            text = "全部",
+                            selected = follow.key == centerTab.key,
+                            onClick = { onCenterSelected(follow) },
+                        )
+                    )
+                )
+            )
+        }
+        val filters = builtinOptions
+            .filterNot { it.item == FeedTabItem.Follow }
+            .map { option ->
+                DropdownItem(
+                    text = option.label,
+                    selected = option.key == centerTab.key,
+                    onClick = { onCenterSelected(option) },
+                )
+            }
+        if (filters.isNotEmpty()) add(DropdownEntry(items = filters))
+        if (groupOptions.isNotEmpty()) {
+            if (collapseFollowGroups) {
+                add(
+                    DropdownEntry(
+                        items = listOf(
+                            DropdownItem(
+                                text = FeedTabItem.Group.label,
+                                selected = centerTab.isGroup,
+                                summary = currentGroupTitle,
+                                children = groupOptions.map { option ->
+                                    DropdownItem(
+                                        text = option.label,
+                                        selected = option.key == centerTab.key,
+                                        onClick = { onCenterSelected(option) },
+                                    )
+                                },
+                            )
+                        )
+                    )
+                )
+            } else {
+                add(
+                    DropdownEntry(
+                        items = groupOptions.map { option ->
+                            DropdownItem(
+                                text = option.label,
+                                summary = FeedTabItem.Group.label,
+                                selected = option.key == centerTab.key,
+                                onClick = { onCenterSelected(option) },
+                            )
+                        }
+                    )
+                )
+            }
+        }
+    }
+}
+
+/** 级联菜单的条目模型转全局玻璃菜单条目（分组段落拍平，children 保留给宿主钻入）。 */
+private fun DropdownItem.toGlassMenuItem(): App.GlassMenuItem = App.GlassMenuItem(
+    text = text,
+    summary = summary,
+    selected = selected,
+    children = children?.map { it.toGlassMenuItem() },
+    onClick = onClick,
+)
+
+@Composable
+private fun FloatingBottomBar(
+    tab: Int,
+    guest: Boolean,
+    onNotifications: () -> Unit,
+    onSearch: () -> Unit,
+    onTab: (Int) -> Unit,
+    onFeedTop: () -> Unit,
+    onPublish: () -> Unit,
+    profileAvatarUrl: String? = null,
+    profileOverflowMenu: (@Composable () -> Unit)? = null,
+    modifier: Modifier = Modifier,
+) {
+    // 「微博」手势：单击只切 tab（不延迟）；320ms 内的第二下追加回顶 + 刷新；长按发微博
+    // （长按挂在 FloatingTabItem 的 combinedClickable 上，见下方 onLongClick）。
+    // 双击用时间戳判定而不是 combinedClickable 的 onDoubleClick：后者会让单击等双击窗口过去才触发。
+    // 「消息」Tab 点击菜单（消息 / 通知二选一）；游客没有通知入口，点按直接切页。
+    var messagesMenuExpanded by remember { mutableStateOf(false) }
+    var messagesAnchorBounds by remember { mutableStateOf(Rect.Zero) }
+    val messagesPopupPositionProvider = remember { bottomTabPopupPositionProvider() }
+    var lastFeedTapAt by remember { mutableLongStateOf(0L) }
+    var lastFeedHintAt by remember { mutableLongStateOf(0L) }
+    val onFeedTap: () -> Unit = {
+        val now = android.os.SystemClock.uptimeMillis()
+        if (now - lastFeedTapAt <= 320L) {
+            lastFeedTapAt = 0L
+            onFeedTop()
+        } else {
+            lastFeedTapAt = now
+            // 单击主页时提示长按发微博（3 秒内不重复弹，避免连点刷屏）。
+            if (now - lastFeedHintAt > 3000L) {
+                lastFeedHintAt = now
+                App.toast("长按发布微博")
+            }
+        }
+        onTab(0)
+    }
+    Box(
+        modifier
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            // 底栏与屏幕底边的额外距离固定 8dp（在系统导航栏让位之上），不再提供调节。
+            .padding(bottom = 8.dp)
+    ) {
+        // 原 COUI BottomFloatingAccessoryNavigationBar（中央胶囊 + 两侧独立圆钮）Miuix 无对应，
+        // 改用 Miuix FloatingNavigationBar：左右配件收进同一条胶囊，两侧各留一个 48dp 的圆钮位，
+        // 三个 Tab 用自绘的图标+标签项（Miuix 的 FloatingNavigationBarItem 只画图标，标签仅作描述）。
+        // 底栏的系统栏让位仍由外层 Box 的 navigationBarsPadding 负责，故关掉组件自带的内边距处理。
+        // OS4 柔光玻璃开着时：组件底色改透明，胶囊面改由 glassPanel 采样页面 backdrop 绘制
+        // （组件链里调用方 modifier 位于 squircleBackground 之后、内容之前，正好盖住底色层）。
+        val backdrop = LocalBackdrop.current
+        val glassActive = App.settings.blurEffects && backdrop != null
+        val isDark = MiuixTheme.colorScheme.background.luminance() < 0.5f
+        FloatingNavigationBar(
+            modifier = if (glassActive) {
+                Modifier.glassPanel(
+                    backdrop = backdrop,
+                    shape = GlassShape(50.dp),
+                    style = GlassDefaults.style(isDark),
+                    alpha = App.settings.barGlassAlpha,
+                    material = GlassMaterials.puredThinGlass(isDark),
+                    stroke = GlassEdgeStrokes.forTheme(isDark),
+                    shadow = null,
+                    shading = false,
+                )
+            } else {
+                Modifier
+            },
+            color = if (glassActive) {
+                Color.Transparent
+            } else {
+                MiuixTheme.colorScheme.surfaceContainer.copy(
+                    alpha = if (App.settings.blurEffects) App.settings.barGlassAlpha else 1f,
+                )
+            },
+            horizontalAlignment = Alignment.Start,
+            defaultWindowInsetsPadding = false,
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                // 位置按用户要求交换：左「消息」、中「微博」、右「我」。tab 值仍沿用
+                // 0=微博 / 1=消息 / 2=我，只换视觉顺序，避免影响 nav.mainTab 的持久化语义。
+                Box(
+                    Modifier.onGloballyPositioned { messagesAnchorBounds = it.boundsInWindow() },
+                ) {
+                    FloatingTabItem(
+                        selected = tab == 1,
+                        onClick = { if (guest) onTab(1) else messagesMenuExpanded = true },
+                        icon = MiboIcons.MessagesOutline,
+                        selectedIcon = MiboIcons.MessagesFilled,
+                        label = "消息",
+                        modifier = Modifier.testTag("bottom_tab_messages"),
+                    )
+                    if (!guest) {
+                        // 菜单本体由根节点的全局玻璃菜单宿主渲染（整块柔光玻璃），这里只做触发。
+                        LaunchedEffect(messagesMenuExpanded) {
+                            if (messagesMenuExpanded) {
+                                App.showGlassMenu(
+                                    messagesAnchorBounds,
+                                    listOf(
+                                        App.GlassMenuItem(text = "消息", onClick = { onTab(1) }),
+                                        App.GlassMenuItem(text = "通知", onClick = onNotifications),
+                                    ),
+                                )
+                                messagesMenuExpanded = false
+                            }
+                        }
+                    }
+                }
+                FloatingTabItem(
+                    selected = tab == 0,
+                    onClick = { onFeedTap() },
+                    onLongClick = onPublish,
+                    icon = MiboIcons.FeedOutline,
+                    selectedIcon = MiboIcons.FeedFilled,
+                    label = "微博",
+                    modifier = Modifier.testTag("bottom_tab_feed"),
+                )
+                // 胶囊内顺序：消息、微博、搜索（「我的」已拆到右侧独立圆钮）。搜索是动作不是 Tab，点了切到微博页并打开搜索面板。
+                FloatingTabItem(
+                    selected = false,
+                    onClick = onSearch,
+                    icon = MiuixIcons.Search,
+                    selectedIcon = MiuixIcons.Search,
+                    label = "搜索",
+                    modifier = Modifier.testTag("bottom_tab_search"),
+                )
+            }
+        }
+        // 「我的」独立圆钮：与胶囊同高（52dp）、同玻璃材质，固定在底栏右侧，
+        // 与胶囊左缘的 36dp 外边距对称。点按切「我」Tab，长按弹切换账号菜单（同原 Tab 项）。
+        ProfileCircleButton(
+            selected = tab == 2,
+            onClick = { onTab(2) },
+            avatarUrl = profileAvatarUrl,
+            overflowMenu = profileOverflowMenu,
+            glassActive = glassActive,
+            backdrop = backdrop,
+            isDark = isDark,
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .padding(end = 36.dp)
+                .testTag("bottom_tab_profile"),
+        )
+    }
+}
+
+
+/**
+ * 悬浮底栏的普通 Tab 项（图标 + 标签）。Miuix 的 FloatingNavigationBarItem 只画图标、
+ * 标签仅作无障碍描述，与原 COUI 项的图文样式不符，故自绘；未选色用
+ * FloatingNavigationBarDefaults.UnselectedAlpha 的透明度约定。
+ */
+@Composable
+private fun FloatingTabItem(
+    selected: Boolean,
+    onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
+    icon: ImageVector,
+    selectedIcon: ImageVector,
+    label: String,
+    modifier: Modifier = Modifier,
+) {
+    val colorScheme = MiuixTheme.colorScheme
+    val tint = if (selected) {
+        colorScheme.onSurface
+    } else {
+        colorScheme.onSurface.copy(alpha = FloatingNavigationBarDefaults.UnselectedAlpha)
+    }
+    Column(
+        modifier
+            .width(64.dp)
+            .height(52.dp)
+            .combinedClickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                role = Role.Tab,
+                onClick = onClick,
+                onLongClick = onLongClick,
+            )
+            .semantics { this.selected = selected },
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Image(
+            imageVector = if (selected) selectedIcon else icon,
+            contentDescription = label,
+            modifier = Modifier.size(26.dp),
+            colorFilter = ColorFilter.tint(tint),
+        )
+        Text(
+            text = label,
+            color = tint,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            textAlign = TextAlign.Center,
+        )
+    }
+}
+
+@Composable
+private fun ProfileCircleButton(
+    selected: Boolean,
+    onClick: () -> Unit,
+    avatarUrl: String?,
+    overflowMenu: (@Composable () -> Unit)?,
+    glassActive: Boolean,
+    backdrop: LayerBackdrop?,
+    isDark: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val colorScheme = MiuixTheme.colorScheme
+    val tint = if (selected) colorScheme.onSurface else colorScheme.onSurfaceSecondary
+    var menuExpanded by remember { mutableStateOf(false) }
+    val density = LocalDensity.current
+    val extraRightShiftPx = with(density) { 68.dp.roundToPx() }
+    val popupPositionProvider = remember(extraRightShiftPx) {
+        profilePopupPositionProvider(extraRightShiftPx)
+    }
+    val background = if (glassActive && backdrop != null) {
+        Modifier.glassPanel(
+            backdrop = backdrop,
+            shape = GlassShape(26.dp),
+            style = GlassDefaults.style(isDark),
+            alpha = App.settings.barGlassAlpha,
+            material = GlassMaterials.puredThinGlass(isDark),
+            stroke = GlassEdgeStrokes.forTheme(isDark),
+            shadow = null,
+            shading = false,
+        )
+    } else {
+        Modifier.background(
+            colorScheme.surfaceContainer.copy(
+                alpha = if (App.settings.blurEffects) App.settings.barGlassAlpha else 1f,
+            ),
+            CircleShape,
+        )
+    }
+    Box(
+        modifier = modifier
+            .size(52.dp)
+            .then(background)
+            .clip(CircleShape)
+            .combinedClickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                role = Role.Tab,
+                onLongClick = if (overflowMenu == null) null else {
+                    { menuExpanded = true }
+                },
+                onClick = onClick,
+            )
+            .semantics { this.selected = selected },
+        contentAlignment = Alignment.Center,
+    ) {
+        if (!avatarUrl.isNullOrBlank()) {
+            val ringModifier = if (selected) {
+                Modifier.border(1.5.dp, colorScheme.onSurface, CircleShape)
+            } else {
+                Modifier
+            }
+            Avatar(
+                url = avatarUrl,
+                size = 30.dp,
+                modifier = ringModifier,
+            )
+        } else {
+            Image(
+                modifier = Modifier.size(26.dp),
+                imageVector = if (selected) MiboIcons.ProfileFilled else MiboIcons.ProfileOutline,
+                contentDescription = "我的",
+                colorFilter = ColorFilter.tint(tint),
+            )
+        }
+        if (overflowMenu != null) {
+            OverlayListPopup(
+                show = menuExpanded,
+                popupPositionProvider = popupPositionProvider,
+                alignment = PopupPositionProvider.Align.BottomEnd,
+                maxHeight = MiboPopupMenuDefaults.MaxHeight,
+                minWidth = MiboPopupMenuDefaults.MinWidth,
+                onDismissRequest = { menuExpanded = false },
+            ) {
+                ListPopupColumn {
+                    overflowMenu()
+                }
+            }
+        }
+    }
+}
+
+/** 底栏「消息」Tab 点击菜单的内容：消息 / 通知二选一（通知入口从消息页标题行移来）。 */
+
+/** 底栏左侧 Tab 弹窗的位置：贴锚点左缘、向上展开（「我」Tab 的菜单用 profilePopupPositionProvider 靠右对齐）。 */
+private fun bottomTabPopupPositionProvider(): PopupPositionProvider =
+    object : PopupPositionProvider {
+        private val margins = PaddingValues(
+            horizontal = MiboPopupMenuDefaults.HorizontalMargin,
+            vertical = MiboPopupMenuDefaults.VerticalMargin,
+        )
+
+        override fun calculatePosition(
+            anchorBounds: IntRect,
+            windowBounds: IntRect,
+            layoutDirection: LayoutDirection,
+            popupContentSize: IntSize,
+            popupMargin: IntRect,
+            alignment: PopupPositionProvider.Align,
+        ): IntOffset {
+            val minX = windowBounds.left + popupMargin.left
+            val maxX = (windowBounds.right - popupContentSize.width - popupMargin.right)
+                .coerceAtLeast(minX)
+            val minY = windowBounds.top + popupMargin.top
+            val maxY = (windowBounds.bottom - popupContentSize.height - popupMargin.bottom)
+                .coerceAtLeast(minY)
+            val offsetY = (anchorBounds.top - popupContentSize.height - popupMargin.bottom)
+                .coerceIn(minY, maxY)
+            return IntOffset(
+                x = anchorBounds.left.coerceIn(minX, maxX),
+                y = offsetY,
+            )
+        }
+
+        override fun getMargins(): PaddingValues = margins
+    }
+
+private fun profilePopupPositionProvider(extraRightShiftPx: Int): PopupPositionProvider =
+    object : PopupPositionProvider {
+        private val margins = PaddingValues(
+            horizontal = MiboPopupMenuDefaults.HorizontalMargin,
+            vertical = MiboPopupMenuDefaults.VerticalMargin,
+        )
+
+        override fun calculatePosition(
+            anchorBounds: IntRect,
+            windowBounds: IntRect,
+            layoutDirection: LayoutDirection,
+            popupContentSize: IntSize,
+            popupMargin: IntRect,
+            alignment: PopupPositionProvider.Align,
+        ): IntOffset {
+            val minX = windowBounds.left + popupMargin.left
+            val maxX = (windowBounds.right - popupContentSize.width - popupMargin.right)
+                .coerceAtLeast(minX)
+            val desiredX = anchorBounds.right + extraRightShiftPx - popupContentSize.width
+            val minY = windowBounds.top + popupMargin.top
+            val maxY = (windowBounds.bottom - popupContentSize.height - popupMargin.bottom)
+                .coerceAtLeast(minY)
+            val offsetY = (anchorBounds.top - popupContentSize.height - popupMargin.bottom)
+                .coerceIn(minY, maxY)
+            return IntOffset(
+                x = desiredX.coerceIn(minX, maxX),
+                y = offsetY,
+            )
+        }
+
+        override fun getMargins(): PaddingValues = margins
+    }
+
+/** 长按悬浮底栏「我」弹出的快捷切换账号菜单。 */
+@Composable
+private fun ProfileQuickSwitchMenu(
+    guest: Boolean,
+    onSwitchAccount: (Account) -> Unit,
+    onAddAccount: () -> Unit,
+    onManageAccounts: () -> Unit,
+) {
+    val accounts = remember { App.store.accounts() }
+    val currentUid = remember { App.repo.session?.uid }
+    val currentCookie = remember { App.repo.cookie() }
+    val dismiss = LocalDismissState.current
+    val showManage = accounts.isNotEmpty()
+    val totalCount = accounts.size + 1 + if (showManage) 1 else 0
+    val actionIconTint = MiuixTheme.colorScheme.onSurfaceContainer
+
+    // Miuix 的 DropdownImpl 没有 COUI 的 groupKey 与 modifier 参数：
+    // 分组语义去掉（行间分隔由 isFirst/isLast 推导），testTag 移到外层 Box 上。
+    accounts.forEachIndexed { index, account ->
+        val isCurrent = !guest && (account.uid == currentUid || account.cookie == currentCookie)
+        Box(Modifier.testTag("quick_switch_account_$index")) {
+            DropdownImpl(
+                item = DropdownItem(
+                    text = account.name.ifBlank { "微博账号" },
+                    summary = "UID ${account.uid}",
+                    icon = { iconModifier ->
+                        Box(iconModifier, contentAlignment = Alignment.Center) {
+                            Avatar(account.avatar, 28.dp)
+                        }
+                    },
+                ),
+                optionSize = totalCount,
+                isSelected = isCurrent,
+                index = index,
+                onSelectedIndexChange = {
+                    dismiss?.invoke()
+                    if (!isCurrent) onSwitchAccount(account)
+                },
+            )
+        }
+    }
+
+    val addIndex = accounts.size
+    Box(Modifier.testTag("quick_switch_add_account")) {
+        DropdownImpl(
+            item = DropdownItem(
+                text = if (guest) "登录 / 添加账号" else "添加账号",
+                icon = { iconModifier ->
+                    Box(iconModifier, contentAlignment = Alignment.Center) {
+                        Icon(MiuixIcons.Add, null, Modifier.size(20.dp), tint = actionIconTint)
+                    }
+                },
+            ),
+            optionSize = totalCount,
+            isSelected = false,
+            index = addIndex,
+            onSelectedIndexChange = {
+                dismiss?.invoke()
+                onAddAccount()
+            },
+        )
+    }
+
+    if (showManage) {
+        Box(Modifier.testTag("quick_switch_manage_accounts")) {
+            DropdownImpl(
+                item = DropdownItem(
+                    text = "账号管理",
+                    icon = { iconModifier ->
+                        Box(iconModifier, contentAlignment = Alignment.Center) {
+                            Icon(MiuixIcons.Settings, null, Modifier.size(20.dp), tint = actionIconTint)
+                        }
+                    },
+                ),
+                optionSize = totalCount,
+                isSelected = false,
+                index = addIndex + 1,
+                onSelectedIndexChange = {
+                    dismiss?.invoke()
+                    onManageAccounts()
+                },
+            )
+        }
+    }
+}

@@ -1,0 +1,76 @@
+plugins {
+    id("com.android.application")
+    id("org.jetbrains.kotlin.plugin.compose")
+}
+
+android {
+    namespace = "com.mibo.app"
+    buildToolsVersion = "37.0.0"
+    compileSdk {
+        version = release(37) {
+            minorApiLevel = 2
+        }
+    }
+
+    defaultConfig {
+        applicationId = "com.mibo.app"
+        minSdk = 33
+        targetSdk = 37
+        versionCode = 24
+        versionName = "0.0.1"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    buildTypes {
+        release {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    packaging {
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
+    }
+}
+
+dependencies {
+    val miuix = "top.yukonga.miuix.kmp"
+    val miuixVersion = "0.9.5-beta04"
+
+    implementation("$miuix:miuix-ui:$miuixVersion")
+    implementation("$miuix:miuix-preference:$miuixVersion")
+    implementation("$miuix:miuix-icons:$miuixVersion")
+    implementation("$miuix:miuix-blur:$miuixVersion")
+    implementation("$miuix:miuix-glass:$miuixVersion")
+    implementation("$miuix:miuix-squircle:$miuixVersion")
+
+    implementation("androidx.activity:activity-compose:1.13.0")
+    implementation("org.jetbrains.compose.foundation:foundation:1.13.0-rc01")
+    implementation("org.jetbrains.compose.ui:ui:1.13.0-rc01")
+
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("io.coil-kt.coil3:coil-compose:3.6.3")
+    implementation("io.coil-kt.coil3:coil-network-okhttp:3.6.3")
+    implementation("androidx.media3:media3-exoplayer:1.11.1")
+    implementation("androidx.media3:media3-exoplayer-hls:1.11.1")
+    implementation("androidx.media3:media3-ui:1.11.1")
+    // 主页「二维码」在本地生成，不依赖第三方图片接口。
+    implementation("com.google.zxing:core:3.5.3")
+
+    testImplementation("junit:junit:4.13.2")
+    // 单元测试跑在 JVM 上，android.jar 里的 org.json 是空壳，换真实现才能验解析。
+    testImplementation("org.json:json:20240303")
+    androidTestImplementation("junit:junit:4.13.2")
+    androidTestImplementation("androidx.test:core:1.7.0")
+    androidTestImplementation("androidx.test:runner:1.7.0")
+    androidTestImplementation("androidx.test.ext:junit:1.3.0")
+    androidTestImplementation("androidx.test.uiautomator:uiautomator:2.4.0")
+}
