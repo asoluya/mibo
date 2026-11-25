@@ -11,6 +11,9 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
+import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -114,6 +117,8 @@ import com.mibo.app.data.FeedTabSelection
 import com.mibo.app.data.FollowGroup
 import com.mibo.app.data.WEIBO_PROFILE_EDIT_URL
 import com.mibo.app.data.feedTabOptions
+import com.mibo.app.data.currentCoords
+import com.mibo.app.data.hasLocationPermission
 import com.mibo.app.data.nearbyCoords
 import com.mibo.app.screen.BindSearchSuggestionsEffect
 import com.mibo.app.screen.FeedFilter
@@ -234,7 +239,7 @@ internal sealed class FeedTabSpec {
                 FeedTabItem.Special -> "特别关注还没有内容"
                 FeedTabItem.Secret -> "还没有悄悄关注的人"
                 FeedTabItem.Favorites -> "还没有收藏的微博"
-                FeedTabItem.Nearby -> "附近需要定位\n到「我」页的「附近」里打开定位，或选一座城市"
+                FeedTabItem.Nearby -> "附近需要定位\n打开系统定位后，重新点进附近会自动读取当前位置"
                 FeedTabItem.Group -> "在顶栏的「更多」里选一个关注分组"
                 FeedTabItem.None -> "这里还没有微博"
             }
@@ -425,6 +430,39 @@ fun MainShell(nav: NavState) {
     LaunchedEffect(feedTabs.size) {
         if (feedPager.currentPage >= feedTabs.size) {
             feedPager.scrollToPage(followIndex)
+        }
+    }
+
+    // 点进「附近」就主动读一次当前位置：没权限先弹系统授权；拿到新定位后整条流重拉。
+    // 设了自定义城市时不打扰，继续看那座城。
+    val nearbyPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) { result ->
+        if (result.values.any { it }) {
+            scope.launch {
+                currentCoords(App.context)
+                nearbyStore.refresh()
+            }
+        } else {
+            App.toast("需要定位权限才能看附近")
+        }
+    }
+    val currentFeedSpec = feedTabs.getOrNull(feedPager.currentPage)
+    val onNearbyFeed = tab == 0 &&
+        (currentFeedSpec as? FeedTabSpec.Custom)?.selection?.item == FeedTabItem.Nearby
+    LaunchedEffect(onNearbyFeed) {
+        if (onNearbyFeed && !App.settings.nearbyCustom) {
+            if (hasLocationPermission(App.context)) {
+                currentCoords(App.context)
+                nearbyStore.refresh()
+            } else {
+                nearbyPermissionLauncher.launch(
+                    arrayOf(
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                        Manifest.permission.ACCESS_COARSE_LOCATION,
+                    ),
+                )
+            }
         }
     }
 
