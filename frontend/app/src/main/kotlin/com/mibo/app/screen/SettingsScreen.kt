@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.Image
@@ -48,7 +47,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -77,6 +75,7 @@ import com.mibo.app.ui.MiboIcons
 import com.mibo.app.ui.DefaultAccentSwatchColor
 import com.mibo.app.ui.NavState
 import com.mibo.app.ui.PinnedBarDensity
+import com.mibo.app.ui.FloatingBottomBar
 import com.mibo.app.ui.Route
 import com.mibo.app.ui.accentColorSummary
 import com.mibo.app.ui.systemMonetArgb
@@ -113,8 +112,6 @@ import top.yukonga.miuix.kmp.basic.TextFieldDefaults
 import top.yukonga.miuix.kmp.basic.TopAppBarDefaults
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.extended.ExpandLess
-import top.yukonga.miuix.kmp.icon.extended.Search
 import top.yukonga.miuix.kmp.icon.extended.Undo
 import top.yukonga.miuix.kmp.layout.DialogDefaults
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
@@ -1003,13 +1000,24 @@ fun BarPositionScreen(nav: NavState) {
             }
         }
 
-        BottomBarReplica(
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .offset(x = offsetX.dp, y = offsetY.dp)
-                .navigationBarsPadding()
-                .padding(bottom = 8.dp),
-        )
+        // 直接渲染主页同款底栏组件（同样的 PinnedBarDensity 与玻璃 backdrop），
+        // 大小、位置与主页完全一致；guest=true 让「消息」只是普通项，回调全为空操作。
+        CompositionLocalProvider(
+            LocalBackdrop provides if (blurEffects) backdrop else null,
+        ) {
+            PinnedBarDensity {
+                FloatingBottomBar(
+                    tab = 0,
+                    guest = true,
+                    onNotifications = {},
+                    onSearch = {},
+                    onTab = {},
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .offset(x = offsetX.dp, y = offsetY.dp),
+                )
+            }
+        }
 
         CompositionLocalProvider(
             LocalBackdrop provides if (blurEffects) backdrop else null,
@@ -1028,66 +1036,6 @@ fun BarPositionScreen(nav: NavState) {
                 }
             }
         }
-    }
-}
-
-/** 底栏示意本体：与主页悬浮底栏同结构（消息/微博/搜索胶囊 + 右侧展开圆钮），只用于位置调节页对位。 */
-@Composable
-private fun BottomBarReplica(modifier: Modifier = Modifier) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Row(
-            modifier = Modifier
-                .padding(start = 12.dp)
-                .clip(CircleShape)
-                .background(MiuixTheme.colorScheme.surface)
-                .border(1.dp, MiuixTheme.colorScheme.outline, CircleShape)
-                .padding(horizontal = 6.dp, vertical = 5.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            BottomBarPreviewItem(MiboIcons.MessagesOutline, "消息")
-            BottomBarPreviewItem(MiboIcons.FeedOutline, "微博")
-            BottomBarPreviewItem(MiuixIcons.Search, "搜索")
-        }
-        Spacer(Modifier.weight(1f))
-        Box(
-            modifier = Modifier
-                .padding(end = 36.dp)
-                .size(52.dp)
-                .clip(CircleShape)
-                .background(MiuixTheme.colorScheme.surface)
-                .border(1.dp, MiuixTheme.colorScheme.outline, CircleShape),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = MiuixIcons.ExpandLess,
-                contentDescription = null,
-                modifier = Modifier.size(24.dp),
-                tint = MiuixTheme.colorScheme.onSurface,
-            )
-        }
-    }
-}
-
-@Composable
-private fun BottomBarPreviewItem(icon: ImageVector, label: String) {
-    Column(
-        modifier = Modifier.width(56.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            modifier = Modifier.size(22.dp),
-            tint = MiuixTheme.colorScheme.onSurface,
-        )
-        Text(
-            text = label,
-            fontSize = 10.sp,
-            color = MiuixTheme.colorScheme.onSurface,
-        )
     }
 }
 

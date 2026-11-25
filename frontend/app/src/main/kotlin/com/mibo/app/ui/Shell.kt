@@ -1971,7 +1971,7 @@ private fun DropdownItem.toGlassMenuItem(): App.GlassMenuItem = App.GlassMenuIte
 )
 
 @Composable
-private fun FloatingBottomBar(
+fun FloatingBottomBar(
     tab: Int,
     guest: Boolean,
     onNotifications: () -> Unit,
