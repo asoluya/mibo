@@ -502,6 +502,15 @@ class Settings(context: Context) {
         sp.edit().putFloat("bar_scale", clamped).apply()
     }
 
+    /** 首页「收藏」流看哪一份：false 本地收藏（默认），true 账号云端收藏。 */
+    var favoritesCloud by mutableStateOf(sp.getBoolean("favorites_cloud", false))
+        private set
+
+    fun applyFavoritesCloud(value: Boolean) {
+        favoritesCloud = value
+        sp.edit().putBoolean("favorites_cloud", value).apply()
+    }
+
 
     fun applyConfirmLike(value: Boolean) {
         confirmLike = value

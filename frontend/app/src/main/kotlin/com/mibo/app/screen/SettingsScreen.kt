@@ -75,7 +75,6 @@ import com.mibo.app.ui.MiboIcons
 import com.mibo.app.ui.DefaultAccentSwatchColor
 import com.mibo.app.ui.NavState
 import com.mibo.app.ui.PinnedBarDensity
-import com.mibo.app.ui.ScaledBarDensity
 import com.mibo.app.ui.FloatingBottomBar
 import com.mibo.app.ui.Route
 import com.mibo.app.ui.accentColorSummary
@@ -976,12 +975,12 @@ fun BarPositionScreen(nav: NavState) {
             }
         }
 
-        // 直接渲染主页同款底栏组件（同样的缩放密度与玻璃 backdrop），
+        // 直接渲染主页同款底栏组件（大小缩放由组件内部按设置生效，与主页一致），
         // 大小、位置与主页完全一致；guest=true 让「消息」只是普通项，回调全为空操作。
         CompositionLocalProvider(
             LocalBackdrop provides if (blurEffects) backdrop else null,
         ) {
-            ScaledBarDensity(scale) {
+            PinnedBarDensity {
                 FloatingBottomBar(
                     tab = 0,
                     guest = true,

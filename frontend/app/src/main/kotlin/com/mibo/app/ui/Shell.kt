@@ -239,7 +239,7 @@ internal sealed class FeedTabSpec {
                 FeedTabItem.Original -> "还没有原创微博"
                 FeedTabItem.Special -> "特别关注还没有内容"
                 FeedTabItem.Secret -> "还没有悄悄关注的人"
-                FeedTabItem.Favorites -> "还没有收藏的微博"
+                FeedTabItem.Favorites -> if (App.settings.favoritesCloud && !App.repo.guest) "微博账号里还没有收藏" else "还没有本地收藏"
                 FeedTabItem.Nearby -> "附近需要定位\n打开系统定位后，重新点进附近会自动读取当前位置"
                 FeedTabItem.Group -> "在顶栏的「更多」里选一个关注分组"
                 FeedTabItem.None -> "这里还没有微博"
@@ -299,7 +299,12 @@ fun MainShell(nav: NavState) {
             },
             FeedFilter.Unread to FeedStore("unread", snapshotOwner = { accountOwner }) { _, _ -> FeedPage(emptyList(), null) },
             FeedFilter.Favorites to FeedStore("favorites") { cursor, force ->
-                App.repo.favorites(cursor, force)
+                // 「收藏」流两份来源：本地收藏（默认）与账号云端收藏，菜单里切换。
+                if (App.settings.favoritesCloud && !App.repo.guest) {
+                    App.repo.cloudFavorites(cursor, force)
+                } else {
+                    App.repo.favorites(cursor, force)
+                }
             },
             FeedFilter.Special to FeedStore("special", resumable = true, supportsReverseBrowse = true, snapshotOwner = { accountOwner }) { cursor, force ->
                 App.repo.special(cursor, force)
@@ -319,6 +324,12 @@ fun MainShell(nav: NavState) {
     LaunchedEffect(favoritesVersion) {
         val favStore = filterStores[FeedFilter.Favorites] ?: return@LaunchedEffect
         if (favoritesVersion > 0 && favStore.loaded) favStore.refresh()
+    }
+    // 本地/账号收藏切换后整条流重拉。
+    val favoritesCloud = App.settings.favoritesCloud
+    LaunchedEffect(favoritesCloud) {
+        val favStore = filterStores[FeedFilter.Favorites] ?: return@LaunchedEffect
+        if (favStore.loaded) favStore.refresh()
     }
     val recommendStore = remember { FeedStore("102803", readOnly = guest, resumable = true, snapshotOwner = { accountOwner }) }
     val circleStore = filterStores.getValue(FeedFilter.Circle)
@@ -763,7 +774,7 @@ fun MainShell(nav: NavState) {
         CompositionLocalProvider(
             LocalBackdrop provides if (blur) backdrop else null,
         ) {
-            ScaledBarDensity(App.settings.barScale) {
+            PinnedBarDensity {
                 FloatingBottomBar(
                     tab = tab,
                     guest = guest,
@@ -791,7 +802,7 @@ fun MainShell(nav: NavState) {
             CompositionLocalProvider(
                 LocalBackdrop provides if (blur) backdrop else null,
             ) {
-              ScaledBarDensity(App.settings.barScale) {
+              PinnedBarDensity {
                 AnimatedVisibility(
                     visible = fabExpanded,
                     enter = fadeIn(tween(180)),
@@ -804,32 +815,39 @@ fun MainShell(nav: NavState) {
                             .align(Alignment.BottomEnd)
                             .padding(
                                 end = 36.dp - App.settings.barOffsetX.dp,
-                                // 与下方展开钮的间距恒为 12dp：展开钮上沿 = 底栏高 52 + 底边距 8，
-                                // 再加 12 间距 = 72；底栏 offset 向下移时竖列要反向补偿，故减 offsetY。
-                                bottom = 72.dp - App.settings.barOffsetY.dp +
+                                // 与下方展开钮的间距恒为 12dp：展开钮上沿 = 缩放后的钮高
+                                // 52×大小比例 + 底边距 8，再加 12 间距；底栏 offset 向下移时
+                                // 竖列要反向补偿，故减 offsetY。
+                                bottom = 20.dp + 52.dp * App.settings.barScale -
+                                    App.settings.barOffsetY.dp +
                                     WindowInsets.navigationBars.asPaddingValues()
                                         .calculateBottomPadding(),
                             ),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        RefreshCircleButton(
-                            onRefresh = {
-                                if (tab != 0) nav.setTab(0)
-                                App.requestFeedTop(scrollToTop = true)
-                            },
-                        )
-                        GlassCircleButton(
-                            icon = MiboIcons.Feather,
-                            contentDescription = "发布",
-                            onClick = {
-                                if (guest) {
-                                    App.toast("纯本地模式不能发微博，登录后可用")
-                                } else {
-                                    nav.push(Route.Publish())
-                                }
-                            },
-                            modifier = Modifier.testTag("publish_fab"),
-                        )
+                        ScaledBarDensity(App.settings.barScale) {
+                            RefreshCircleButton(
+                                onRefresh = {
+                                    if (tab != 0) nav.setTab(0)
+                                    App.requestFeedTop(scrollToTop = true)
+                                },
+                            )
+                        }
+                        ScaledBarDensity(App.settings.barScale) {
+                            GlassCircleButton(
+                                icon = MiboIcons.Feather,
+                                contentDescription = "发布",
+                                onClick = {
+                                    if (guest) {
+                                        App.toast("纯本地模式不能发微博，登录后可用")
+                                    } else {
+                                        nav.push(Route.Publish())
+                                    }
+                                },
+                                modifier = Modifier.testTag("publish_fab"),
+                            )
+                        }
+                        ScaledBarDensity(App.settings.barScale) {
                         ProfileCircleButton(
                             selected = tab == 2,
                             onClick = { nav.setTab(2) },
@@ -851,6 +869,7 @@ fun MainShell(nav: NavState) {
                             isDark = MiuixTheme.colorScheme.background.luminance() < 0.5f,
                             modifier = Modifier.testTag("bottom_tab_profile"),
                         )
+                        }
                     }
                   }
                 }
@@ -1987,7 +2006,33 @@ internal fun buildCenterMenuEntries(
         val filters = builtinOptions
             .filterNot { it.item == FeedTabItem.Follow }
             .map { option ->
-                if (option.item == FeedTabItem.Nearby) {
+                if (option.item == FeedTabItem.Favorites && !App.repo.guest) {
+                    // 「收藏」带二级菜单：本地收藏（默认）与账号云端收藏。
+                    DropdownItem(
+                        text = option.label,
+                        selected = option.key == centerTab.key,
+                        children = listOf(
+                            DropdownItem(
+                                text = "本地收藏",
+                                summary = "存在本机的收藏",
+                                selected = !App.settings.favoritesCloud,
+                                onClick = {
+                                    App.settings.applyFavoritesCloud(false)
+                                    onCenterSelected(option)
+                                },
+                            ),
+                            DropdownItem(
+                                text = "账号收藏",
+                                summary = "微博账号里的收藏",
+                                selected = App.settings.favoritesCloud,
+                                onClick = {
+                                    App.settings.applyFavoritesCloud(true)
+                                    onCenterSelected(option)
+                                },
+                            ),
+                        ),
+                    )
+                } else if (option.item == FeedTabItem.Nearby) {
                     // 「附近」带二级菜单：默认读当前位置，也可固定看一座自定义城市。
                     DropdownItem(
                         text = option.label,
@@ -2102,7 +2147,12 @@ fun FloatingBottomBar(
         val backdrop = LocalBackdrop.current
         val glassActive = App.settings.blurEffects && backdrop != null
         val isDark = MiuixTheme.colorScheme.background.luminance() < 0.5f
+        // 大小缩放只套在胶囊本体上：外层定位（左边距、展开钮右边距、底边距）仍按钉住密度，
+        // 否则整屏 dp 宽度随缩放变窄，放大时胶囊会和展开钮撞在一起。
+        val barScale = App.settings.barScale
+        ScaledBarDensity(barScale) {
         FloatingNavigationBar(
+            horizontalOutSidePadding = (36f / barScale).dp,
             modifier = if (glassActive) {
                 Modifier.glassPanel(
                     backdrop = backdrop,
@@ -2187,19 +2237,26 @@ fun FloatingBottomBar(
                 )
             }
         }
+        }
         // 展开钮：占据原「我的」圆钮的位置（同尺寸、同玻璃材质、同样 36dp 右边距），
         // 点按展开/收回上方的悬浮竖列（刷新 / 发布 / 我的）；展开状态由外层持有，不自动收回。
-        ExpandCircleButton(
-            expanded = fabExpanded,
-            onClick = onExpandToggle,
-            glassActive = glassActive,
-            backdrop = backdrop,
-            isDark = isDark,
-            modifier = Modifier
+        // 右边距在缩放外层量（恒 36dp），圆钮本体在缩放密度里长大/缩小，右边沿不动。
+        Box(
+            Modifier
                 .align(Alignment.CenterEnd)
-                .padding(end = 36.dp)
-                .testTag("bottom_expand_toggle"),
-        )
+                .padding(end = 36.dp),
+        ) {
+            ScaledBarDensity(barScale) {
+                ExpandCircleButton(
+                    expanded = fabExpanded,
+                    onClick = onExpandToggle,
+                    glassActive = glassActive,
+                    backdrop = backdrop,
+                    isDark = isDark,
+                    modifier = Modifier.testTag("bottom_expand_toggle"),
+                )
+            }
+        }
     }
 }
 
