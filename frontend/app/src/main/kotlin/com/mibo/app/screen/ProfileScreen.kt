@@ -1038,7 +1038,7 @@ fun ProfileHubContent(
                     ) {
                         ArrowPreference(
                             title = "我的微博",
-                            startAction = { HubRowIcon(MeIcons.Statuses },
+                            startAction = { HubRowIcon(MeIcons.Statuses) },
                             modifier = Modifier.testTag("hub_my_statuses"),
                             onClick = {
                                 if (!targetUid.isNullOrBlank()) nav.push(Route.Profile(targetUid))
@@ -1046,31 +1046,31 @@ fun ProfileHubContent(
                         )
                         ArrowPreference(
                             title = "我的收藏",
-                            startAction = { HubRowIcon(MeIcons.Favorites },
+                            startAction = { HubRowIcon(MeIcons.Favorites) },
                             modifier = Modifier.testTag("hub_favorites"),
                             onClick = { nav.push(Route.Favorites) },
                         )
                         ArrowPreference(
                             title = "我赞过的",
-                            startAction = { HubRowIcon(MeIcons.MyLikes },
+                            startAction = { HubRowIcon(MeIcons.MyLikes) },
                             modifier = Modifier.testTag("hub_my_likes"),
                             onClick = { nav.push(Route.MyLikes) },
                         )
                         ArrowPreference(
                             title = "收到的赞",
-                            startAction = { HubRowIcon(MeIcons.ReceivedLikes },
+                            startAction = { HubRowIcon(MeIcons.ReceivedLikes) },
                             modifier = Modifier.testTag("hub_received_likes"),
                             onClick = { nav.push(Route.Notifications(NotificationTab.Like)) },
                         )
                         ArrowPreference(
                             title = "收到的评论",
-                            startAction = { HubRowIcon(MeIcons.ReceivedComments },
+                            startAction = { HubRowIcon(MeIcons.ReceivedComments) },
                             modifier = Modifier.testTag("hub_received_comments"),
                             onClick = { nav.push(Route.Notifications(NotificationTab.Comment)) },
                         )
                         ArrowPreference(
                             title = "发出的评论",
-                            startAction = { HubRowIcon(MeIcons.SentComments },
+                            startAction = { HubRowIcon(MeIcons.SentComments) },
                             modifier = Modifier.testTag("hub_sent_comments"),
                             onClick = { nav.push(Route.Notifications(NotificationTab.SentComment)) },
                         )
@@ -1089,33 +1089,39 @@ fun ProfileHubContent(
                     if (guest) {
                         ArrowPreference(
                             title = "本地收藏",
-                            startAction = { HubRowIcon(MeIcons.Favorites },
+                            startAction = { HubRowIcon(MeIcons.Favorites) },
                             modifier = Modifier.testTag("local_favorites"),
                             onClick = { nav.push(Route.Favorites) },
                         )
                     }
                     ArrowPreference(
+                        title = "赞赏码",
+                        startAction = { HubRowIcon(MiboIcons.PraiseThumb) },
+                        modifier = Modifier.testTag("hub_reward_code"),
+                        onClick = { showRewardCode = true },
+                    )
+                    ArrowPreference(
                         title = "草稿箱",
-                        startAction = { HubRowIcon(MeIcons.Drafts },
+                        startAction = { HubRowIcon(MeIcons.Drafts) },
                         modifier = Modifier.testTag("hub_drafts"),
                         onClick = { nav.push(Route.Drafts) },
                     )
                     ArrowPreference(
                         title = "浏览历史",
-                        startAction = { HubRowIcon(MeIcons.History },
+                        startAction = { HubRowIcon(MeIcons.History) },
                         modifier = Modifier.testTag("hub_history"),
                         onClick = { nav.push(Route.History) },
                     )
                     ArrowPreference(
                         title = "话题 / 超话",
-                        startAction = { HubRowIcon(MeIcons.Topic },
+                        startAction = { HubRowIcon(MeIcons.Topic) },
                         modifier = Modifier.testTag("hub_topic"),
                         onClick = { nav.push(Route.Topic()) },
                     )
                     if (!guest) {
                         ArrowPreference(
                             title = "附近",
-                            startAction = { HubRowIcon(MeIcons.Nearby },
+                            startAction = { HubRowIcon(MeIcons.Nearby) },
                             modifier = Modifier.testTag("hub_nearby"),
                             onClick = { nav.push(Route.Nearby) },
                         )
@@ -1133,15 +1139,6 @@ fun ProfileHubContent(
                 ) {
                     val groups = SettingsGroup.entries
                     groups.forEachIndexed { index, group ->
-                        if (group == SettingsGroup.Other) {
-                            // 赞赏码按用户指定夹在「账号与内容」与「其他」之间（同卡内一行）。
-                            ArrowPreference(
-                                title = "赞赏码",
-                                startAction = { HubRowIcon(MiboIcons.PraiseThumb },
-                                modifier = Modifier.testTag("hub_reward_code"),
-                                onClick = { showRewardCode = true },
-                            )
-                        }
                         ArrowPreference(
                             title = group.title,
                             startAction = { HubRowIcon(group.hubIcon()) },
