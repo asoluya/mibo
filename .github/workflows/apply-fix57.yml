@@ -1,0 +1,20 @@
+name: Apply Fix57
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply fix57
+        run: |
+          unzip -o fix57.zip
+          rm -f fix57.zip
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "橱窗商品链接复制转直链 + 版本 0.0.2"
+          git pull --rebase origin main
+          git push origin main
