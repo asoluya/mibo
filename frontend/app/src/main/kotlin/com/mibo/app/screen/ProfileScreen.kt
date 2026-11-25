@@ -1094,12 +1094,6 @@ fun ProfileHubContent(
                         modifier = Modifier.testTag("hub_history"),
                         onClick = { nav.push(Route.History) },
                     )
-                    ArrowPreference(
-                        title = "话题 / 超话",
-                        startAction = { HubRowIcon(MeIcons.Topic) },
-                        modifier = Modifier.testTag("hub_topic"),
-                        onClick = { nav.push(Route.Topic()) },
-                    )
                 }
             }
 

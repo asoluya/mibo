@@ -236,30 +236,6 @@ object MiboIcons {
         }.build()
     }
 
-    val Topic: ImageVector by lazy {
-        ImageVector.Builder(
-            name = "Topic",
-            defaultWidth = 24.dp,
-            defaultHeight = 24.dp,
-            viewportWidth = 24f,
-            viewportHeight = 24f,
-        ).apply {
-            path(
-                stroke = SolidColor(Color.Black),
-                strokeLineWidth = 1.9f,
-                strokeLineCap = StrokeCap.Round,
-            ) {
-                moveTo(9.5f, 3.5f)
-                lineTo(7.5f, 20.5f)
-                moveTo(16.5f, 3.5f)
-                lineTo(14.5f, 20.5f)
-                moveTo(4f, 9f)
-                horizontalLineTo(20.5f)
-                moveTo(3.5f, 15f)
-                horizontalLineTo(20f)
-            }
-        }.build()
-    }
 
     // ---- 图标统一走 Miuix 官方图标：有官方对应的一律委托 MiuixIcons（见下方各 getter）；
     // 只有 Miuix 没有对应的（爱心、表情、@、话题、超话、点赞拇指、投票、摄像机、地球、微博标）
