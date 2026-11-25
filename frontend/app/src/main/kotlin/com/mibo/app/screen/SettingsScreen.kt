@@ -951,29 +951,6 @@ private val RainbowSwatchColors = listOf(
     Color(0xFFFF3B30),
 )
 
-/** 赞赏码浮窗：展示作者的微信赞赏码，点浮窗外关闭。 */
-@Composable
-internal fun RewardCodeDialog(onDismiss: () -> Unit) {
-    var show by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { show = true }
-    OverlayDialog(
-        show = show,
-        title = "赞赏码",
-        outsideMargin = DpSize(16.dp, 8.dp),
-        onDismissRequest = { show = false },
-        onDismissFinished = onDismiss,
-    ) {
-        Image(
-            painter = painterResource(com.mibo.app.R.drawable.reward_code),
-            contentDescription = "赞赏码",
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 20.dp)
-                .clip(RoundedCornerShape(12.dp)),
-        )
-    }
-}
-
 /**
  * 自定义强调色弹窗：支持常用色板快选（含「Jeb_」动态循环）、HSV 三通道微调与十六进制色号输入。
  */

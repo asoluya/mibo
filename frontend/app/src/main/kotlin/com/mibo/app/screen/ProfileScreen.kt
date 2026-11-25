@@ -912,7 +912,7 @@ fun ProfileHubContent(
     val scope = rememberCoroutineScope()
     val pullState = rememberPullToRefreshState()
     val scheme = MiuixTheme.colorScheme
-    var showRewardCode by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     LaunchedEffect(guest, state) {
         if (guest) {
@@ -1098,7 +1098,15 @@ fun ProfileHubContent(
                         title = "赞赏码",
                         startAction = { HubRowIcon(MiboIcons.PraiseThumb) },
                         modifier = Modifier.testTag("hub_reward_code"),
-                        onClick = { showRewardCode = true },
+                        onClick = {
+                            val wechatIntent =
+                                context.packageManager.getLaunchIntentForPackage("com.tencent.mm")
+                            if (wechatIntent == null ||
+                                runCatching { context.startActivity(wechatIntent) }.isFailure
+                            ) {
+                                App.toast("未安装微信")
+                            }
+                        },
                     )
                     ArrowPreference(
                         title = "草稿箱",
@@ -1182,9 +1190,6 @@ fun ProfileHubContent(
         }
     }
 
-    if (showRewardCode) {
-        RewardCodeDialog(onDismiss = { showRewardCode = false })
-    }
 }
 
 @Composable
