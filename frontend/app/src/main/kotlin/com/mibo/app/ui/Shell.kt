@@ -36,6 +36,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -71,6 +72,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -813,12 +815,6 @@ fun MainShell(nav: NavState) {
                         }
                     },
                     onTab = { target -> if (!feedPanelCovering) nav.setTab(target) },
-                    onFeedTop = { if (!feedPanelCovering) App.requestFeedTop(scrollToTop = true) },
-                    onPublish = {
-                        if (!feedPanelCovering) {
-                            if (guest) App.toast("纯本地模式不能发微博，登录后可用") else nav.push(Route.Publish())
-                        }
-                    },
                     profileAvatarUrl = if (profileTabAvatar && !guest) profileAvatarUrl else null,
                     profileOverflowMenu = if (quickSwitchAccount && !feedPanelCovering) {
                         {
@@ -838,6 +834,26 @@ fun MainShell(nav: NavState) {
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .then(if (feedPanelCovering) Modifier.clearAndSetSemantics {} else Modifier),
+                )
+            }
+        }
+
+        // 右下悬浮按钮组：只在「微博」页出现，竖排在「我的」圆钮上方（刷新在上、发布在下），
+        // 盖在页面之上、搜索面板之下。
+        if (tab == 0 && !feedPanelCovering) {
+            CompositionLocalProvider(
+                LocalBackdrop provides if (blur) backdrop else null,
+            ) {
+                FloatingActionPair(
+                    onRefresh = { App.requestFeedTop(scrollToTop = true) },
+                    onPublish = {
+                        if (guest) {
+                            App.toast("纯本地模式不能发微博，登录后可用")
+                        } else {
+                            nav.push(Route.Publish())
+                        }
+                    },
+                    modifier = Modifier.fillMaxSize(),
                 )
             }
         }
@@ -2039,36 +2055,16 @@ private fun FloatingBottomBar(
     onNotifications: () -> Unit,
     onSearch: () -> Unit,
     onTab: (Int) -> Unit,
-    onFeedTop: () -> Unit,
-    onPublish: () -> Unit,
+
     profileAvatarUrl: String? = null,
     profileOverflowMenu: (@Composable () -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
-    // 「微博」手势：单击只切 tab（不延迟）；320ms 内的第二下追加回顶 + 刷新；长按发微博
-    // （长按挂在 FloatingTabItem 的 combinedClickable 上，见下方 onLongClick）。
-    // 双击用时间戳判定而不是 combinedClickable 的 onDoubleClick：后者会让单击等双击窗口过去才触发。
+    // 「微博」单击只切 tab：回顶刷新改由右下悬浮刷新按钮承担，长按发布也已取消。
     // 「消息」Tab 点击菜单（消息 / 通知二选一）；游客没有通知入口，点按直接切页。
     var messagesMenuExpanded by remember { mutableStateOf(false) }
     var messagesAnchorBounds by remember { mutableStateOf(Rect.Zero) }
     val messagesPopupPositionProvider = remember { bottomTabPopupPositionProvider() }
-    var lastFeedTapAt by remember { mutableLongStateOf(0L) }
-    var lastFeedHintAt by remember { mutableLongStateOf(0L) }
-    val onFeedTap: () -> Unit = {
-        val now = android.os.SystemClock.uptimeMillis()
-        if (now - lastFeedTapAt <= 320L) {
-            lastFeedTapAt = 0L
-            onFeedTop()
-        } else {
-            lastFeedTapAt = now
-            // 单击主页时提示长按发微博（3 秒内不重复弹，避免连点刷屏）。
-            if (now - lastFeedHintAt > 3000L) {
-                lastFeedHintAt = now
-                App.toast("长按发布微博")
-            }
-        }
-        onTab(0)
-    }
     Box(
         modifier
             .fillMaxWidth()
@@ -2153,8 +2149,7 @@ private fun FloatingBottomBar(
                 }
                 FloatingTabItem(
                     selected = tab == 0,
-                    onClick = { onFeedTap() },
-                    onLongClick = onPublish,
+                    onClick = { onTab(0) },
                     icon = MiboIcons.FeedOutline,
                     selectedIcon = MiboIcons.FeedFilled,
                     label = "微博",
@@ -2331,6 +2326,110 @@ private fun ProfileCircleButton(
                 }
             }
         }
+    }
+}
+
+/**
+ * 右下悬浮按钮组：与「我的」圆钮同列，竖排悬在它上方——刷新在上、发布在下，
+ * 都是与「我的」同款的 52dp 玻璃圆钮。刷新点按回顶并刷新，箭头转一整圈；
+ * 发布用羽毛图标（推特写推按钮那支），点按打开发布页。
+ */
+@Composable
+private fun FloatingActionPair(
+    onRefresh: () -> Unit,
+    onPublish: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val bottomMargin = 74.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    Box(modifier) {
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 36.dp, bottom = bottomMargin),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            RefreshCircleButton(onRefresh = onRefresh)
+            GlassCircleButton(
+                icon = MiboIcons.Feather,
+                contentDescription = "发布",
+                onClick = onPublish,
+                modifier = Modifier.testTag("publish_fab"),
+            )
+        }
+    }
+}
+
+/** 悬浮刷新圆钮：点按触发回顶刷新，箭头同时转一整圈。 */
+@Composable
+private fun RefreshCircleButton(onRefresh: () -> Unit) {
+    val scope = rememberCoroutineScope()
+    val rotation = remember { Animatable(0f) }
+    GlassCircleButton(
+        icon = MiuixIcons.Refresh,
+        contentDescription = "刷新",
+        onClick = {
+            scope.launch {
+                rotation.snapTo(0f)
+                rotation.animateTo(360f, tween(600))
+            }
+            onRefresh()
+        },
+        iconModifier = Modifier.rotate(rotation.value),
+        modifier = Modifier.testTag("refresh_fab"),
+    )
+}
+
+/** 与「我的」圆钮同款材质的 52dp 玻璃圆钮（悬浮按钮组专用）。 */
+@Composable
+private fun GlassCircleButton(
+    icon: ImageVector,
+    contentDescription: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    iconModifier: Modifier = Modifier,
+) {
+    val backdrop = LocalBackdrop.current
+    val colorScheme = MiuixTheme.colorScheme
+    val glassActive = App.settings.blurEffects && backdrop != null
+    val isDark = colorScheme.background.luminance() < 0.5f
+    val background = if (glassActive && backdrop != null) {
+        Modifier.glassPanel(
+            backdrop = backdrop,
+            shape = GlassShape(26.dp),
+            style = GlassDefaults.style(isDark),
+            alpha = App.settings.barGlassAlpha,
+            material = GlassMaterials.puredThinGlass(isDark),
+            stroke = GlassEdgeStrokes.forTheme(isDark),
+            shadow = null,
+            shading = false,
+        )
+    } else {
+        Modifier.background(
+            colorScheme.surfaceContainer.copy(
+                alpha = if (App.settings.blurEffects) App.settings.barGlassAlpha else 1f,
+            ),
+            CircleShape,
+        )
+    }
+    Box(
+        modifier = modifier
+            .size(52.dp)
+            .then(background)
+            .clip(CircleShape)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                role = Role.Button,
+                onClick = onClick,
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Image(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            modifier = iconModifier.size(26.dp),
+            colorFilter = ColorFilter.tint(colorScheme.onSurface),
+        )
     }
 }
 

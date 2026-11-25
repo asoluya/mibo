@@ -59,6 +59,35 @@ object MiboIcons {
         }.build()
     }
 
+    /** 发布羽毛：推特写推按钮那支羽毛笔，描边风格与 Heart 一致。 */
+    val Feather: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "Feather",
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = 24f,
+            viewportHeight = 24f,
+        ).apply {
+            path(
+                stroke = SolidColor(Color.Black),
+                strokeLineWidth = 1.9f,
+                strokeLineCap = StrokeCap.Round,
+                strokeLineJoin = StrokeJoin.Round,
+            ) {
+                moveTo(20.24f, 12.24f)
+                arcTo(6f, 6f, 0f, false, false, 11.75f, 3.75f)
+                lineTo(5f, 10.5f)
+                lineTo(5f, 19f)
+                lineTo(13.5f, 19f)
+                close()
+                moveTo(16f, 8f)
+                lineTo(2f, 22f)
+                moveTo(17.5f, 15f)
+                lineTo(9f, 15f)
+            }
+        }.build()
+    }
+
     val HeartFill: ImageVector by lazy {
         ImageVector.Builder(
             name = "HeartFill",
