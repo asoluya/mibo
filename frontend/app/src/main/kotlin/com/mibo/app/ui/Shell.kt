@@ -183,6 +183,8 @@ import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Add
 import top.yukonga.miuix.kmp.icon.extended.Edit
 import top.yukonga.miuix.kmp.icon.extended.GridView
+import top.yukonga.miuix.kmp.icon.extended.ExpandLess
+import top.yukonga.miuix.kmp.icon.extended.ExpandMore
 import top.yukonga.miuix.kmp.icon.extended.Refresh
 import top.yukonga.miuix.kmp.icon.extended.Search
 import top.yukonga.miuix.kmp.icon.extended.Settings
@@ -670,6 +672,9 @@ fun MainShell(nav: NavState) {
 
     val feedPanelCovering = tab == 0 && panelMounted
 
+    // 右下展开钮的状态：展开后常驻，只有再点展开钮才收回，不自动收。
+    var fabExpanded by remember { mutableStateOf(false) }
+
     Box(Modifier.fillMaxSize()) {
         // The bar floats over the page, so the line it ends at is reported from the bar itself and
         // read by anything that has to be placed clear of it.
@@ -815,22 +820,8 @@ fun MainShell(nav: NavState) {
                         }
                     },
                     onTab = { target -> if (!feedPanelCovering) nav.setTab(target) },
-                    profileAvatarUrl = if (profileTabAvatar && !guest) profileAvatarUrl else null,
-                    profileOverflowMenu = if (quickSwitchAccount && !feedPanelCovering) {
-                        {
-                            ProfileQuickSwitchMenu(
-                                guest = guest,
-                                onSwitchAccount = { account ->
-                                    App.repo.switchAccount(account)
-                                    nav.reset(Route.Main)
-                                },
-                                onAddAccount = { nav.push(Route.SmsLogin(addAccount = true)) },
-                                onManageAccounts = { nav.push(Route.Accounts) },
-                            )
-                        }
-                    } else {
-                        null
-                    },
+                    fabExpanded = fabExpanded,
+                    onExpandToggle = { if (!feedPanelCovering) fabExpanded = !fabExpanded },
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .then(if (feedPanelCovering) Modifier.clearAndSetSemantics {} else Modifier),
@@ -838,24 +829,76 @@ fun MainShell(nav: NavState) {
             }
         }
 
-        // 右下悬浮按钮组：只在「微博」页出现，竖排在「我的」圆钮上方（刷新在上、发布在下），
-        // 盖在页面之上、搜索面板之下。
-        if (tab == 0 && !feedPanelCovering) {
+        // 右下悬浮竖列：底栏展开钮点开后出现（自上而下 刷新 / 发布 / 我的），
+        // 展开后常驻不自动收回；盖在页面之上、搜索面板之下。
+        if (!feedPanelCovering) {
             CompositionLocalProvider(
                 LocalBackdrop provides if (blur) backdrop else null,
             ) {
               PinnedBarDensity {
-                FloatingActionPair(
-                    onRefresh = { App.requestFeedTop(scrollToTop = true) },
-                    onPublish = {
-                        if (guest) {
-                            App.toast("纯本地模式不能发微博，登录后可用")
-                        } else {
-                            nav.push(Route.Publish())
-                        }
-                    },
+                AnimatedVisibility(
+                    visible = fabExpanded,
+                    enter = fadeIn(tween(180)),
+                    exit = fadeOut(tween(150)),
                     modifier = Modifier.fillMaxSize(),
-                )
+                ) {
+                  Box(Modifier.fillMaxSize()) {
+                    Column(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(
+                                end = 36.dp,
+                                bottom = 74.dp +
+                                    WindowInsets.navigationBars.asPaddingValues()
+                                        .calculateBottomPadding(),
+                            ),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        RefreshCircleButton(
+                            onRefresh = {
+                                if (tab != 0) nav.setTab(0)
+                                App.requestFeedTop(scrollToTop = true)
+                            },
+                        )
+                        GlassCircleButton(
+                            icon = MiboIcons.Feather,
+                            contentDescription = "发布",
+                            onClick = {
+                                if (guest) {
+                                    App.toast("纯本地模式不能发微博，登录后可用")
+                                } else {
+                                    nav.push(Route.Publish())
+                                }
+                            },
+                            modifier = Modifier.testTag("publish_fab"),
+                        )
+                        ProfileCircleButton(
+                            selected = tab == 2,
+                            onClick = { nav.setTab(2) },
+                            avatarUrl = if (profileTabAvatar && !guest) profileAvatarUrl else null,
+                            overflowMenu = if (quickSwitchAccount) {
+                                {
+                                    ProfileQuickSwitchMenu(
+                                        guest = guest,
+                                        onSwitchAccount = { account ->
+                                            App.repo.switchAccount(account)
+                                            nav.reset(Route.Main)
+                                        },
+                                        onAddAccount = { nav.push(Route.SmsLogin(addAccount = true)) },
+                                        onManageAccounts = { nav.push(Route.Accounts) },
+                                    )
+                                }
+                            } else {
+                                null
+                            },
+                            glassActive = App.settings.blurEffects && LocalBackdrop.current != null,
+                            backdrop = LocalBackdrop.current,
+                            isDark = MiuixTheme.colorScheme.background.luminance() < 0.5f,
+                            modifier = Modifier.testTag("bottom_tab_profile"),
+                        )
+                    }
+                  }
+                }
               }
             }
         }
@@ -2058,8 +2101,8 @@ private fun FloatingBottomBar(
     onSearch: () -> Unit,
     onTab: (Int) -> Unit,
 
-    profileAvatarUrl: String? = null,
-    profileOverflowMenu: (@Composable () -> Unit)? = null,
+    fabExpanded: Boolean = false,
+    onExpandToggle: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     // 「微博」单击只切 tab：回顶刷新改由右下悬浮刷新按钮承担，长按发布也已取消。
@@ -2168,20 +2211,18 @@ private fun FloatingBottomBar(
                 )
             }
         }
-        // 「我的」独立圆钮：与胶囊同高（52dp）、同玻璃材质，固定在底栏右侧，
-        // 与胶囊左缘的 36dp 外边距对称。点按切「我」Tab，长按弹切换账号菜单（同原 Tab 项）。
-        ProfileCircleButton(
-            selected = tab == 2,
-            onClick = { onTab(2) },
-            avatarUrl = profileAvatarUrl,
-            overflowMenu = profileOverflowMenu,
+        // 展开钮：占据原「我的」圆钮的位置（同尺寸、同玻璃材质、同样 36dp 右边距），
+        // 点按展开/收回上方的悬浮竖列（刷新 / 发布 / 我的）；展开状态由外层持有，不自动收回。
+        ExpandCircleButton(
+            expanded = fabExpanded,
+            onClick = onExpandToggle,
             glassActive = glassActive,
             backdrop = backdrop,
             isDark = isDark,
             modifier = Modifier
                 .align(Alignment.CenterEnd)
                 .padding(end = 36.dp)
-                .testTag("bottom_tab_profile"),
+                .testTag("bottom_expand_toggle"),
         )
     }
 }
@@ -2332,32 +2373,57 @@ private fun ProfileCircleButton(
 }
 
 /**
- * 右下悬浮按钮组：与「我的」圆钮同列，竖排悬在它上方——刷新在上、发布在下，
- * 都是与「我的」同款的 52dp 玻璃圆钮。刷新点按回顶并刷新，箭头转一整圈；
- * 发布用羽毛图标（推特写推按钮那支），点按打开发布页。
+ * 底栏右下展开钮：与「我的」圆钮同款玻璃（52dp），箭头随展开状态翻向——
+ * 收起时向上（点开向上展开），展开时向下（点按收回）。
  */
 @Composable
-private fun FloatingActionPair(
-    onRefresh: () -> Unit,
-    onPublish: () -> Unit,
+private fun ExpandCircleButton(
+    expanded: Boolean,
+    onClick: () -> Unit,
+    glassActive: Boolean,
+    backdrop: LayerBackdrop?,
+    isDark: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    val bottomMargin = 74.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    Box(modifier) {
-        Column(
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(end = 36.dp, bottom = bottomMargin),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            RefreshCircleButton(onRefresh = onRefresh)
-            GlassCircleButton(
-                icon = MiboIcons.Feather,
-                contentDescription = "发布",
-                onClick = onPublish,
-                modifier = Modifier.testTag("publish_fab"),
-            )
-        }
+    val colorScheme = MiuixTheme.colorScheme
+    val background = if (glassActive && backdrop != null) {
+        Modifier.glassPanel(
+            backdrop = backdrop,
+            shape = GlassShape(26.dp),
+            style = GlassDefaults.style(isDark),
+            alpha = App.settings.barGlassAlpha,
+            material = GlassMaterials.puredThinGlass(isDark),
+            stroke = GlassEdgeStrokes.forTheme(isDark),
+            shadow = null,
+            shading = false,
+        )
+    } else {
+        Modifier.background(
+            colorScheme.surfaceContainer.copy(
+                alpha = if (App.settings.blurEffects) App.settings.barGlassAlpha else 1f,
+            ),
+            CircleShape,
+        )
+    }
+    Box(
+        modifier = modifier
+            .size(52.dp)
+            .then(background)
+            .clip(CircleShape)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                role = Role.Button,
+                onClick = onClick,
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Image(
+            imageVector = if (expanded) MiuixIcons.ExpandMore else MiuixIcons.ExpandLess,
+            contentDescription = if (expanded) "收起" else "展开",
+            modifier = Modifier.size(26.dp),
+            colorFilter = ColorFilter.tint(colorScheme.onSurface),
+        )
     }
 }
 
