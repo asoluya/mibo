@@ -142,6 +142,7 @@ import com.mibo.app.screen.rememberSearchResultsState
 import com.mibo.app.screen.searchDiscoverItems
 import com.mibo.app.screen.searchHorizontalPadding
 import com.mibo.app.screen.searchResultsItems
+import com.mibo.app.screen.NearbyCityPickerDialog
 import com.mibo.app.ui.components.Avatar
 import com.mibo.app.ui.components.LoadingState
 import com.mibo.app.ui.components.ProfileEditDialog
@@ -488,6 +489,7 @@ fun MainShell(nav: NavState) {
     val messagesState = remember { MessagesTabState() }
     val profileTabState = remember { ProfileTabState() }
     var editProfileOpen by remember { mutableStateOf(false) }
+    var showNearbyCityPicker by remember { mutableStateOf(false) }
     val profileListState = rememberLazyListState()
     var profileActiveCover by remember { mutableStateOf<String?>(null) }
     val profileScrolledPast by remember(profileListState, barDensity) {
@@ -718,6 +720,7 @@ fun MainShell(nav: NavState) {
                         val targetPage = if (leftTab.item != FeedTabItem.None) 1 else 0
                         scope.launch { feedPager.animateScrollToPage(targetPage) }
                     },
+                    onPickNearbyCity = { showNearbyCityPicker = true },
                     modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth(),
                 )
             }
@@ -948,6 +951,23 @@ fun MainShell(nav: NavState) {
     }
     key(feedSearchExpanded, inHomeSearchResults) { MiboPredictiveBackHandler(nav) }
 
+    if (showNearbyCityPicker) {
+        NearbyCityPickerDialog(
+            selected = if (App.settings.nearbyCustom) App.settings.nearbyPlaceName else "",
+            onDismiss = { showNearbyCityPicker = false },
+            onPick = { place ->
+                App.settings.applyNearbyPlace(place.name, place.lat, place.lon)
+                showNearbyCityPicker = false
+                // 选完城市直接切到附近流看那座城（流的刷新由位置变更的副作用负责）。
+                centerOptions.firstOrNull { it.item == FeedTabItem.Nearby }?.let { selection ->
+                    App.settings.applyFeedCenterTab(selection)
+                    val targetPage = if (leftTab.item != FeedTabItem.None) 1 else 0
+                    scope.launch { feedPager.animateScrollToPage(targetPage) }
+                }
+            },
+        )
+    }
+
     if (editProfileOpen) {
         ProfileEditDialog(
             user = profileTabState.user,
@@ -999,6 +1019,7 @@ private fun MainBarUnderlay(
     bounds: TopBarBounds,
     onMenuOpened: () -> Unit,
     onCenterSelected: (FeedTabSelection) -> Unit,
+    onPickNearbyCity: () -> Unit,
     onScrollToTop: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -1119,6 +1140,7 @@ private fun MainBarUnderlay(
                             filterMenuExpanded = false
                             onCenterSelected(it)
                         },
+                        onPickNearbyCity = onPickNearbyCity,
                         onSelect = { page -> scope.launch { feedPager.animateScrollToPage(page) } },
                         onFilterClick = { filterMenuExpanded = true },
                         onScrollToTop = onScrollToTop,
@@ -1786,6 +1808,7 @@ private fun FeedTabs(
     filterMenuExpanded: Boolean,
     onFilterMenuDismiss: () -> Unit,
     onCenterSelected: (FeedTabSelection) -> Unit,
+    onPickNearbyCity: () -> Unit,
     onSelect: (Int) -> Unit,
     onFilterClick: () -> Unit,
     onScrollToTop: () -> Unit,
@@ -1915,6 +1938,7 @@ private fun FeedTabs(
                                 collapseFollowGroups = App.settings.collapseFollowGroups,
                                 onCenterSelected = onCenterSelected,
                                 sideKeys = sideSelectionKeys,
+                                onPickNearbyCity = onPickNearbyCity,
                             ).flatMap { it.items }.map { it.toGlassMenuItem() }
                             App.showGlassMenu(centerAnchorBounds, items)
                             onFilterMenuDismiss()
@@ -1936,6 +1960,7 @@ internal fun buildCenterMenuEntries(
     collapseFollowGroups: Boolean,
     onCenterSelected: (FeedTabSelection) -> Unit,
     sideKeys: Set<String> = emptySet(),
+    onPickNearbyCity: () -> Unit = {},
 ): List<DropdownEntry> {
     // 左右两格占住的内容从菜单里剔除（中间栏当前项除外，它被选中时仍要能看到勾）。
     val excluded = sideKeys - centerTab.key
@@ -1962,11 +1987,40 @@ internal fun buildCenterMenuEntries(
         val filters = builtinOptions
             .filterNot { it.item == FeedTabItem.Follow }
             .map { option ->
-                DropdownItem(
-                    text = option.label,
-                    selected = option.key == centerTab.key,
-                    onClick = { onCenterSelected(option) },
-                )
+                if (option.item == FeedTabItem.Nearby) {
+                    // 「附近」带二级菜单：默认读当前位置，也可固定看一座自定义城市。
+                    DropdownItem(
+                        text = option.label,
+                        selected = option.key == centerTab.key,
+                        children = listOf(
+                            DropdownItem(
+                                text = "当前位置",
+                                summary = "读取手机定位",
+                                selected = !App.settings.nearbyCustom,
+                                onClick = {
+                                    App.settings.applyNearbyDevice()
+                                    onCenterSelected(option)
+                                },
+                            ),
+                            DropdownItem(
+                                text = "自定义城市",
+                                summary = if (App.settings.nearbyCustom) {
+                                    App.settings.nearbyPlaceName.ifBlank { "选一座城市" }
+                                } else {
+                                    "选一座城市"
+                                },
+                                selected = App.settings.nearbyCustom,
+                                onClick = { onPickNearbyCity() },
+                            ),
+                        ),
+                    )
+                } else {
+                    DropdownItem(
+                        text = option.label,
+                        selected = option.key == centerTab.key,
+                        onClick = { onCenterSelected(option) },
+                    )
+                }
             }
         if (filters.isNotEmpty()) add(DropdownEntry(items = filters))
         if (groupOptions.isNotEmpty()) {

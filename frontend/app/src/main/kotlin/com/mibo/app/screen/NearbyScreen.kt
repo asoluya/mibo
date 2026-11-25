@@ -419,7 +419,7 @@ private fun NearbyPlaceDialog(
  * 一座有内容城；搜索只在这份表里做前缀/包含匹配，不额外发请求。
  */
 @Composable
-private fun NearbyCityPickerDialog(
+internal fun NearbyCityPickerDialog(
     selected: String,
     onDismiss: () -> Unit,
     onPick: (NearbyPlace) -> Unit,
