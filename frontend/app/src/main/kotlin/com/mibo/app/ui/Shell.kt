@@ -185,7 +185,22 @@ import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.roundToInt
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /** 搜索面板进出场曲线（原 COUIInEase / COUIOutEase 的近似）。 */
@@ -289,6 +304,32 @@ fun MainShell(nav: NavState) {
     val friendsStore = remember {
         FeedStore("friends", resumable = true, snapshotOwner = { accountOwner }) { cursor, force ->
             App.repo.friends(cursor, force)
+        }
+    }
+    // 前台新微博检测：应用在前台时每 20 秒轻查一次关注流第一页，顶部 ID 变了就点亮刷新钮
+    // （收起时点亮展开钮）。只查不刷：真刷新仍由用户点刷新钮触发；流一旦真刷新
+    // （generation 变化）光就灭。游客没有关注流，不查。
+    var hasNewFollow by remember { mutableStateOf(false) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var appResumed by remember { mutableStateOf(true) }
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) appResumed = true
+            if (event == Lifecycle.Event.ON_PAUSE) appResumed = false
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    LaunchedEffect(friendsStore.generation) { hasNewFollow = false }
+    LaunchedEffect(appResumed, guest) {
+        if (!appResumed || guest) return@LaunchedEffect
+        while (true) {
+            delay(20_000)
+            if (!friendsStore.loaded || friendsStore.refreshing || friendsStore.loading) continue
+            val topId = friendsStore.items.firstOrNull()?.id ?: continue
+            val page = runCatching { App.repo.friends(null, force = true) }.getOrNull() ?: continue
+            val newestId = page.items.firstOrNull()?.id ?: continue
+            hasNewFollow = newestId != topId
         }
     }
     val filterStores = remember {
@@ -789,6 +830,7 @@ fun MainShell(nav: NavState) {
                     onTab = { target -> if (!feedPanelCovering) nav.setTab(target) },
                     fabExpanded = fabExpanded,
                     onExpandToggle = { if (!feedPanelCovering) fabExpanded = !fabExpanded },
+                    expandGlow = hasNewFollow,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .offset(x = App.settings.barOffsetX.dp, y = App.settings.barOffsetY.dp)
@@ -829,6 +871,7 @@ fun MainShell(nav: NavState) {
                     ) {
                         ScaledBarDensity(App.settings.barScale) {
                             RefreshCircleButton(
+                                glow = hasNewFollow,
                                 onRefresh = {
                                     if (tab != 0) nav.setTab(0)
                                     App.requestFeedTop(scrollToTop = true)
@@ -2109,6 +2152,7 @@ fun FloatingBottomBar(
 
     fabExpanded: Boolean = false,
     onExpandToggle: () -> Unit = {},
+    expandGlow: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     // 「微博」单击只切 tab：回顶刷新改由右下悬浮刷新按钮承担，长按发布也已取消。
@@ -2234,6 +2278,7 @@ fun FloatingBottomBar(
         ) {
             ScaledBarDensity(barScale) {
                 ExpandCircleButton(
+                    glow = expandGlow && !fabExpanded,
                     expanded = fabExpanded,
                     onClick = onExpandToggle,
                     glassActive = glassActive,
@@ -2396,6 +2441,7 @@ private fun ProfileCircleButton(
  */
 @Composable
 private fun ExpandCircleButton(
+    glow: Boolean = false,
     expanded: Boolean,
     onClick: () -> Unit,
     glassActive: Boolean,
@@ -2426,6 +2472,7 @@ private fun ExpandCircleButton(
     Box(
         modifier = modifier
             .size(52.dp)
+            .newContentGlow(glow)
             .then(background)
             .clip(CircleShape)
             .clickable(
@@ -2445,11 +2492,59 @@ private fun ExpandCircleButton(
     }
 }
 
+/** 检测到新微博时圆钮外圈的流动光晕：橙粉紫蓝扫掠渐变环旋转 + 呼吸明暗，仿超级岛的流光。 */
+@Composable
+private fun Modifier.newContentGlow(active: Boolean): Modifier {
+    val transition = rememberInfiniteTransition(label = "newContentGlow")
+    val angle by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(tween(2600, easing = LinearEasing)),
+        label = "glowAngle",
+    )
+    val pulse by transition.animateFloat(
+        initialValue = 0.55f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            tween(1300, easing = FastOutSlowInEasing),
+            RepeatMode.Reverse,
+        ),
+        label = "glowPulse",
+    )
+    if (!active) return this
+    val colors = listOf(
+        Color(0xFFFF9E45),
+        Color(0xFFFF5C7A),
+        Color(0xFF9B6BFF),
+        Color(0xFF4D8DFF),
+        Color(0xFFFF9E45),
+    )
+    return drawBehind {
+        val half = size.minDimension / 2f
+        rotate(angle) {
+            // 外层宽而淡的光晕 + 内层亮环，都贴着圆钮外沿。
+            drawCircle(
+                brush = Brush.sweepGradient(colors, center),
+                radius = half + 5.dp.toPx(),
+                style = Stroke(10.dp.toPx()),
+                alpha = 0.15f * pulse,
+            )
+            drawCircle(
+                brush = Brush.sweepGradient(colors, center),
+                radius = half + 1.5.dp.toPx(),
+                style = Stroke(2.5.dp.toPx()),
+                alpha = 0.9f * pulse,
+            )
+        }
+    }
+}
+
 /** 悬浮刷新圆钮：点按触发回顶刷新，箭头同时转一整圈。 */
 @Composable
-private fun RefreshCircleButton(onRefresh: () -> Unit) {
+private fun RefreshCircleButton(glow: Boolean = false, onRefresh: () -> Unit) {
     val scope = rememberCoroutineScope()
     val rotation = remember { Animatable(0f) }
+    Box(Modifier.newContentGlow(glow)) {
     GlassCircleButton(
         icon = MiuixIcons.Refresh,
         contentDescription = "刷新",
@@ -2463,6 +2558,7 @@ private fun RefreshCircleButton(onRefresh: () -> Unit) {
         iconModifier = Modifier.rotate(rotation.value),
         modifier = Modifier.testTag("refresh_fab"),
     )
+    }
 }
 
 /** 与「我的」圆钮同款材质的 52dp 玻璃圆钮（悬浮按钮组专用）。 */
