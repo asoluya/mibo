@@ -124,7 +124,7 @@ import kotlinx.coroutines.launch
  * 设置页分组定义，用于在「我」一级页面展示分组目录，并跳转到对应的二级设置页。
  */
 enum class SettingsGroup(val title: String, val summary: String) {
-    Display("显示与交互", "深色模式、强调色、字号、手势与「我」页布局"),
+    Display("显示交互", "深色模式、强调色、字号、手势与「我」页布局"),
     Feed("浏览设置", "主页分栏与昵称标识"),
     Other("应用相关", "检查更新、清理缓存、关于与账号退出"),
 }
@@ -281,7 +281,7 @@ private fun LazyListScope.displaySettingsItems(
     showHeader: Boolean,
 ) {
     if (showHeader) {
-        item { SectionTitle("显示与交互", topPadding = 4.dp) }
+        item { SectionTitle("显示交互", topPadding = 4.dp) }
     }
     item {
         Card(
