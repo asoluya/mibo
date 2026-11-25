@@ -69,6 +69,7 @@ import com.mibo.app.ui.AccentMonet
 import com.mibo.app.ui.AccentPresets
 import com.mibo.app.ui.AppBarSurface
 import com.mibo.app.ui.LocalBackdrop
+import com.mibo.app.ui.openExternalUrl
 import com.mibo.app.ui.MiboIcons
 import com.mibo.app.ui.DefaultAccentSwatchColor
 import com.mibo.app.ui.NavState
@@ -545,6 +546,12 @@ private fun LazyListScope.otherSettingsItems(
                 modifier = Modifier.testTag("settings_about"),
                 summary = "v${state.version} · 上游库与开源致谢",
                 onClick = { nav.push(Route.About) },
+            )
+            ArrowPreference(
+                title = "频道",
+                modifier = Modifier.testTag("settings_channel"),
+                summary = "Telegram · MiboWeibo",
+                onClick = { openExternalUrl(context, "https://t.me/MiboWeibo") },
             )
         }
     }
