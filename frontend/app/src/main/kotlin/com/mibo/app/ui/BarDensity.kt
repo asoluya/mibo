@@ -177,3 +177,16 @@ private fun pinnedHeight(rows: List<Dp>): Dp {
  */
 fun glassBarContentTop(topBarHeight: Dp, gap: Dp): Dp =
     topBarHeight + AppBarGlassExtraHeight + gap
+
+/**
+ * 底栏左右边距（钉住密度 dp）：胶囊内容 224dp + 展开钮 52dp，1 倍时共 276dp，
+ * 两边各 36dp、中间隔 12dp 正好排满 360dp 宽。放大时内容按比例变宽，
+ * 只能从两边边距里让出空间（最低留 8dp），中间间隔始终保持 12dp、两钮不重叠；
+ * 缩小时边距保持 36dp 不变，间隔自然变大。
+ */
+internal fun barSideMarginDp(containerWidthDp: Float, scale: Float): Float =
+    if (scale > 1f) {
+        ((containerWidthDp - 276f * scale - 12f) / 2f).coerceAtLeast(8f)
+    } else {
+        36f
+    }

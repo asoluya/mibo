@@ -23,6 +23,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -809,12 +810,13 @@ fun MainShell(nav: NavState) {
                     exit = fadeOut(tween(150)),
                     modifier = Modifier.fillMaxSize(),
                 ) {
-                  Box(Modifier.fillMaxSize()) {
+                  BoxWithConstraints(Modifier.fillMaxSize()) {
                     Column(
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
                             .padding(
-                                end = 36.dp - App.settings.barOffsetX.dp,
+                                end = barSideMarginDp(maxWidth.value, App.settings.barScale).dp -
+                                    App.settings.barOffsetX.dp,
                                 // 与下方展开钮的间距恒为 12dp：展开钮上沿 = 缩放后的钮高
                                 // 52×大小比例 + 底边距 8，再加 12 间距；底栏 offset 向下移时
                                 // 竖列要反向补偿，故减 offsetY。
@@ -2114,7 +2116,7 @@ fun FloatingBottomBar(
     // 「消息」Tab 点击菜单（消息 / 通知二选一）；游客没有通知入口，点按直接切页。
     var messagesMenuExpanded by remember { mutableStateOf(false) }
     var messagesAnchorBounds by remember { mutableStateOf(Rect.Zero) }
-    Box(
+    BoxWithConstraints(
         modifier
             .fillMaxWidth()
             .navigationBarsPadding()
@@ -2130,12 +2132,14 @@ fun FloatingBottomBar(
         val backdrop = LocalBackdrop.current
         val glassActive = App.settings.blurEffects && backdrop != null
         val isDark = MiuixTheme.colorScheme.background.luminance() < 0.5f
-        // 大小缩放只套在胶囊本体上：外层定位（左边距、展开钮右边距、底边距）仍按钉住密度，
-        // 否则整屏 dp 宽度随缩放变窄，放大时胶囊会和展开钮撞在一起。
+        // 大小缩放只套在胶囊与展开钮本体上，定位锚点仍按钉住密度；但内容变宽后
+        // 固定边距排不下（276dp 内容 × 比例 + 12dp 间隔 + 两边边距要装进屏宽），
+        // 所以放大时左右边距按 barSideMarginDp 让出空间，间隔恒 12dp、永不重叠。
         val barScale = App.settings.barScale
+        val sideMargin = barSideMarginDp(maxWidth.value, barScale)
         ScaledBarDensity(barScale) {
         FloatingNavigationBar(
-            horizontalOutSidePadding = (36f / barScale).dp,
+            horizontalOutSidePadding = (sideMargin / barScale).dp,
             modifier = if (glassActive) {
                 Modifier.glassPanel(
                     backdrop = backdrop,
@@ -2221,13 +2225,13 @@ fun FloatingBottomBar(
             }
         }
         }
-        // 展开钮：占据原「我的」圆钮的位置（同尺寸、同玻璃材质、同样 36dp 右边距），
+        // 展开钮：占据原「我的」圆钮的位置（同尺寸、同玻璃材质），
         // 点按展开/收回上方的悬浮竖列（刷新 / 发布 / 我的）；展开状态由外层持有，不自动收回。
-        // 右边距在缩放外层量（恒 36dp），圆钮本体在缩放密度里长大/缩小，右边沿不动。
+        // 右边距与胶囊左边距同为 sideMargin（放大时一起让出空间），圆钮本体在缩放密度里长大/缩小。
         Box(
             Modifier
                 .align(Alignment.CenterEnd)
-                .padding(end = 36.dp),
+                .padding(end = sideMargin.dp),
         ) {
             ScaledBarDensity(barScale) {
                 ExpandCircleButton(
