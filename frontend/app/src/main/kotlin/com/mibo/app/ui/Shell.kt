@@ -765,7 +765,9 @@ fun MainShell(nav: NavState) {
                             .align(Alignment.BottomEnd)
                             .padding(
                                 end = 36.dp - App.settings.barOffsetX.dp,
-                                bottom = 74.dp + App.settings.barOffsetY.dp +
+                                // 与下方展开钮的间距恒为 12dp：展开钮上沿 = 底栏高 52 + 底边距 8，
+                                // 再加 12 间距 = 72；底栏 offset 向下移时竖列要反向补偿，故减 offsetY。
+                                bottom = 72.dp - App.settings.barOffsetY.dp +
                                     WindowInsets.navigationBars.asPaddingValues()
                                         .calculateBottomPadding(),
                             ),
