@@ -1,0 +1,20 @@
+name: Apply Fix55
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply fix55
+        run: |
+          unzip -o fix55.zip
+          rm -f fix55.zip
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "修复玻璃菜单编译错误并恢复 StatusCard 全文"
+          git pull --rebase origin main
+          git push origin main
