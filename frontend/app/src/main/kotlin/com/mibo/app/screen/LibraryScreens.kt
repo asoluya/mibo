@@ -94,7 +94,7 @@ import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Add
 import top.yukonga.miuix.kmp.icon.extended.Delete
-import top.yukonga.miuix.kmp.icon.extended.Filter
+import top.yukonga.miuix.kmp.icon.extended.Search
 import top.yukonga.miuix.kmp.icon.extended.Refresh
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
@@ -299,7 +299,7 @@ fun HistoryScreen(nav: NavState) {
                                 },
                                 modifier = Modifier.testTag("history_filter"),
                             ) {
-                                Icon(MiuixIcons.Filter, "筛选", Modifier.size(24.dp))
+                                Icon(MiuixIcons.Search, "搜索", Modifier.size(24.dp))
                             }
                             TopBarTextButton("清空", onClick = { confirm = true })
                         }
