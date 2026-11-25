@@ -1100,14 +1100,6 @@ fun ProfileHubContent(
                         modifier = Modifier.testTag("hub_topic"),
                         onClick = { nav.push(Route.Topic()) },
                     )
-                    if (!guest) {
-                        ArrowPreference(
-                            title = "附近",
-                            startAction = { HubRowIcon(MeIcons.Nearby) },
-                            modifier = Modifier.testTag("hub_nearby"),
-                            onClick = { nav.push(Route.Nearby) },
-                        )
-                    }
                 }
             }
 

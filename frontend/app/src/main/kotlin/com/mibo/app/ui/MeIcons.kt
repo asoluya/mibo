@@ -5,7 +5,6 @@ import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Create
 import top.yukonga.miuix.kmp.icon.extended.Favorites
 import top.yukonga.miuix.kmp.icon.extended.Home
-import top.yukonga.miuix.kmp.icon.extended.Location
 import top.yukonga.miuix.kmp.icon.extended.Settings
 import top.yukonga.miuix.kmp.icon.extended.Tune
 
@@ -39,8 +38,6 @@ internal object MeIcons {
     /** 我的超话：井号。 */
     val Topic: ImageVector get() = MiboIcons.Topic
 
-    /** 附近：定位。 */
-    val Nearby: ImageVector get() = MiuixIcons.Location
 
     /** 显示与外观设置：滑杆调节。 */
     val DisplaySettings: ImageVector get() = MiuixIcons.Tune
