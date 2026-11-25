@@ -55,7 +55,7 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: wobo-release-apk
+          name: mibo-release-apk
           path: app-release.apk
           retention-days: 7
 
@@ -65,9 +65,9 @@ jobs:
         run: |
           VERSION=$(grep -oP 'versionName = "\K[^"]+' frontend/app/build.gradle.kts | head -1)
           awk -v v="v$VERSION" '/^## / { if (f) exit; if ($2 == v) f=1 } f { print }' CHANGELOG.md > /tmp/notes.md
-          if [ ! -s /tmp/notes.md ]; then echo "wobo v$VERSION" > /tmp/notes.md; fi
+          if [ ! -s /tmp/notes.md ]; then echo "Mibo v$VERSION" > /tmp/notes.md; fi
           gh release create "v$VERSION" app-release.apk \
-            --title "wobo v$VERSION" \
+            --title "Mibo v$VERSION" \
             --notes-file /tmp/notes.md \
           || { gh release upload "v$VERSION" app-release.apk --clobber \
             && gh release edit "v$VERSION" --notes-file /tmp/notes.md; }
