@@ -353,7 +353,8 @@ fun extractCopyableLinksFromHtml(html: String): List<String> {
     val out = LinkedHashSet<String>()
     forEachHtmlAnchor(html) { url, _ ->
         if (url.isBlank()) return@forEachHtmlAnchor
-        val candidate = unwrapSinaUrl(url) ?: url
+        val baseCandidate = unwrapSinaUrl(url) ?: url
+        val candidate = linkcardShopGoodsUrl(baseCandidate) ?: baseCandidate
         if (!candidate.startsWith("http://", true) && !candidate.startsWith("https://", true)) {
             return@forEachHtmlAnchor
         }
@@ -440,7 +441,8 @@ suspend fun buildCopyTextWithDirectLinks(
         }.orEmpty()
         val label = HtmlTagStripRegex.replace(match.groups[2]?.value.orEmpty(), "").trim()
         val unwrappedHref = if (rawHref.isBlank()) "" else unwrapWeiboLink(rawHref)
-        val candidate = if (unwrappedHref.isBlank()) "" else (unwrapSinaUrl(unwrappedHref) ?: unwrappedHref)
+        val baseCandidate = if (unwrappedHref.isBlank()) "" else (unwrapSinaUrl(unwrappedHref) ?: unwrappedHref)
+        val candidate = linkcardShopGoodsUrl(baseCandidate) ?: baseCandidate
         val host = runCatching { java.net.URI(candidate).host }.getOrNull()?.lowercase().orEmpty()
         val isHttp = candidate.startsWith("http://", true) || candidate.startsWith("https://", true)
         if (isHttp && (isExternalWebLink(candidate) || host == "shop.sc.weibo.com")) {
@@ -852,6 +854,21 @@ fun unwrapShopRedirect(url: String): String {
     if (host != "shop.sc.weibo.com") return url
     val inner = runCatching { Uri.parse(url).getQueryParameter("url") }.getOrNull()
     return inner?.takeIf { it.startsWith("http", ignoreCase = true) } ?: url
+}
+
+private val LinkcardShopRegex = Regex(
+    """^https?://apps\.weibo\.com/linkcard/[^/?#]*:shop_sc_weibo_(\d+)""",
+    RegexOption.IGNORE_CASE,
+)
+
+/**
+ * 微博橱窗商品在正文里的锚点是 `apps.weibo.com/linkcard/<卡片id>:shop_sc_weibo_<iid>`：
+ * 域名算微博站内，点开靠页面脚本跳橱窗商品页，复制时按站外链接处理就会只剩标题、丢了地址。
+ * 这里把 iid 拆出来换成橱窗商品页地址，后续按小店链接解析直链。
+ */
+fun linkcardShopGoodsUrl(raw: String): String? {
+    val iid = LinkcardShopRegex.find(raw.trim())?.groupValues?.getOrNull(1) ?: return null
+    return "https://shop.sc.weibo.com/h5/goods/index?iid=$iid"
 }
 
 private fun shopPackagesFor(host: String): List<String> = when {
