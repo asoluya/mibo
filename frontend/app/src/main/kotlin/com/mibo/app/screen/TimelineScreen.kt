@@ -1,10 +1,7 @@
 package com.mibo.app.screen
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -138,9 +135,6 @@ class FeedStore(
      * 只给首页那几栏开：别的地方进来应该是一条新流，不该沿用上次的列表。
      */
     val resumable: Boolean = false,
-    /** 时间排序流才支持「倒序浏览」（刷新时在原位置上方插新微博与断点）。 */
-    val supportsReverseBrowse: Boolean = false,
-    private val reverseBrowseEnabled: () -> Boolean = { App.isReverseBrowseEnabled() },
     private val snapshotOwner: () -> String = { App.repo.session?.uid.orEmpty() },
     private val isStatusDeleted: (String) -> Boolean = { id -> App.isRepoReady() && App.repo.isDeleted(id) },
     private val loader: suspend (cursor: String?, force: Boolean) -> FeedPage = { cursor, force ->
@@ -234,8 +228,6 @@ class FeedStore(
     }
 
     internal fun owner(): String = snapshotOwner()
-
-    private fun isReverseBrowse(): Boolean = supportsReverseBrowse && reverseBrowseEnabled()
 
     private fun nextGapId(): String = "${System.currentTimeMillis()}_${++nextGapSeq}"
 
@@ -348,10 +340,6 @@ class FeedStore(
         fetching = true
         error = null
         try {
-            if (isReverseBrowse() && items.isNotEmpty()) {
-                fetchReverse(force)
-                return
-            }
             val previousHeadId = items.firstOrNull()?.id
             val page = loader(null, force)
             val known = HashSet<String>()
@@ -384,90 +372,6 @@ class FeedStore(
         }
     }
 
-    /**
-     * 倒序浏览模式下的增量刷新：把最新拉到的微博插在当前列表上方并锚定原来的可视卡片。
-     * 若新微博跨越多页导致与旧头部暂时脱节，自动补拉最多 [AutoBridgeMaxExtraPages] 页；
-     * 仍未接上时在交界处插入 [FeedGap]，供用户在需要时继续补拉中间未读微博。
-     */
-    private suspend fun fetchReverse(force: Boolean) {
-        val firstPage = loader(null, force)
-        val firstUnique = firstPage.items.distinctBy { it.id }
-        if (firstUnique.isEmpty()) {
-            lastReadBeforeStatusId = null
-            loaded = true
-            resumed = false
-            persist()
-            return
-        }
-
-        val existingIds = items.mapTo(HashSet()) { it.id }
-        val firstGapIndex = gaps.firstOrNull()
-            ?.let { gap -> items.indexOfFirst { it.id == gap.beforeStatusId } }
-            ?.takeIf { it >= 0 }
-            ?: items.size
-        val topBlockHeadIds = items.subList(0, firstGapIndex)
-            .take(HeadOverlapWindow)
-            .mapTo(HashSet()) { it.id }
-
-        fun overlapsHead(pageItems: List<Status>): Boolean {
-            if (pageItems.isEmpty()) return false
-            if (pageItems.size == 1) return pageItems[0].id in topBlockHeadIds
-            // 首条可能是服务端置顶/推广插队，跳过首条再判衔接更稳妥。
-            return pageItems.drop(1).any { it.id in topBlockHeadIds }
-        }
-
-        val collected = ArrayList<Status>()
-        val seenNew = HashSet<String>(existingIds)
-        for (s in firstUnique) {
-            if (seenNew.add(s.id)) collected.add(s)
-        }
-        if (collected.isEmpty()) {
-            lastReadBeforeStatusId = null
-            loaded = true
-            resumed = false
-            persist()
-            return
-        }
-
-        var bridged = overlapsHead(firstUnique)
-        var gapCursor = firstPage.sinceId?.takeIf { it.isNotBlank() }
-        var extraPages = 0
-        while (!bridged && gapCursor != null && extraPages < AutoBridgeMaxExtraPages) {
-            extraPages++
-            val nextPage = runCatching { loader(gapCursor, false) }.getOrNull() ?: break
-            val nextUnique = nextPage.items.distinctBy { it.id }
-            if (nextUnique.isEmpty()) {
-                gapCursor = null
-                break
-            }
-            for (s in nextUnique) {
-                if (seenNew.add(s.id)) collected.add(s)
-            }
-            if (overlapsHead(nextUnique)) {
-                bridged = true
-            }
-            val nextCursor = nextPage.sinceId?.takeIf { it.isNotBlank() }
-            if (nextCursor == gapCursor) {
-                gapCursor = null
-                break
-            }
-            gapCursor = nextCursor
-        }
-
-        val anchor = scrollAnchorController?.captureForPrepend()
-        val oldHeadId = items.first().id
-        items.addAll(0, collected)
-        lastReadBeforeStatusId = oldHeadId
-        if (!bridged && gapCursor != null) {
-            gaps.add(0, FeedGap(id = nextGapId(), cursor = gapCursor, beforeStatusId = oldHeadId))
-        }
-        loaded = true
-        resumed = false
-        scrollAnchorController?.restoreAfterPrepend(anchor)
-        persist()
-    }
-
-    /** 点击中间断点卡片继续补拉未读区间，与下面已有微博接上后自动消除断点。 */
     suspend fun loadGap(gapId: String) {
         val currentIdx = gaps.indexOfFirst { it.id == gapId }
         if (currentIdx < 0) return
@@ -737,17 +641,7 @@ fun TimelineScreen(
             val page = pagerState.currentPage
             val store = currentStores.getOrNull(page) ?: return@collect
             val listState = listStates.getOrNull(page)
-            val reverse = App.isReverseBrowseEnabled() && store.supportsReverseBrowse
-            if (scrollToTop && reverse) {
-                // 倒序浏览下双击「微博」仅作回到顶部之用；已在顶部时才触发一次刷新。
-                val atTop = listState == null ||
-                    (listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset == 0)
-                if (!atTop) {
-                    listState.glideToTop()
-                    return@collect
-                }
-            }
-            if (scrollToTop || !reverse) {
+            if (scrollToTop) {
                 // Smooth ride back to the first card, then refresh: Miuix PullToRefresh syncs its
                 // indicator with the hoisted refreshing flag, so raising it shows the same pull
                 // the finger would do while the list stays put.
@@ -968,7 +862,6 @@ private fun TimelinePage(
         contentPadding = PaddingValues(top = topInset),
         refreshTexts = FullPageRefreshTexts,
     ) {
-        val feedCardFrame = App.settings.feedCardFrame
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize().scrollEndHaptic().overScrollVertical(),
@@ -978,7 +871,7 @@ private fun TimelinePage(
                 end = 12.dp,
                 bottom = 96.dp + navBottomPadding(),
             ),
-            verticalArrangement = Arrangement.spacedBy(if (feedCardFrame) 8.dp else 0.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             if (store.items.isEmpty()) {
                 item {
@@ -1008,13 +901,12 @@ private fun TimelinePage(
                     is FeedEntry.Gap -> {
                         FeedGapCard(
                             gap = entry.gap,
-                            modifier = if (feedCardFrame) Modifier else Modifier.padding(vertical = 6.dp),
+                            modifier = Modifier,
                             onClick = { scope.launch { store.loadGap(entry.gap.id) } },
                         )
                     }
                     is FeedEntry.ReadMarker -> {
                         FeedReadMarker(
-                            keepFrame = feedCardFrame,
                             refreshing = store.refreshing,
                             onClick = { scope.launch { store.refresh() } },
                         )
@@ -1024,9 +916,6 @@ private fun TimelinePage(
                         val index = entry.statusIndex
                         val origin = rememberExpandOrigin()
                         val topBar = LocalTopBarBounds.current
-                        val showDivider = !feedCardFrame && entries.drop(entryIndex + 1).firstOrNull {
-                            it !is FeedEntry.Post || !App.repo.isDeleted(it.status.id)
-                        } is FeedEntry.Post
                         // Hand the card's list and bar to the origin so a return can lift the row out from
                         // under the bar instead of drawing the card over it.
                         SideEffect {
@@ -1049,8 +938,6 @@ private fun TimelinePage(
                                 quotedOrigin.attachToRow(listState, status.id, topBar)
                                 nav.push(Route.Detail(quoted.id, quoted.mid, store.readOnly), quotedOrigin)
                             },
-                            keepFrame = feedCardFrame,
-                            showBottomDivider = showDivider,
                         )
                     }
                 }
@@ -1170,13 +1057,11 @@ private fun FeedGapCard(
  */
 @Composable
 private fun FeedReadMarker(
-    keepFrame: Boolean,
     refreshing: Boolean,
     onClick: () -> Unit,
 ) {
     val scheme = MiuixTheme.colorScheme
     val markerModifier = Modifier.fillMaxWidth().testTag("feed_read_marker")
-    if (keepFrame) {
         Card(
             modifier = markerModifier,
             cornerRadius = CardDefaults.CornerRadius,
@@ -1206,36 +1091,7 @@ private fun FeedReadMarker(
                 }
             }
         }
-    } else {
-        val lineColor = scheme.primary.copy(alpha = 0.65f)
-        Row(
-            modifier = markerModifier
-                .clickable(enabled = !refreshing, onClick = onClick)
-                .padding(horizontal = 4.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(Modifier.weight(1f).height(1.dp).background(lineColor))
-            Spacer(Modifier.width(12.dp))
-            if (refreshing) {
-                MiboRefreshSpinner(size = 14.dp, strokeWidth = 1.8.dp)
-                Spacer(Modifier.width(6.dp))
-                Text(
-                    text = "正在刷新…",
-                    color = scheme.onSurfaceSecondary,
-                    fontSize = 13.sp,
-                )
-            } else {
-                Text(
-                    text = "上次阅读到这里，点击刷新",
-                    color = scheme.primary,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Medium,
-                )
-            }
-            Spacer(Modifier.width(12.dp))
-            Box(Modifier.weight(1f).height(1.dp).background(lineColor))
-        }
-    }
+    
 }
 
 /** 刷新头最短可见时间：空列表/命中缓存时也要让界面看到一次 `refreshing = true`。 */

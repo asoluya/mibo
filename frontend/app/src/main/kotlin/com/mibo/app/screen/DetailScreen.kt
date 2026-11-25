@@ -329,8 +329,6 @@ fun DetailScreen(nav: NavState, id: String, mid: String, readOnly: Boolean = fal
     }
 
     val scheme = MiuixTheme.colorScheme
-    // 详情页去掉外框时，主贴、评论与评论头一起铺满整行，左右与顶栏按钮对齐。
-    val keepCardFrame = App.settings.detailCardFrame
     // The bar floats over the list the same way it does on the feed: the first card starts below it
     // and everything scrolled past runs underneath the glass.
     val topBarHeight = pinnedHeight(TopAppBarDefaults.SmallTopAppBarCenterHeight)
@@ -383,7 +381,6 @@ fun DetailScreen(nav: NavState, id: String, mid: String, readOnly: Boolean = fal
                                 quotedOrigin.attachToRow(listState, "status", topBarBounds)
                                 nav.push(Route.Detail(quoted.id, quoted.mid, readOnly), quotedOrigin)
                             },
-                            keepFrame = keepCardFrame,
                             foldLongText = false,
                         )
                     }
@@ -438,8 +435,8 @@ fun DetailScreen(nav: NavState, id: String, mid: String, readOnly: Boolean = fal
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(
-                                    start = if (keepCardFrame) 16.dp else FlatCommentInset,
-                                    end = if (keepCardFrame) 16.dp else FlatCommentInset,
+                                    start = 16.dp,
+                                    end = 16.dp,
                                     top = 6.dp,
                                     bottom = 2.dp,
                                 ),
@@ -468,7 +465,7 @@ fun DetailScreen(nav: NavState, id: String, mid: String, readOnly: Boolean = fal
                                 // Drop into the list's 8dp item gap so the line is not glued to
                                 // the sort control's bottom edge.
                                 .offset(y = 2.dp)
-                                .padding(horizontal = if (keepCardFrame) 16.dp else FlatCommentInset)
+                                .padding(horizontal = 16.dp)
                                 .fillMaxWidth()
                                 .height(2.dp),
                         )
@@ -484,7 +481,7 @@ fun DetailScreen(nav: NavState, id: String, mid: String, readOnly: Boolean = fal
                         likeTag = Modifier.testTag("comment_like_$index"),
                         replyTag = Modifier.testTag("comment_reply_$index"),
                         readOnly = readOnly,
-                        keepFrame = keepCardFrame,
+                        keepFrame = true,
                         onOpenDetail = { activeCommentDetail = comment },
                         onImage = { pics, index -> nav.push(Route.Images(pics, index)) },
                         onRepost = { repostComment = it },
@@ -631,7 +628,7 @@ fun DetailScreen(nav: NavState, id: String, mid: String, readOnly: Boolean = fal
             statusId = effectiveId(),
             mid = effectiveMid(),
             readOnly = readOnly,
-            keepFrame = keepCardFrame,
+            keepFrame = true,
             onImage = { pics, idx -> nav.push(Route.Images(pics, idx)) },
             onRepost = { repostComment = it },
             onReport = { nav.push(Route.Web(commentReportUrl(effectiveMid(), it.id), "投诉")) },

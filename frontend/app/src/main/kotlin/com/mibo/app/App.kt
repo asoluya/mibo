@@ -174,7 +174,6 @@ object App {
     var profileRenameVersion by mutableIntStateOf(0)
         private set
 
-    fun isReverseBrowseEnabled(): Boolean = this::settings.isInitialized && settings.reverseBrowse
 
     fun notifyFollowChanged() {
         followEvents.tryEmit(Unit)

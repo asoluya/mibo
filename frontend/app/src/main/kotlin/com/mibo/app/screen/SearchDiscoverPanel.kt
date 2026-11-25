@@ -106,14 +106,14 @@ import kotlinx.coroutines.launch
 
 @Stable
 class SearchDiscoverState {
-    /** 设置里勾选的榜，按声明顺序；空表示整个热搜区块隐藏。 */
+    /** 热搜榜固定全部显示，按声明顺序。 */
     val boards: List<HotBoard>
-        get() = App.settings.hotBoards.let { enabled -> HotBoard.entries.filter { it in enabled } }
+        get() = HotBoard.entries
 
-    /** 用户点过的榜。它被设置页关掉之后要退回可见的第一个，所以单独存一个可空的「心愿」。 */
+    /** 用户点过的榜，单独存一个可空的「心愿」。 */
     private var pickedBoard by mutableStateOf<HotBoard?>(null)
 
-    /** 当前显示的榜；一个都没勾时是 null，调用方据此整块不渲染。 */
+    /** 当前显示的榜。 */
     val hotBoard: HotBoard?
         get() = pickedBoard?.takeIf { it in boards } ?: boards.firstOrNull()
 

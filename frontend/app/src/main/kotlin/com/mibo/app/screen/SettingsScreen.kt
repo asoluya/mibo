@@ -51,7 +51,6 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -63,7 +62,6 @@ import com.mibo.app.App
 import com.mibo.app.data.Account
 import com.mibo.app.data.FeedTabSelection
 import com.mibo.app.data.FollowGroup
-import com.mibo.app.data.HotBoard
 import com.mibo.app.data.Updater
 import com.mibo.app.data.feedTabOptions
 import com.mibo.app.ui.AccentHueCycle
@@ -96,7 +94,6 @@ import com.mibo.app.ui.rememberListScrollFraction
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
-import top.yukonga.miuix.kmp.basic.Checkbox
 import top.yukonga.miuix.kmp.basic.DropdownImpl
 import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.Icon
@@ -128,8 +125,8 @@ import kotlinx.coroutines.launch
  */
 enum class SettingsGroup(val title: String, val summary: String) {
     Display("显示与交互", "深色模式、强调色、字号、手势与「我」页布局"),
-    Feed("微博浏览", "主页分栏、卡片外框、倒序浏览与热搜榜"),
-    Other("其他", "检查更新、清理缓存、关于与账号退出"),
+    Feed("浏览设置", "主页分栏与昵称标识"),
+    Other("应用相关", "检查更新、清理缓存、关于与账号退出"),
 }
 
 @Stable
@@ -149,11 +146,6 @@ private class SettingsUiState(context: Context) {
     var barOffsetY by mutableFloatStateOf(App.settings.barOffsetY)
     var confirmLike by mutableStateOf(App.settings.confirmLike)
     var inAppBrowser by mutableStateOf(App.settings.inAppBrowser)
-    var reverseBrowse by mutableStateOf(App.settings.reverseBrowse)
-    var collapseFollowGroups by mutableStateOf(App.settings.collapseFollowGroups)
-    var feedCardFrame by mutableStateOf(App.settings.feedCardFrame)
-    var detailCardFrame by mutableStateOf(App.settings.detailCardFrame)
-    var foldLongText by mutableStateOf(App.settings.foldLongText)
     var showVipLevel by mutableStateOf(App.settings.showVipLevel)
     var showFanLevel by mutableStateOf(App.settings.showFanLevel)
     var showVerifiedBadge by mutableStateOf(App.settings.showVerifiedBadge)
@@ -166,7 +158,6 @@ private class SettingsUiState(context: Context) {
     var pickFeedLeft by mutableStateOf(false)
     var pickFeedCenter by mutableStateOf(false)
     var pickFeedRight by mutableStateOf(false)
-    var pickHotBoards by mutableStateOf(false)
     var pickAccentColor by mutableStateOf(false)
 }
 
@@ -415,16 +406,9 @@ private fun LazyListScope.feedSettingsItems(
     showHeader: Boolean,
 ) {
     if (showHeader) {
-        item { SectionTitle("微博浏览") }
+        item { SectionTitle("浏览设置") }
     }
     item {
-        val hotBoardsSummary = App.settings.hotBoards.let { picked ->
-            when {
-                picked.isEmpty() -> "已隐藏"
-                picked.size == HotBoard.entries.size -> "全部"
-                else -> HotBoard.entries.filter { it in picked }.joinToString("、") { it.label }
-            }
-        }
         Card(
             modifier = Modifier.fillMaxWidth(),
             cornerRadius = CardDefaults.CornerRadius,
@@ -447,74 +431,6 @@ private fun LazyListScope.feedSettingsItems(
                 modifier = Modifier.testTag("settings_feed_right_tab"),
                 summary = state.feedRightTab.label,
                 onClick = { state.pickFeedRight = true },
-            )
-            SwitchPreference(
-                checked = state.collapseFollowGroups,
-                onCheckedChange = {
-                    state.collapseFollowGroups = it
-                    App.settings.applyCollapseFollowGroups(it)
-                },
-                title = "收纳关注分组",
-                summary = "开启后收进中间栏二级菜单，关闭后直接全部展开",
-                modifier = Modifier.testTag("settings_collapse_follow_groups"),
-            )
-            ArrowPreference(
-                title = "搜索页热搜榜单",
-                modifier = Modifier.testTag("settings_hot_boards"),
-                summary = hotBoardsSummary,
-                onClick = { state.pickHotBoards = true },
-            )
-            SwitchPreference(
-                checked = state.reverseBrowse,
-                onCheckedChange = {
-                    state.reverseBrowse = it
-                    App.settings.applyReverseBrowse(it)
-                },
-                title = "倒序浏览",
-                summary = "刷新不回顶，从当前位置往上补看新微博",
-                modifier = Modifier.testTag("settings_reverse_browse"),
-            )
-            SwitchPreference(
-                checked = state.feedCardFrame,
-                onCheckedChange = {
-                    state.feedCardFrame = it
-                    App.settings.applyFeedCardFrame(it)
-                },
-                title = "首页卡片外框",
-                summary = if (state.feedCardFrame) {
-                    "关闭后去掉卡片底色与圆角，正文横向与顶栏按钮对齐"
-                } else {
-                    "已去掉卡片外框，正文与顶栏按钮对齐"
-                },
-                modifier = Modifier.testTag("settings_feed_card_frame"),
-            )
-            SwitchPreference(
-                checked = state.detailCardFrame,
-                onCheckedChange = {
-                    state.detailCardFrame = it
-                    App.settings.applyDetailCardFrame(it)
-                },
-                title = "详情页卡片外框",
-                summary = if (state.detailCardFrame) {
-                    "关闭后主贴与热门评论去掉外框，正文与顶栏按钮对齐；楼中楼等内部块保留"
-                } else {
-                    "已去掉主贴与热门评论外框，正文与顶栏按钮对齐"
-                },
-                modifier = Modifier.testTag("settings_detail_card_frame"),
-            )
-            SwitchPreference(
-                checked = state.foldLongText,
-                onCheckedChange = {
-                    state.foldLongText = it
-                    App.settings.applyFoldLongText(it)
-                },
-                title = "长文折叠",
-                summary = if (state.foldLongText) {
-                    "信息流里超过 140 字的长微博只显示开头，点「展开全文」再看完整内容"
-                } else {
-                    "长微博在信息流里直接展开显示全文"
-                },
-                modifier = Modifier.testTag("settings_fold_long_text"),
             )
             SwitchPreference(
                 checked = state.showVipLevel,
@@ -610,7 +526,7 @@ private fun LazyListScope.otherSettingsItems(
     showHeader: Boolean,
 ) {
     if (showHeader) {
-        item { SectionTitle("其他") }
+        item { SectionTitle("应用相关") }
     }
     item {
         Card(
@@ -747,17 +663,6 @@ private fun SettingsDialogs(
                 App.settings.applyFeedRightTab(selection)
                 state.feedRightTab = selection
                 state.pickFeedRight = false
-            },
-        )
-    }
-
-    if (state.pickHotBoards) {
-        HotBoardPicker(
-            selected = App.settings.hotBoards,
-            onDismiss = { state.pickHotBoards = false },
-            onConfirm = { picked ->
-                App.settings.applyHotBoards(picked)
-                state.pickHotBoards = false
             },
         )
     }
@@ -1386,73 +1291,6 @@ private fun AccentSliderRow(
     }
 }
 
-/**
- * 搜索页热搜的榜单多选。五个榜可任意勾选，一个都不勾就把整个热搜区块从搜索面板里去掉。
- *
- * 和单选那套弹窗一样，选中结果先留在本地，等窗口收完再交回去，避免和关闭动画抢时序；
- * 取消或点外部关闭都只丢弃当前改动，不落盘。
- */
-@Composable
-private fun HotBoardPicker(
-    selected: Set<HotBoard>,
-    onDismiss: () -> Unit,
-    onConfirm: (Set<HotBoard>) -> Unit,
-) {
-    var show by remember { mutableStateOf(false) }
-    var picked by remember { mutableStateOf(selected) }
-    var apply by remember { mutableStateOf(false) }
-    var settled by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { show = true }
-    OverlayDialog(
-        show = show,
-        title = "热搜榜单",
-        outsideMargin = DpSize(16.dp, 8.dp),
-        onDismissRequest = { show = false },
-        onDismissFinished = {
-            if (!settled) {
-                settled = true
-                if (apply) onConfirm(picked) else onDismiss()
-            }
-        },
-    ) {
-        Column {
-            HotBoard.entries.forEach { board ->
-                val checked = board in picked
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            picked = if (checked) picked - board else picked + board
-                        }
-                        .padding(horizontal = 20.dp, vertical = 12.dp)
-                        .testTag("hot_board_${board.name.lowercase()}"),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Checkbox(
-                        state = if (checked) ToggleableState.On else ToggleableState.Off,
-                        onClick = null,
-                    )
-                    Spacer(Modifier.width(14.dp))
-                    Text(board.label)
-                }
-            }
-            DialogButtons(
-                negativeText = "取消",
-                onNegative = { show = false },
-                positiveText = "确定",
-                onPositive = {
-                    apply = true
-                    show = false
-                },
-            )
-        }
-    }
-}
-
-/**
- * 「本地关注」取数账号选择。和 [FeedTabPicker] 同一套弹窗：胶囊高亮能按住上下拖着换项，
- * 选中项先记下来，等窗口收完再交出去，避免和关闭动画抢时序。
- */
 @Composable
 private fun LocalFollowPicker(
     accounts: List<Account>,

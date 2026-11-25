@@ -97,7 +97,6 @@ import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.Checkbox
-import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.RadioButton
 import top.yukonga.miuix.kmp.basic.Text
@@ -117,7 +116,6 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 import kotlinx.coroutines.launch
 
 /** 去掉外框后补在列表 12dp 内边距上的横向留白，合计 16dp，与顶栏按钮外框对齐。 */
-private val FlatFrameInset = 4.dp
 
 @Composable
 fun StatusCard(
@@ -138,11 +136,9 @@ fun StatusCard(
     onOpenQuoted: ((Status, ExpandOrigin) -> Unit)? = null,
     onDeleted: (() -> Unit)? = null,
     /** 是否保留最外层卡片外框。关掉后只去掉卡片底色与圆角，内容横向与顶栏按钮对齐。 */
-    keepFrame: Boolean = true,
     /** 去掉卡片外框时，是否在两条微博之间画一条与正文同缩进的底部分割线。 */
-    showBottomDivider: Boolean = false,
     /** 信息流按官方 140 字规则折叠长文；详情页传 false，始终显示全文。 */
-    foldLongText: Boolean = App.settings.foldLongText,
+    foldLongText: Boolean = true,
 ) {
     if (App.repo.isDeleted(status.id)) return
     // 列表画过就记住这条，详情页第一帧直接用它，不用再等接口。
@@ -243,9 +239,9 @@ fun StatusCard(
             )
         if (showOuterVote) {
             Spacer(Modifier.height(8.dp))
-            StatusVoteCard(status = status, actionsEnabled = actionsEnabled, onCard = keepFrame)
+            StatusVoteCard(status = status, actionsEnabled = actionsEnabled, onCard = true)
         }
-        StatusMedia(status, compact, onImage, onVideo, onCard = keepFrame)
+        StatusMedia(status, compact, onImage, onVideo, onCard = true)
         if (status.retweeted != null) {
             Spacer(Modifier.height(8.dp))
             RetweetBlock(
@@ -257,7 +253,7 @@ fun StatusCard(
                 onUser = onUser,
                 onImage = onImage,
                 onVideo = onVideo,
-                onCard = keepFrame,
+                onCard = true,
                 foldLongText = foldLongText,
             )
         }
@@ -313,34 +309,13 @@ fun StatusCard(
             }
         }
     }
-    if (keepFrame) {
-        Card(
-            modifier = modifier.fillMaxWidth(),
-            cornerRadius = CardDefaults.CornerRadius,
-            insideMargin = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
-            onClick = onOpen,
-            content = content,
-        )
-    } else {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            Column(
-                modifier = modifier
-                    .fillMaxWidth()
-                    .clickable(onClick = onOpen)
-                    // 列表左右各留 12dp，这里再补 4dp，内容左缘正好落在 16dp 的顶栏按钮外框上，
-                    // 不再比返回/搜索按钮更靠外。
-                    .padding(horizontal = FlatFrameInset, vertical = 12.dp),
-                content = content,
-            )
-            if (showBottomDivider) {
-                HorizontalDivider(
-                    modifier = Modifier.padding(horizontal = FlatFrameInset),
-                    thickness = 0.5.dp,
-                    color = scheme.dividerLine,
-                )
-            }
-        }
-    }
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        cornerRadius = CardDefaults.CornerRadius,
+        insideMargin = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
+        onClick = onOpen,
+        content = content,
+    )
     if (confirmDelete) {
         ConfirmDialog(
             title = "删除微博",

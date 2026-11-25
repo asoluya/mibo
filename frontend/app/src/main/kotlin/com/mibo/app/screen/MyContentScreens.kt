@@ -485,7 +485,6 @@ private fun StatusFeedList(
         contentPadding = PaddingValues(top = topInset + extraTopInset),
         refreshTexts = FullPageRefreshTexts,
     ) {
-        val feedCardFrame = App.settings.feedCardFrame
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize().scrollEndHaptic().overScrollVertical(),
@@ -495,7 +494,7 @@ private fun StatusFeedList(
                 end = 12.dp,
                 bottom = 16.dp + navBottomPadding(),
             ),
-            verticalArrangement = Arrangement.spacedBy(if (feedCardFrame) 8.dp else 0.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             if (store.items.isEmpty()) {
                 item {
@@ -513,7 +512,6 @@ private fun StatusFeedList(
             itemsIndexed(shownItems, key = { _, s -> s.id }) { index, status ->
                 val origin = rememberExpandOrigin()
                 val topBar = LocalTopBarBounds.current
-                val showDivider = !feedCardFrame && shownItems.drop(index + 1).any { !App.repo.isDeleted(it.id) }
                 SideEffect {
                     origin.listState = listState
                     origin.rowKey = status.id
@@ -537,8 +535,6 @@ private fun StatusFeedList(
                         quotedOrigin.attachToRow(listState, status.id, topBar)
                         nav.push(Route.Detail(quoted.id, quoted.mid, store.readOnly), quotedOrigin)
                     },
-                    keepFrame = feedCardFrame,
-                    showBottomDivider = showDivider,
                 )
             }
             if (shownItems.isNotEmpty()) {

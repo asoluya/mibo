@@ -236,24 +236,6 @@ class Settings(context: Context) {
     var inAppBrowser by mutableStateOf(sp.getBoolean("in_app_browser", true))
         private set
 
-    /**
-     * 首页信息流的微博是否保留最外层卡片外框。关掉后卡片背景与圆角去掉，正文横向撑到与顶栏
-     * 按钮对齐；卡片内部的区块（转发块、投票卡、媒体、楼中楼）仍保留各自的外框。默认保留。
-     */
-    var feedCardFrame by mutableStateOf(sp.getBoolean("feed_card_frame", true))
-        private set
-
-    /** 详情页主贴与热门评论是否保留最外层卡片外框。默认保留，与首页分开设置。 */
-    var detailCardFrame by mutableStateOf(sp.getBoolean("detail_card_frame", true))
-        private set
-
-    /**
-     * 信息流长文折叠：按官方规则在 140 字（280 个半角宽度）处截断，点「展开全文」再看完整内容。
-     * 详情页始终显示全文。默认开。
-     */
-    var foldLongText by mutableStateOf(sp.getBoolean("fold_long_text", true))
-        private set
-
     /** 昵称旁是否显示 VIP / SVIP / VVIP 等级标识。默认开启。 */
     var showVipLevel by mutableStateOf(sp.getBoolean("show_vip_level", true))
         private set
@@ -266,28 +248,12 @@ class Settings(context: Context) {
     var showVerifiedBadge by mutableStateOf(sp.getBoolean("show_verified_badge", true))
         private set
 
-    /** 倒序浏览：刷新时停在原阅读位置，将新微博插入上方并支持断点补拉。默认关。 */
-    var reverseBrowse by mutableStateOf(sp.getBoolean("reverse_browse", false))
-        private set
-
-    /** 收纳关注分组：开启后首页中间栏菜单将关注分组收进二级菜单，关闭后直接平铺展开在一级菜单中。默认开。 */
-    var collapseFollowGroups by mutableStateOf(sp.getBoolean("collapse_follow_groups", true))
-        private set
-
     /** 实况图滑动自动播放：开启后进入或滑动到实况图时自动播放一次，结束后仅支持长按重播。默认开。 */
     var livePhotoAutoPlay by mutableStateOf(sp.getBoolean("live_photo_auto_play", true))
         private set
 
     /** 实况图声音播放：开启后播放实况图附带的视频声音，关闭时静音播放。默认开。 */
     var livePhotoSound by mutableStateOf(sp.getBoolean("live_photo_sound", true))
-        private set
-
-    /**
-     * 搜索面板里显示哪些热搜榜，按 [HotBoard] 的声明顺序保存。
-     *
-     * 没存过键时是全部五个榜；存成空串表示一个都不选，此时整个热搜区块都不显示。
-     */
-    var hotBoards by mutableStateOf(parseHotBoards(sp.getString("hot_boards", null)))
         private set
 
     /** 上次检查更新的时间戳。 */
@@ -522,20 +488,8 @@ class Settings(context: Context) {
         sp.edit().putBoolean("in_app_browser", value).apply()
     }
 
-    fun applyFeedCardFrame(value: Boolean) {
-        feedCardFrame = value
-        sp.edit().putBoolean("feed_card_frame", value).apply()
-    }
 
-    fun applyDetailCardFrame(value: Boolean) {
-        detailCardFrame = value
-        sp.edit().putBoolean("detail_card_frame", value).apply()
-    }
 
-    fun applyFoldLongText(value: Boolean) {
-        foldLongText = value
-        sp.edit().putBoolean("fold_long_text", value).apply()
-    }
 
     fun applyShowVipLevel(value: Boolean) {
         showVipLevel = value
@@ -552,15 +506,7 @@ class Settings(context: Context) {
         sp.edit().putBoolean("show_verified_badge", value).apply()
     }
 
-    fun applyReverseBrowse(value: Boolean) {
-        reverseBrowse = value
-        sp.edit().putBoolean("reverse_browse", value).apply()
-    }
 
-    fun applyCollapseFollowGroups(value: Boolean) {
-        collapseFollowGroups = value
-        sp.edit().putBoolean("collapse_follow_groups", value).apply()
-    }
 
     fun applyLivePhotoAutoPlay(value: Boolean) {
         livePhotoAutoPlay = value
@@ -572,12 +518,6 @@ class Settings(context: Context) {
         sp.edit().putBoolean("live_photo_sound", value).apply()
     }
 
-    /** [value] 为空时热搜区块整个隐藏，所以空集合也要落盘（存成空串），不能靠删键。 */
-    fun applyHotBoards(value: Set<HotBoard>) {
-        val ordered = HotBoard.entries.filter { it in value }.toSet()
-        hotBoards = ordered
-        sp.edit().putString("hot_boards", ordered.joinToString(",") { it.filterType }).apply()
-    }
 
     fun applyLocalFollowUid(uid: String) {
         localFollowUid = uid
@@ -626,13 +566,6 @@ class Settings(context: Context) {
     }
 }
 
-/** `null` 表示从没设置过（默认全部显示）；空串表示用户明确全不勾，热搜区块隐藏。 */
-internal fun parseHotBoards(raw: String?): Set<HotBoard> {
-    if (raw == null) return HotBoard.entries.toSet()
-    if (raw.isBlank()) return emptySet()
-    val keys = raw.split(',').map { it.trim() }.filter { it.isNotEmpty() }.toSet()
-    return HotBoard.entries.filter { it.filterType in keys }.toSet()
-}
 
 internal fun parseSearchHistoryJson(raw: String?): List<String> {
     if (raw.isNullOrBlank()) return emptyList()

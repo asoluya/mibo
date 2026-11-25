@@ -286,7 +286,7 @@ fun MainShell(nav: NavState) {
     // 一份好友流，显示时统一叫「全部」；纯本地模式没有好友流，仍按「本地关注」走。
     val filter = if (guest) FeedFilter.Local else FeedFilter.All
     val friendsStore = remember {
-        FeedStore("friends", resumable = true, supportsReverseBrowse = true, snapshotOwner = { accountOwner }) { cursor, force ->
+        FeedStore("friends", resumable = true, snapshotOwner = { accountOwner }) { cursor, force ->
             App.repo.friends(cursor, force)
         }
     }
@@ -294,7 +294,7 @@ fun MainShell(nav: NavState) {
         mapOf(
             FeedFilter.All to friendsStore,
             FeedFilter.Following to friendsStore,
-            FeedFilter.Original to FeedStore("original", resumable = true, supportsReverseBrowse = true, snapshotOwner = { accountOwner }) { cursor, force ->
+            FeedFilter.Original to FeedStore("original", resumable = true, snapshotOwner = { accountOwner }) { cursor, force ->
                 originalFeed(cursor, force)
             },
             FeedFilter.Unread to FeedStore("unread", snapshotOwner = { accountOwner }) { _, _ -> FeedPage(emptyList(), null) },
@@ -306,16 +306,16 @@ fun MainShell(nav: NavState) {
                     App.repo.favorites(cursor, force)
                 }
             },
-            FeedFilter.Special to FeedStore("special", resumable = true, supportsReverseBrowse = true, snapshotOwner = { accountOwner }) { cursor, force ->
+            FeedFilter.Special to FeedStore("special", resumable = true, snapshotOwner = { accountOwner }) { cursor, force ->
                 App.repo.special(cursor, force)
             },
-            FeedFilter.Circle to FeedStore("circle", resumable = true, supportsReverseBrowse = true, snapshotOwner = { accountOwner }) { cursor, force ->
+            FeedFilter.Circle to FeedStore("circle", resumable = true, snapshotOwner = { accountOwner }) { cursor, force ->
                 App.repo.circle(cursor, force)
             },
-            FeedFilter.Secret to FeedStore("secret", resumable = true, supportsReverseBrowse = true, snapshotOwner = { accountOwner }) { cursor, force ->
+            FeedFilter.Secret to FeedStore("secret", resumable = true, snapshotOwner = { accountOwner }) { cursor, force ->
                 App.repo.secret(cursor, force)
             },
-            FeedFilter.Local to FeedStore("local", readOnly = true, resumable = true, supportsReverseBrowse = true, snapshotOwner = { accountOwner }) { cursor, force ->
+            FeedFilter.Local to FeedStore("local", readOnly = true, resumable = true, snapshotOwner = { accountOwner }) { cursor, force ->
                 App.repo.localFollows(cursor, force)
             },
         )
@@ -370,7 +370,7 @@ fun MainShell(nav: NavState) {
         FeedTabItem.Nearby -> nearbyStore
         FeedTabItem.Group -> selection.group?.let { group ->
             groupStores.getOrPut(group.gid) {
-                FeedStore("group_${group.gid}", resumable = true, supportsReverseBrowse = true, snapshotOwner = { accountOwner }) { cursor, _ ->
+                FeedStore("group_${group.gid}", resumable = true, snapshotOwner = { accountOwner }) { cursor, _ ->
                     App.repo.groupFeed(group.gid, cursor)
                 }
             }
@@ -1954,7 +1954,6 @@ private fun FeedTabs(
                             val items = buildCenterMenuEntries(
                                 centerOptions = centerOptions,
                                 centerTab = centerTab,
-                                collapseFollowGroups = App.settings.collapseFollowGroups,
                                 onCenterSelected = onCenterSelected,
                                 sideKeys = sideSelectionKeys,
                                 onPickNearbyCity = onPickNearbyCity,
@@ -1971,12 +1970,11 @@ private fun FeedTabs(
 
 /**
  * 构建首页中间栏下拉菜单分段：第一段为「全部」，第二段为其余内置流，
- * 第三段按 [collapseFollowGroups] 将关注分组收进二级子菜单或直接全部平铺展开。
+ * 第三段将关注分组收进二级子菜单。
  */
 internal fun buildCenterMenuEntries(
     centerOptions: List<FeedTabSelection>,
     centerTab: FeedTabSelection,
-    collapseFollowGroups: Boolean,
     onCenterSelected: (FeedTabSelection) -> Unit,
     sideKeys: Set<String> = emptySet(),
     onPickNearbyCity: () -> Unit = {},
@@ -2069,39 +2067,24 @@ internal fun buildCenterMenuEntries(
             }
         if (filters.isNotEmpty()) add(DropdownEntry(items = filters))
         if (groupOptions.isNotEmpty()) {
-            if (collapseFollowGroups) {
-                add(
-                    DropdownEntry(
-                        items = listOf(
-                            DropdownItem(
-                                text = FeedTabItem.Group.label,
-                                selected = centerTab.isGroup,
-                                summary = currentGroupTitle,
-                                children = groupOptions.map { option ->
-                                    DropdownItem(
-                                        text = option.label,
-                                        selected = option.key == centerTab.key,
-                                        onClick = { onCenterSelected(option) },
-                                    )
-                                },
-                            )
+            add(
+                DropdownEntry(
+                    items = listOf(
+                        DropdownItem(
+                            text = FeedTabItem.Group.label,
+                            selected = centerTab.isGroup,
+                            summary = currentGroupTitle,
+                            children = groupOptions.map { option ->
+                                DropdownItem(
+                                    text = option.label,
+                                    selected = option.key == centerTab.key,
+                                    onClick = { onCenterSelected(option) },
+                                )
+                            },
                         )
                     )
                 )
-            } else {
-                add(
-                    DropdownEntry(
-                        items = groupOptions.map { option ->
-                            DropdownItem(
-                                text = option.label,
-                                summary = FeedTabItem.Group.label,
-                                selected = option.key == centerTab.key,
-                                onClick = { onCenterSelected(option) },
-                            )
-                        }
-                    )
-                )
-            }
+            )
         }
     }
 }
