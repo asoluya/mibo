@@ -1033,12 +1033,6 @@ fun ProfileHubContent(
                         insideMargin = PaddingValues(0.dp),
                     ) {
                         ArrowPreference(
-                            title = "我的收藏",
-                            startAction = { HubRowIcon(MeIcons.Favorites) },
-                            modifier = Modifier.testTag("hub_favorites"),
-                            onClick = { nav.push(Route.Favorites) },
-                        )
-                        ArrowPreference(
                             title = "我赞过的",
                             startAction = { HubRowIcon(MeIcons.MyLikes) },
                             modifier = Modifier.testTag("hub_my_likes"),
