@@ -450,9 +450,6 @@ suspend fun buildCopyTextWithDirectLinks(
             hasDirectLink = true
             // 直链以纯文本身份进入后续 stripHtml，先转义 & 免得被当成 HTML 实体吞掉参数。
             out.append(direct.replace("&", "&amp;"))
-        } else if (isHttp && label == "网页链接") {
-            // 站内链接的锚文字只是占位「网页链接」（如指向另一条微博），复制文字没有意义，换成真实地址。
-            out.append(candidate.replace("&", "&amp;"))
         } else {
             out.append(label)
         }
