@@ -394,21 +394,6 @@ fun BackIconButton(onClick: () -> Unit) {
     }
 }
 
-@Composable
-fun ClickableRow(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    content: @Composable () -> Unit,
-) {
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-    ) {
-        content()
-    }
-}
-
 fun fmtCount(value: Int): String {
     if (value <= 0) return "0"
     if (value < 10000) return value.toString()
@@ -432,14 +417,3 @@ fun navBottomPadding(): Dp =
     androidx.compose.foundation.layout.WindowInsets.navigationBars
         .asPaddingValues()
         .calculateBottomPadding()
-
-@Composable
-fun systemNavigationBarHeight(): Dp {
-    val view = androidx.compose.ui.platform.LocalView.current
-    val density = androidx.compose.ui.platform.LocalDensity.current
-    val px = view.rootWindowInsets
-        ?.getInsets(androidx.core.view.WindowInsetsCompat.Type.navigationBars())
-        ?.bottom ?: 0
-    val fallback = navBottomPadding()
-    return if (px > 0) with(density) { px.toDp() } else maxOf(fallback, 20.dp)
-}

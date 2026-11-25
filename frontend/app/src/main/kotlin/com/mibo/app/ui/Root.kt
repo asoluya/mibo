@@ -35,7 +35,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
@@ -67,7 +66,6 @@ import androidx.compose.ui.util.lerp
 import androidx.compose.ui.zIndex
 import com.mibo.app.App
 import com.mibo.app.data.Pic
-import com.mibo.app.data.Updater
 import com.mibo.app.data.normalizeWeiboMediaUrl
 import com.mibo.app.data.superTopicId
 import com.mibo.app.screen.AboutScreen
@@ -827,7 +825,6 @@ private fun RouteContent(route: Route, nav: NavState) {
         is Route.Images -> ImageViewerScreen(nav, route.pics, route.index, route.editableAvatar)
         is Route.Video -> VideoScreen(nav, route.url, route.title, route.isLive)
         is Route.Vote -> VoteScreen(nav, route.voteId)
-        Route.TabLab -> TabBarLabScreen()
     }
 }
 

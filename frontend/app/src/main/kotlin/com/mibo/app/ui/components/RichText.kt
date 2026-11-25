@@ -175,22 +175,6 @@ private fun linkStyles(color: Color?): TextLinkStyles? = color?.let {
     )
 }
 
-fun parseWeiboHtml(
-    html: String,
-    onLink: ((String) -> Unit)? = null,
-    glyphColor: Color? = null,
-): AnnotatedString {
-    val builder = AnnotatedString.Builder()
-    appendParsedWeibo(
-        builder = builder,
-        inlineContent = null,
-        parsed = parseWeiboContent(html),
-        onLink = onLink,
-        linkColor = glyphColor,
-    )
-    return builder.toAnnotatedString()
-}
-
 private fun appendParsedWeibo(
     builder: AnnotatedString.Builder,
     inlineContent: MutableMap<String, InlineTextContent>?,

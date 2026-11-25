@@ -10,7 +10,6 @@ import top.yukonga.miuix.kmp.icon.extended.Location
 import top.yukonga.miuix.kmp.icon.extended.Notes
 import top.yukonga.miuix.kmp.icon.extended.Settings
 import top.yukonga.miuix.kmp.icon.extended.Tune
-import top.yukonga.miuix.kmp.icon.extended.Update
 
 /**
  * 「我」页面入口图标：统一使用 Miuix 线性图标（不足的用应用自家的 [MiboIcons] 线性图标），
@@ -57,8 +56,6 @@ internal object MeIcons {
     /** 账号与内容设置：联系人。 */
     val AccountSettings: ImageVector get() = MiuixIcons.Contacts
 
-    /** 更新设置：更新。 */
-    val UpdateSettings: ImageVector get() = MiuixIcons.Update
 
     /** 其他设置：齿轮。 */
     val OtherSettings: ImageVector get() = MiuixIcons.Settings

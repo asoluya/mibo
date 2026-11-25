@@ -39,7 +39,6 @@ import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Checkbox
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.layout.DialogDefaults
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -92,67 +91,6 @@ internal fun DialogButtonBar(
                 enabled = action.enabled,
                 modifier = Modifier.weight(1f),
                 colors = ButtonDefaults.textButtonColorsPrimary(),
-            )
-        }
-    }
-}
-
-/**
- * 输入弹窗。和 Miuix 示例里那张单行输入框一样用 [OverlayDialog]：面板是磨砂玻璃，
- * 按钮栏是浮在面板上的半透明胶囊。用独立窗口的 WindowDialog 时采不到页面 backdrop，
- * 玻璃会退回不透明底色，胶囊直接糊在面板上。
- */
-@Composable
-fun InputDialog(
-    title: String,
-    hint: String,
-    initial: String = "",
-    confirmText: String = "确定",
-    onDismiss: () -> Unit,
-    onConfirm: (String) -> Unit,
-) {
-    var text by remember { mutableStateOf(initial) }
-    var show by remember { mutableStateOf(false) }
-    var result by remember { mutableStateOf<String?>(null) }
-    var settled by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { show = true }
-    OverlayDialog(
-        show = show,
-        title = title,
-        outsideMargin = DpSize(16.dp, 8.dp),
-        onDismissRequest = { show = false },
-        onDismissFinished = {
-            if (!settled) {
-                settled = true
-                val value = result
-                if (value != null) onConfirm(value) else onDismiss()
-            }
-        },
-    ) {
-        Column {
-            TextField(
-                value = text,
-                onValueChange = { text = it },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
-                    .padding(top = 4.dp),
-                label = hint,
-                maxLines = 6,
-                minLines = 3,
-            )
-            DialogButtonBar(
-                negative = DialogButtonBarAction(text = "取消", onClick = { show = false }),
-                positive = DialogButtonBarAction(
-                    text = confirmText,
-                    enabled = text.isNotBlank(),
-                    onClick = {
-                        if (text.isNotBlank()) {
-                            result = text.trim()
-                            show = false
-                        }
-                    },
-                ),
             )
         }
     }

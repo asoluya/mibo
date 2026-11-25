@@ -615,8 +615,4 @@ object ContainerApi {
         }
         return SearchSuggestResult(keywords = keywords, users = directUsers.values.toList())
     }
-
-    /** `page/get_search_suggest` 词条快捷解析（保留供现有调用/测试复用）。 */
-    fun parseSearchSuggest(rawText: String): List<String> =
-        parseSearchSuggestResult(rawText).keywords
 }

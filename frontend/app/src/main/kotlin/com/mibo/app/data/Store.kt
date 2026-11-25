@@ -139,24 +139,6 @@ class Store(private val context: Context) {
         write("session.json", o, secret = true)
     }
 
-    /**
-     * 容器接口的 `i` 参数，15 位设备号。第一次生成后一直复用：
-     * 每次登录都换一个值会被当成新设备，反而更容易触发验证。
-     */
-    fun deviceId(): String {
-        val f = file("device.json")
-        val obj = if (f.exists()) {
-            runCatching { JSONObject(f.readText()) }.getOrDefault(JSONObject())
-        } else {
-            JSONObject()
-        }
-        val saved = obj.optString("i")
-        if (saved.isNotBlank()) return saved
-        val id = "86" + (1_000_000_000_000L + (Math.random() * 8_999_999_999_999L).toLong())
-        write("device.json", obj.put("i", id))
-        return id
-    }
-
     /** 持久化 Share 客户端通路的 `aid` 与 `did`，避免每次请求重领 `guest/login`。 */
     fun clientAid(): String {
         val f = file("device.json")
@@ -414,8 +396,6 @@ class Store(private val context: Context) {
     }
 
     fun hasFollowTag(uid: String): Boolean = readFollowTags().has(uid)
-
-    fun followTag(uid: String): FollowTag? = FollowTag.of(readFollowTags().optString(uid))
 
     fun followTags(): Map<String, FollowTag> {
         val o = readFollowTags()

@@ -26,10 +26,7 @@ internal data class MotionPhotoInfo(
     val embeddedVideoLength: Long?,
     val declaredVideoLength: Long?,
     val presentationTimestampUs: Long?,
-) {
-    val hasMotionPhoto: Boolean
-        get() = declaresMotionPhoto || embeddedVideoLength != null
-}
+)
 
 /**
  * 解析 JPEG 中的 XMP 与尾部内嵌视频，校验生成的实况图是否符合 Android Motion Photo 结构。
@@ -59,13 +56,6 @@ internal object MotionPhotoParser {
     }.getOrDefault(false)
 
     /** 发布侧字节级判定：JPEG 头 + XMP 区声明 MotionPhoto / MicroVideo（视频段在文件尾部拼接）。 */
-    fun isMotionPhotoBytes(bytes: ByteArray): Boolean {
-        if (bytes.size < 3) return false
-        if (bytes[0] != 0xFF.toByte() || bytes[1] != 0xD8.toByte()) return false
-        val head = bytes.copyOfRange(0, minOf(bytes.size, 128 * 1024))
-            .toString(Charsets.ISO_8859_1)
-        return head.contains("MotionPhoto") || head.contains("MicroVideo")
-    }
 
     fun isIsoBmff(file: File): Boolean = runCatching {
         if (!file.isFile || file.length() < 12L) return false

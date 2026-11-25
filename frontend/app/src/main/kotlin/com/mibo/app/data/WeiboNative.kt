@@ -29,8 +29,6 @@ object WeiboNative {
         WeiboApplication.create(ctx).also { it.init(FROM) }
     }.getOrNull()
 
-    val available: Boolean get() = app != null
-
     fun s(uid: String): String? =
         app?.let { runCatching { it.newCalculateS(uid) }.getOrNull() }?.ifBlank { null }
 

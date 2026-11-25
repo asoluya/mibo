@@ -4,7 +4,6 @@ import com.mibo.app.App
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.widget.Toast
 import androidx.compose.runtime.staticCompositionLocalOf
 import com.mibo.app.data.CookieVault
 import com.mibo.app.data.stripHtml
@@ -341,25 +340,6 @@ fun extractResolvablePhotoLinksFromHtml(html: String): List<String> {
         if (isPhotoPage || isPhotoShortLink) {
             out.add(normalizeProtocolUrl(url))
         }
-    }
-    return out.toList()
-}
-
-/**
- * 收集正文 HTML 里可复制的外链（「⋯」菜单的复制链接用）：锚点 href 顺序去重，
- * 只留站外 http(s) 链接与小店中转链接（shop.sc.weibo.com，复制前再拆包成直链）。
- */
-fun extractCopyableLinksFromHtml(html: String): List<String> {
-    val out = LinkedHashSet<String>()
-    forEachHtmlAnchor(html) { url, _ ->
-        if (url.isBlank()) return@forEachHtmlAnchor
-        val baseCandidate = unwrapSinaUrl(url) ?: url
-        val candidate = linkcardShopGoodsUrl(baseCandidate) ?: baseCandidate
-        if (!candidate.startsWith("http://", true) && !candidate.startsWith("https://", true)) {
-            return@forEachHtmlAnchor
-        }
-        val host = runCatching { java.net.URI(candidate).host }.getOrNull()?.lowercase().orEmpty()
-        if (isExternalWebLink(candidate) || host == "shop.sc.weibo.com") out.add(candidate)
     }
     return out.toList()
 }
@@ -842,7 +822,6 @@ fun openAppScheme(context: Context, url: String): Boolean {
 }
 
 private val ExternalShopHosts = listOf("taobao.com", "tmall.com", "tb.cn", "jd.com", "vip.com", "meituan.com", "dianping.com", "dpurl.cn")
-
 
 /**
  * 微博电商中转链接拆包：shop.sc.weibo.com/h5/sclick/index?...&url=<编码后的真实地址>

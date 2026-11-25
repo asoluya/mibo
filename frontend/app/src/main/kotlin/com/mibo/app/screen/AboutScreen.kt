@@ -7,7 +7,6 @@ import android.content.pm.PackageInfo
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.os.Build
-import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -30,7 +29,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -49,7 +47,6 @@ import com.mibo.app.ui.AppBarSurface
 import com.mibo.app.ui.LocalBackdrop
 import com.mibo.app.ui.NavState
 import com.mibo.app.ui.PinnedBarDensity
-import com.mibo.app.ui.Route
 import com.mibo.app.ui.blurEffectsEnabled
 import com.mibo.app.ui.components.BackIconButton
 import com.mibo.app.ui.components.SectionTitle
@@ -69,7 +66,6 @@ import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
-import kotlinx.coroutines.launch
 
 private data class UpstreamRef(
     val title: String,

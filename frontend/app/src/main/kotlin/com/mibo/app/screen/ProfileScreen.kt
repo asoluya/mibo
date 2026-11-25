@@ -95,7 +95,6 @@ import com.mibo.app.data.ProfileGroupSelection
 import com.mibo.app.data.ProfileRenameRecord
 import com.mibo.app.data.RelationKind
 import com.mibo.app.data.Status
-import com.mibo.app.data.Updater
 import com.mibo.app.data.User
 import com.mibo.app.data.WEIBO_PROFILE_EDIT_URL
 import com.mibo.app.data.computeProfileRenameStatus
@@ -185,7 +184,6 @@ import androidx.compose.ui.layout.layout
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.graphics.vector.ImageVector
 import java.net.URLEncoder
 import kotlin.math.roundToInt

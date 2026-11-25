@@ -51,7 +51,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
@@ -60,7 +59,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mibo.app.App
 import com.mibo.app.data.Account
-import com.mibo.app.data.Draft
 import com.mibo.app.data.HistoryItem
 import com.mibo.app.ui.AppBarSurface
 import com.mibo.app.ui.NavState
@@ -76,7 +74,6 @@ import com.mibo.app.ui.components.ConfirmDialog
 import com.mibo.app.ui.components.EmptyState
 import com.mibo.app.ui.components.TopBarTextButton
 import com.mibo.app.ui.components.WeiboRichText
-import com.mibo.app.ui.components.fmtCount
 import com.mibo.app.ui.components.navBottomPadding
 import com.mibo.app.ui.pageContainerColor
 import com.mibo.app.ui.LocalBackdrop

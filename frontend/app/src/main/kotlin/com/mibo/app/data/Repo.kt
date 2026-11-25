@@ -587,13 +587,6 @@ class Repo(private val context: Context, private val store: Store) {
         App.settings.applyLocalMode(true)
     }
 
-    fun updateSession(cookie: String, uid: String) {
-        resetAccountCaches(clearGroupTabs = true)
-        App.settings.applyLocalMode(false)
-        store.saveSession(cookie, uid)
-        session = store.session()
-    }
-
     /** 切换到已保存账号：客户端登录保留 gsid 以支持无感续签，网页登录保留 cookie 会话。 */
     fun switchAccount(account: Account) {
         resetAccountCaches(clearGroupTabs = true)
@@ -4468,7 +4461,6 @@ class Repo(private val context: Context, private val store: Store) {
         return visitorPlaces.ifEmpty { DEFAULT_NEARBY_PLACES }
     }
 
-    fun clearLocalHistory() = store.clearHistory()
 }
 
 internal fun extractLikeTabContainerId(root: JSONObject?): String? {

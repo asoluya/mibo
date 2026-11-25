@@ -456,8 +456,6 @@ object Api {
         }
     }
 
-    fun jsonRequestUrl(base: String, params: Map<String, String?> = emptyMap()) = url(base, params)
-
     // ---- 容器端（api.weibo.cn/2）：客户端登录与登录态续期 ----
 
     /** 容器接口自报的客户端标识，格式与客户端 UA 一致。 */
@@ -659,6 +657,4 @@ object Api {
         }
     }
 
-    @Suppress("unused")
-    private val jsonMedia = JSON
 }

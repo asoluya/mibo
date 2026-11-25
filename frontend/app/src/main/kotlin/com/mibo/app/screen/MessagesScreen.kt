@@ -118,14 +118,6 @@ fun MessagesScreen(
     LaunchedEffect(state) {
         if (!state.loaded) state.load(true, force = true)
     }
-    // 底栏刷新键属于用户主动触发，才播放与下拉一致的气泡动画。
-    LaunchedEffect(state) {
-        App.messagesTopEvents.collect {
-            // Miuix 的 PullToRefreshState 没有编程式 startRefresh：直接走同一条加载路径，
-            // state.refreshing 会驱动 PullToRefresh 显示刷新指示。
-            scope.launch { state.load(true, force = true, showRefresh = true) }
-        }
-    }
     LaunchedEffect(listState, items.size) {
         snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1 }
             .collect { last ->

@@ -275,8 +275,6 @@ sealed interface Route {
     ) : Route
     data class Video(val url: String, val title: String, val isLive: Boolean = false) : Route
     data class Vote(val voteId: String) : Route
-    /** 临时对比页，验完删。 */
-    data object TabLab : Route
 }
 
 class NavEntry(
@@ -322,7 +320,6 @@ class NavState {
     val stack = mutableStateListOf<NavEntry>(
         NavEntry(
             when {
-                App.startRoute == "tablab" -> Route.TabLab
                 App.startRoute == "main" -> Route.Main
                 App.repo.hasSession() || App.settings.localMode -> Route.Main
                 else -> Route.SmsLogin()

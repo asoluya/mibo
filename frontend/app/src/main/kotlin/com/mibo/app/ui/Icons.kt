@@ -1,7 +1,6 @@
 package com.mibo.app.ui
 
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
@@ -13,17 +12,12 @@ import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Answer
 import top.yukonga.miuix.kmp.icon.extended.ContactsCircle
 import top.yukonga.miuix.kmp.icon.extended.Create
-import top.yukonga.miuix.kmp.icon.extended.ExpandLess
-import top.yukonga.miuix.kmp.icon.extended.ExpandMore
 import top.yukonga.miuix.kmp.icon.extended.Forward
 import top.yukonga.miuix.kmp.icon.extended.Home
 import top.yukonga.miuix.kmp.icon.extended.Image
-import top.yukonga.miuix.kmp.icon.extended.Location
 import top.yukonga.miuix.kmp.icon.extended.Messages
 import top.yukonga.miuix.kmp.icon.extended.Ok
 import top.yukonga.miuix.kmp.icon.extended.Recent
-import top.yukonga.miuix.kmp.icon.extended.Tune
-import top.yukonga.miuix.kmp.icon.extended.Update
 import top.yukonga.miuix.kmp.icon.extended.VolumeOff
 import top.yukonga.miuix.kmp.icon.extended.VolumeUp
 
@@ -259,7 +253,6 @@ object MiboIcons {
             )
         }.build()
 
-
     val FeedOutline: ImageVector get() = MiuixIcons.Home
     val FeedFilled: ImageVector get() = MiuixIcons.Home
     val MessagesOutline: ImageVector get() = MiuixIcons.Messages
@@ -395,11 +388,8 @@ object MiboIcons {
         }.build()
     }
 
-    /** 列表排序用：竖直箭头。线宽与 [Check] 对齐，缩到 18dp 也不会糊成一块。 */
-    val ArrowUp: ImageVector get() = MiuixIcons.ExpandLess
 
-    /** [ArrowUp] 的镜像，指向下方。 */
-    val ArrowDown: ImageVector get() = MiuixIcons.ExpandMore
+
 
     /** 赞赏码专用：Miuix 风格实心大拇指（官方图标库没有点赞图标，按其填充字形风格自绘）。 */
     val PraiseThumb: ImageVector by lazy {
@@ -464,14 +454,8 @@ object MiboIcons {
     /** 浏览历史：线性时钟。 */
     val History: ImageVector get() = MiuixIcons.Recent
 
-    /** 附近：线性定位标。 */
-    val LocationOutline: ImageVector get() = MiuixIcons.Location
 
-    /** 显示与交互：线性三滑块调节图标。 */
-    val TuneOutline: ImageVector get() = MiuixIcons.Tune
 
-    /** 更新：线性圆环箭头。 */
-    val UpdateOutline: ImageVector get() = MiuixIcons.Update
 
     /** 链接前缀：线性图片框图标（圆角边框 + 山峰 + 太阳），用于「查看图片」。 */
     val Image: ImageVector get() = MiuixIcons.Image

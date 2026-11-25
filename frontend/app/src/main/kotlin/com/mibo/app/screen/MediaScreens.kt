@@ -1,7 +1,6 @@
 package com.mibo.app.screen
 
 import android.Manifest
-import android.content.ContentValues
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
@@ -10,10 +9,7 @@ import android.graphics.BitmapRegionDecoder
 import android.graphics.Rect as AndroidRect
 import android.media.AudioManager
 import android.os.Build
-import android.os.Environment
 import java.io.File
-import java.security.MessageDigest
-import android.provider.MediaStore
 import android.net.Uri
 import android.provider.Settings
 import android.util.Log
@@ -212,7 +208,6 @@ import com.mibo.app.ui.openExternalUrl
 import com.mibo.app.ui.resolveWeiboLink
 import com.mibo.app.ui.ThumbBounds
 import com.mibo.app.ui.unwrapWeiboLink
-import com.mibo.app.ui.unwrapSinaUrl
 import com.mibo.app.ui.components.AvatarCropDialog
 import com.mibo.app.ui.components.MiboRefreshSpinner
 import com.mibo.app.ui.components.ConfirmDialog
@@ -255,8 +250,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import okhttp3.OkHttpClient
-import okhttp3.Request
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -585,7 +578,6 @@ fun ImageViewerScreen(
     }
     val ink = if (light) Color(0xFF1A1A1A) else Color.White
     val plate = if (light) Color.White else Color(0xFF141414)
-    val plateAlpha = if (light) 0.62f else 0.46f
 
     ViewerSystemBars(visible = chrome)
 

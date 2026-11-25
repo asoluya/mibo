@@ -62,7 +62,6 @@ import com.mibo.app.ui.components.FullPageRefreshTexts
 import com.mibo.app.ui.components.LoadingState
 import com.mibo.app.ui.components.StatusCard
 import com.mibo.app.ui.components.navBottomPadding
-import com.mibo.app.ui.pageContainerColor
 import kotlinx.coroutines.CancellationException
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
@@ -732,9 +731,6 @@ fun TimelineScreen(
                 }
             }
         }
-    }
-    LaunchedEffect(Unit) {
-        App.feedRefreshEvents.collect { currentFollowStore.refresh() }
     }
     LaunchedEffect(Unit) {
         App.feedTopEvents.collect { scrollToTop ->

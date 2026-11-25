@@ -1,9 +1,7 @@
 package com.mibo.app.ui
 
-import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateDpAsState
@@ -22,7 +20,6 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -34,7 +31,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
@@ -60,8 +56,6 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -72,19 +66,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -99,7 +88,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -108,11 +96,9 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
-import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
@@ -121,7 +107,6 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mibo.app.App
-import com.mibo.app.R
 import com.mibo.app.data.Account
 import com.mibo.app.data.FeedPage
 import com.mibo.app.data.FeedTabItem
@@ -164,45 +149,36 @@ import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.FloatingNavigationBar
 import top.yukonga.miuix.kmp.basic.FloatingNavigationBarDefaults
 import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.InputField
 import top.yukonga.miuix.kmp.basic.ListPopupColumn
-import top.yukonga.miuix.kmp.basic.ListPopupDefaults
 import top.yukonga.miuix.kmp.basic.PopupPositionProvider
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TopAppBarDefaults
-import top.yukonga.miuix.kmp.blur.BlendColorEntry
-import top.yukonga.miuix.kmp.blur.BlurColors
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.blur.textureBlur
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Add
-import top.yukonga.miuix.kmp.icon.extended.Edit
 import top.yukonga.miuix.kmp.icon.extended.GridView
 import top.yukonga.miuix.kmp.icon.extended.ExpandLess
 import top.yukonga.miuix.kmp.icon.extended.ExpandMore
 import top.yukonga.miuix.kmp.icon.extended.Refresh
 import top.yukonga.miuix.kmp.icon.extended.Search
 import top.yukonga.miuix.kmp.icon.extended.Settings
-import top.yukonga.miuix.kmp.overlay.OverlayCascadingListPopup
 import top.yukonga.miuix.kmp.overlay.OverlayListPopup
 import top.yukonga.miuix.kmp.theme.LocalDismissState
 import top.yukonga.miuix.kmp.glass.glassPanel
-import top.yukonga.miuix.kmp.glass.GlassPopupDefaults
 import top.yukonga.miuix.kmp.material.GlassDefaults
 import top.yukonga.miuix.kmp.material.GlassEdgeStrokes
 import top.yukonga.miuix.kmp.material.GlassMaterials
 import top.yukonga.miuix.kmp.material.GlassShape
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
-import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 
 /** 搜索面板进出场曲线（原 COUIInEase / COUIOutEase 的近似）。 */
@@ -462,11 +438,6 @@ fun MainShell(nav: NavState) {
     val topBarHeight = pinnedHeight(FeedTitleRowHeight)
     // The feed header is two rows: the title row folds away as the list scrolls, the segment row
     // stays pinned under the status bar.
-    val feedTopBarHeight = if (feedHasTabs) {
-        pinnedHeight(FeedTitleRowHeight, TopAppBarDefaults.SmallTopAppBarCenterHeight)
-    } else {
-        topBarHeight
-    }
     // 标题行去掉后页面顶 inset 收紧：只剩状态栏下留白（微博页再加分段行）；搜索面板仍用 topBarHeight 原值。
     val pageTopInset = pinnedHeight(CompactTitleGap)
     val feedPageTopInset = if (feedHasTabs) {
@@ -508,7 +479,6 @@ fun MainShell(nav: NavState) {
     val focusManager = LocalFocusManager.current
 
     // 首页搜索展开期间锁定标题行不折叠，防止部分折叠或软键盘弹出时挤压/裁切搜索胶囊；收起后恢复跟踪列表滚动。
-    val rawCollapseTarget = (feedCollapse / barTitleHeightPx).coerceIn(0f, 1f)
     // 顶栏悬浮常驻：下滑时也不折叠，标题行与分段行始终可见可点（原折叠目标停用）。
     val collapseTarget = 0f
     val collapseShown = remember { Animatable(collapseTarget) }
@@ -1422,9 +1392,6 @@ private const val CirclePage = 0
 private const val FollowPage = 1
 private const val RecommendPage = 2
 
-private val FeedTabLabels = listOf("好友", "关注", "推荐")
-private val FeedTabTags = listOf("feed_tab_circle", "feed_tab_follow", "feed_tab_recommend")
-
 /** Height of the feed header's title row; the list folds exactly this much away when it scrolls. */
 internal val FeedTitleRowHeight = 44.dp
 
@@ -2019,7 +1986,6 @@ private fun FloatingBottomBar(
     // 「消息」Tab 点击菜单（消息 / 通知二选一）；游客没有通知入口，点按直接切页。
     var messagesMenuExpanded by remember { mutableStateOf(false) }
     var messagesAnchorBounds by remember { mutableStateOf(Rect.Zero) }
-    val messagesPopupPositionProvider = remember { bottomTabPopupPositionProvider() }
     Box(
         modifier
             .fillMaxWidth()
@@ -2136,7 +2102,6 @@ private fun FloatingBottomBar(
         )
     }
 }
-
 
 /**
  * 悬浮底栏的普通 Tab 项（图标 + 标签）。Miuix 的 FloatingNavigationBarItem 只画图标、
@@ -2410,41 +2375,6 @@ private fun GlassCircleButton(
         )
     }
 }
-
-/** 底栏「消息」Tab 点击菜单的内容：消息 / 通知二选一（通知入口从消息页标题行移来）。 */
-
-/** 底栏左侧 Tab 弹窗的位置：贴锚点左缘、向上展开（「我」Tab 的菜单用 profilePopupPositionProvider 靠右对齐）。 */
-private fun bottomTabPopupPositionProvider(): PopupPositionProvider =
-    object : PopupPositionProvider {
-        private val margins = PaddingValues(
-            horizontal = MiboPopupMenuDefaults.HorizontalMargin,
-            vertical = MiboPopupMenuDefaults.VerticalMargin,
-        )
-
-        override fun calculatePosition(
-            anchorBounds: IntRect,
-            windowBounds: IntRect,
-            layoutDirection: LayoutDirection,
-            popupContentSize: IntSize,
-            popupMargin: IntRect,
-            alignment: PopupPositionProvider.Align,
-        ): IntOffset {
-            val minX = windowBounds.left + popupMargin.left
-            val maxX = (windowBounds.right - popupContentSize.width - popupMargin.right)
-                .coerceAtLeast(minX)
-            val minY = windowBounds.top + popupMargin.top
-            val maxY = (windowBounds.bottom - popupContentSize.height - popupMargin.bottom)
-                .coerceAtLeast(minY)
-            val offsetY = (anchorBounds.top - popupContentSize.height - popupMargin.bottom)
-                .coerceIn(minY, maxY)
-            return IntOffset(
-                x = anchorBounds.left.coerceIn(minX, maxX),
-                y = offsetY,
-            )
-        }
-
-        override fun getMargins(): PaddingValues = margins
-    }
 
 private fun profilePopupPositionProvider(extraRightShiftPx: Int): PopupPositionProvider =
     object : PopupPositionProvider {

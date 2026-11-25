@@ -42,7 +42,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -58,7 +57,6 @@ import com.mibo.app.data.formatWeiboTime
 import com.mibo.app.data.parseWeiboTimeMillis
 import com.mibo.app.ui.AppBarSurface
 import com.mibo.app.ui.LocalBackdrop
-import com.mibo.app.ui.MiboIcons
 import com.mibo.app.ui.ExpandEasing
 import com.mibo.app.ui.PinnedBarDensity
 import com.mibo.app.ui.blurEffectsEnabled
@@ -68,7 +66,6 @@ import com.mibo.app.ui.components.EmptyState
 import com.mibo.app.ui.components.ErrorState
 import com.mibo.app.ui.components.LoadingState
 import com.mibo.app.ui.components.WeiboText
-import com.mibo.app.ui.components.fmtCount
 import com.mibo.app.ui.components.navBottomPadding
 import com.mibo.app.ui.layerBackdropIf
 import com.mibo.app.ui.listScrollAlpha

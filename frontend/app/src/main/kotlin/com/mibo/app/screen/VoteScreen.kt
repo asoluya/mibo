@@ -22,7 +22,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -49,7 +48,6 @@ import coil3.compose.AsyncImage
 import com.mibo.app.App
 import com.mibo.app.data.Membership
 import com.mibo.app.data.VoteInfo
-import com.mibo.app.data.VoteOption
 import com.mibo.app.ui.AppBarSurface
 import com.mibo.app.ui.MiboIcons
 import com.mibo.app.ui.NavState

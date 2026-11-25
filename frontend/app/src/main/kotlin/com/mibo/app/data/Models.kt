@@ -1947,7 +1947,6 @@ data class SearchFeaturedUser(
 data class FeedPage(
     val items: List<Status>,
     val sinceId: String?,
-    val recommendedUsers: List<User> = emptyList(),
     val featuredUsers: List<SearchFeaturedUser> = emptyList(),
 )
 
@@ -2318,13 +2317,11 @@ fun parseContainerCards(root: JSONObject?): FeedPage =
 
 private fun parseCardsFromData(data: JSONObject?): FeedPage {
     val items = ArrayList<Status>()
-    val recommended = LinkedHashMap<String, User>()
     val featured = LinkedHashMap<String, SearchFeaturedUser>()
 
     fun collectCardUsers(obj: JSONObject) {
         val searchUser = searchUserOf(obj)
         if (searchUser != null) {
-            if (searchUser.id !in recommended) recommended[searchUser.id] = searchUser
             if (obj.optInt("card_type") == 10 && searchUser.id !in featured) {
                 val desc2Scheme = obj.optJSONArray("desc2_struct")
                     ?.optJSONObject(0)
@@ -2337,12 +2334,6 @@ private fun parseCardsFromData(data: JSONObject?): FeedPage {
                     desc2Scheme = desc2Scheme,
                 )
             }
-        }
-        val userArr = obj.optJSONArray("users") ?: return
-        for (k in 0 until userArr.length()) {
-            val uObj = userArr.optJSONObject(k) ?: continue
-            val u = User.from(uObj) ?: continue
-            if (u.id !in recommended) recommended[u.id] = u
         }
     }
 
@@ -2377,7 +2368,7 @@ private fun parseCardsFromData(data: JSONObject?): FeedPage {
         }
     }
     val since = data?.optJSONObject("cardlistInfo")?.str("since_id")?.ifBlank { null }
-    return FeedPage(items, since, recommended.values.toList(), featured.values.toList())
+    return FeedPage(items, since, featured.values.toList())
 }
 
 /**

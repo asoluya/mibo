@@ -11,7 +11,6 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import com.mibo.app.ui.MiboRoot
 import com.mibo.app.ui.MiboTheme
 import com.mibo.app.ui.isDarkTheme

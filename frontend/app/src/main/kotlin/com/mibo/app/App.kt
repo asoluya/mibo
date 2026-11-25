@@ -103,7 +103,7 @@ object App {
     var feedVersion by mutableIntStateOf(0)
         private set
 
-    /** 临时：`am start --es mibo.route tablab` 直接进顶栏对比页，验完删。 */
+    /** `am start --es mibo.route main` 可跳过登录判断直接进主页（调试用）。 */
     var startRoute: String? = null
 
     /** 待处理的外部深链（流体云/系统跳转传入），由根节点消费后清空。 */
@@ -167,9 +167,7 @@ object App {
         }
     }
 
-    val feedRefreshEvents = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val feedTopEvents = MutableSharedFlow<Boolean>(extraBufferCapacity = 1)
-    val messagesTopEvents = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val detailRefreshEvents = MutableSharedFlow<String>(extraBufferCapacity = 4)
     val followEvents = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val profileUpdatedEvents = MutableSharedFlow<User>(extraBufferCapacity = 4)
@@ -194,16 +192,8 @@ object App {
         feedVersion++
     }
 
-    fun requestFeedRefresh() {
-        feedRefreshEvents.tryEmit(Unit)
-    }
-
     fun requestFeedTop(scrollToTop: Boolean = true) {
         feedTopEvents.tryEmit(scrollToTop)
-    }
-
-    fun requestMessagesTop() {
-        messagesTopEvents.tryEmit(Unit)
     }
 
     fun requestDetailRefresh(statusId: String) {
