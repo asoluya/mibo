@@ -844,6 +844,7 @@ fun MainShell(nav: NavState) {
             CompositionLocalProvider(
                 LocalBackdrop provides if (blur) backdrop else null,
             ) {
+              PinnedBarDensity {
                 FloatingActionPair(
                     onRefresh = { App.requestFeedTop(scrollToTop = true) },
                     onPublish = {
@@ -855,6 +856,7 @@ fun MainShell(nav: NavState) {
                     },
                     modifier = Modifier.fillMaxSize(),
                 )
+              }
             }
         }
 
