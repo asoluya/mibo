@@ -1,0 +1,20 @@
+name: Apply Fix56
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply fix56
+        run: |
+          unzip -o fix56.zip
+          rm -f fix56.zip
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "补齐玻璃菜单相关 import"
+          git pull --rebase origin main
+          git push origin main
