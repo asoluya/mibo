@@ -138,6 +138,7 @@ import com.mibo.app.screen.searchDiscoverItems
 import com.mibo.app.screen.searchHorizontalPadding
 import com.mibo.app.screen.searchResultsItems
 import com.mibo.app.ui.components.Avatar
+import com.mibo.app.ui.components.ConfirmDialog
 import com.mibo.app.ui.components.LoadingState
 import com.mibo.app.ui.components.ProfileEditDialog
 import com.mibo.app.ui.components.navBottomPadding
@@ -160,6 +161,7 @@ import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.blur.textureBlur
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Add
+import top.yukonga.miuix.kmp.icon.extended.Delete
 import top.yukonga.miuix.kmp.icon.extended.GridView
 import top.yukonga.miuix.kmp.icon.extended.ExpandLess
 import top.yukonga.miuix.kmp.icon.extended.ExpandMore
@@ -271,6 +273,8 @@ fun MainShell(nav: NavState) {
     // 登录 / 退出都会 reset 导航栈，这个值在整个 MainShell 生命周期里不会变。
     val guest = remember { App.repo.guest }
     val accountOwner = remember { App.repo.session?.uid.orEmpty() }
+    // 长按头像菜单里对当前账号点「删除」时，先挂到这里弹确认框（与账号管理页同一套）。
+    var pendingDeleteAccount by remember { mutableStateOf<Account?>(null) }
     LaunchedEffect(Unit) { App.repo.refreshSessionIfStale() }
     val leftTab = App.settings.feedLeftTab
     val centerTab = App.settings.feedCenterTab
@@ -805,6 +809,15 @@ fun MainShell(nav: NavState) {
                                         },
                                         onAddAccount = { nav.push(Route.SmsLogin(addAccount = true)) },
                                         onManageAccounts = { nav.push(Route.Accounts) },
+                                        onReloginAccount = { account ->
+                                            nav.push(
+                                                Route.SmsLogin(
+                                                    addAccount = true,
+                                                    relogin = account.name.ifBlank { "微博账号" },
+                                                ),
+                                            )
+                                        },
+                                        onDeleteAccount = { account -> pendingDeleteAccount = account },
                                     )
                                 }
                             } else {
@@ -914,6 +927,19 @@ fun MainShell(nav: NavState) {
         BackHandler { cancelFeedSearch() }
     }
     key(feedSearchExpanded, inHomeSearchResults) { MiboPredictiveBackHandler(nav) }
+
+    pendingDeleteAccount?.let { account ->
+        ConfirmDialog(
+            title = "移除账号",
+            message = "只删除本地保存的登录信息，不会影响微博账号本身。",
+            confirmText = "移除",
+            onDismiss = { pendingDeleteAccount = null },
+            onConfirm = {
+                App.store.removeAccount(account.uid)
+                pendingDeleteAccount = null
+            },
+        )
+    }
 
     if (editProfileOpen) {
         ProfileEditDialog(
@@ -2418,13 +2444,20 @@ private fun ProfileQuickSwitchMenu(
     onSwitchAccount: (Account) -> Unit,
     onAddAccount: () -> Unit,
     onManageAccounts: () -> Unit,
+    onReloginAccount: (Account) -> Unit,
+    onDeleteAccount: (Account) -> Unit,
 ) {
     val accounts = remember { App.store.accounts() }
     val currentUid = remember { App.repo.session?.uid }
     val currentCookie = remember { App.repo.cookie() }
     val dismiss = LocalDismissState.current
     val showManage = accounts.isNotEmpty()
-    val totalCount = accounts.size + 1 + if (showManage) 1 else 0
+    // 「重新登录 / 删除」只针对当前账号（长按的就是当前账号的头像）。
+    val currentAccount = accounts.firstOrNull {
+        !guest && (it.uid == currentUid || it.cookie == currentCookie)
+    }
+    val totalCount = accounts.size + 1 + (if (showManage) 1 else 0) +
+        (if (currentAccount != null) 2 else 0)
     val actionIconTint = MiuixTheme.colorScheme.onSurfaceContainer
 
     // Miuix 的 DropdownImpl 没有 COUI 的 groupKey 与 modifier 参数：
@@ -2491,6 +2524,49 @@ private fun ProfileQuickSwitchMenu(
                 onSelectedIndexChange = {
                     dismiss?.invoke()
                     onManageAccounts()
+                },
+            )
+        }
+    }
+
+    if (currentAccount != null) {
+        val reloginIndex = addIndex + 2
+        Box(Modifier.testTag("quick_switch_relogin")) {
+            DropdownImpl(
+                item = DropdownItem(
+                    text = "重新登录",
+                    icon = { iconModifier ->
+                        Box(iconModifier, contentAlignment = Alignment.Center) {
+                            Icon(MiuixIcons.Refresh, null, Modifier.size(20.dp), tint = actionIconTint)
+                        }
+                    },
+                ),
+                optionSize = totalCount,
+                isSelected = false,
+                index = reloginIndex,
+                onSelectedIndexChange = {
+                    dismiss?.invoke()
+                    onReloginAccount(currentAccount)
+                },
+            )
+        }
+
+        Box(Modifier.testTag("quick_switch_delete")) {
+            DropdownImpl(
+                item = DropdownItem(
+                    text = "删除",
+                    icon = { iconModifier ->
+                        Box(iconModifier, contentAlignment = Alignment.Center) {
+                            Icon(MiuixIcons.Delete, null, Modifier.size(20.dp), tint = actionIconTint)
+                        }
+                    },
+                ),
+                optionSize = totalCount,
+                isSelected = false,
+                index = reloginIndex + 1,
+                onSelectedIndexChange = {
+                    dismiss?.invoke()
+                    onDeleteAccount(currentAccount)
                 },
             )
         }
