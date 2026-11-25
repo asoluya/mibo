@@ -129,7 +129,6 @@ import kotlinx.coroutines.launch
 enum class SettingsGroup(val title: String, val summary: String) {
     Display("显示与交互", "深色模式、强调色、字号、手势与「我」页布局"),
     Feed("微博浏览", "主页分栏、卡片外框、倒序浏览与热搜榜"),
-    AccountAndContent("账号与内容", "账号管理、快捷切号、底栏头像与本地关注"),
     Other("其他", "检查更新、清理缓存、关于与账号退出"),
 }
 
@@ -150,8 +149,6 @@ private class SettingsUiState(context: Context) {
     var barOffsetY by mutableFloatStateOf(App.settings.barOffsetY)
     var confirmLike by mutableStateOf(App.settings.confirmLike)
     var inAppBrowser by mutableStateOf(App.settings.inAppBrowser)
-    var quickSwitchAccount by mutableStateOf(App.settings.quickSwitchAccount)
-    var profileTabAvatar by mutableStateOf(App.settings.profileTabAvatar)
     var reverseBrowse by mutableStateOf(App.settings.reverseBrowse)
     var collapseFollowGroups by mutableStateOf(App.settings.collapseFollowGroups)
     var feedCardFrame by mutableStateOf(App.settings.feedCardFrame)
@@ -200,13 +197,6 @@ fun SettingsScreen(nav: NavState) {
     ) {
         displaySettingsItems(nav = nav, state = state, showHeader = true)
         feedSettingsItems(state = state, showHeader = true)
-        accountSettingsItems(
-            nav = nav,
-            state = state,
-            scope = scope,
-            showHeader = true,
-            includeLibraryShortcuts = true,
-        )
         otherSettingsItems(nav = nav, state = state, context = context, scope = scope, showHeader = true)
 
         item {
@@ -238,13 +228,6 @@ fun SettingsGroupScreen(nav: NavState, group: SettingsGroup) {
         when (group) {
             SettingsGroup.Display -> displaySettingsItems(nav = nav, state = state, showHeader = false)
             SettingsGroup.Feed -> feedSettingsItems(state = state, showHeader = false)
-            SettingsGroup.AccountAndContent -> accountSettingsItems(
-                nav = nav,
-                state = state,
-                scope = scope,
-                showHeader = false,
-                includeLibraryShortcuts = false,
-            )
             SettingsGroup.Other -> otherSettingsItems(nav = nav, state = state, context = context, scope = scope, showHeader = false)
         }
     }
@@ -563,84 +546,6 @@ private fun LazyListScope.feedSettingsItems(
                 summary = "开启后在认证用户头像右下角显示金 V / 蓝 V 标识",
                 modifier = Modifier.testTag("settings_show_verified_badge"),
             )
-        }
-    }
-}
-
-private fun LazyListScope.accountSettingsItems(
-    nav: NavState,
-    state: SettingsUiState,
-    scope: CoroutineScope,
-    showHeader: Boolean,
-    includeLibraryShortcuts: Boolean,
-) {
-    if (showHeader) {
-        item { SectionTitle("账号与内容") }
-    }
-    item {
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            cornerRadius = CardDefaults.CornerRadius,
-            insideMargin = PaddingValues(0.dp),
-        ) {
-            ArrowPreference(
-                title = "账号管理",
-                modifier = Modifier.testTag("settings_accounts"),
-                onClick = { nav.push(Route.Accounts) },
-            )
-            SwitchPreference(
-                checked = state.quickSwitchAccount,
-                onCheckedChange = {
-                    state.quickSwitchAccount = it
-                    App.settings.applyQuickSwitchAccount(it)
-                },
-                title = "长按「我」切换账号",
-                summary = "长按悬浮底栏的「我」快速切换已保存账号",
-                modifier = Modifier.testTag("settings_quick_switch_account"),
-            )
-            SwitchPreference(
-                checked = state.profileTabAvatar,
-                onCheckedChange = {
-                    state.profileTabAvatar = it
-                    App.settings.applyProfileTabAvatar(it)
-                },
-                title = "底栏「我」显示头像",
-                summary = "在悬浮底栏的「我」位置显示当前账号头像",
-                modifier = Modifier.testTag("settings_profile_tab_avatar"),
-            )
-            if (includeLibraryShortcuts) {
-                ArrowPreference(
-                    title = "草稿箱",
-                    modifier = Modifier.testTag("settings_drafts"),
-                    summary = "${App.store.drafts().size} 条草稿",
-                    onClick = { nav.push(Route.Drafts) },
-                )
-                ArrowPreference(
-                    title = "浏览历史",
-                    modifier = Modifier.testTag("settings_history"),
-                    summary = "${App.store.history().size} 条记录",
-                    onClick = { nav.push(Route.History) },
-                )
-                // 本地收藏全局共用，纯本地模式下同样可直接打开。
-                ArrowPreference(
-                    title = "收藏",
-                    modifier = Modifier.testTag("settings_favorites"),
-                    summary = "${App.repo.localFavoriteIds.size} 条收藏",
-                    onClick = { nav.push(Route.Favorites) },
-                )
-                ArrowPreference(
-                    title = "话题 / 超话",
-                    modifier = Modifier.testTag("settings_topic"),
-                    onClick = { nav.push(Route.Topic()) },
-                )
-                if (!state.guest) {
-                    ArrowPreference(
-                        title = "附近",
-                        modifier = Modifier.testTag("settings_nearby"),
-                        onClick = { nav.push(Route.Nearby) },
-                    )
-                }
-            }
         }
     }
 }

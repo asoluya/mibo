@@ -53,10 +53,6 @@ internal object MeIcons {
     /** 信息流设置：首页。 */
     val FeedSettings: ImageVector get() = MiuixIcons.Home
 
-    /** 账号与内容设置：联系人。 */
-    val AccountSettings: ImageVector get() = MiuixIcons.Contacts
-
-
     /** 其他设置：齿轮。 */
     val OtherSettings: ImageVector get() = MiuixIcons.Settings
 }

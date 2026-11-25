@@ -236,7 +236,7 @@ internal sealed class FeedTabSpec {
                 FeedTabItem.Special -> "特别关注还没有内容"
                 FeedTabItem.Secret -> "还没有悄悄关注的人"
                 FeedTabItem.Favorites -> "还没有收藏的微博"
-                FeedTabItem.Nearby -> "附近需要定位\n到设置的「附近」里打开定位，或选一座城市"
+                FeedTabItem.Nearby -> "附近需要定位\n到「我」页的「附近」里打开定位，或选一座城市"
                 FeedTabItem.Group -> "在顶栏的「更多」里选一个关注分组"
                 FeedTabItem.None -> "这里还没有微博"
             }
@@ -690,8 +690,6 @@ fun MainShell(nav: NavState) {
         }
 
         // Layer 3: 悬浮底部导航栏（在面板之下，展开时被面板盖住）。
-        val quickSwitchAccount = App.settings.quickSwitchAccount
-        val profileTabAvatar = App.settings.profileTabAvatar
         val activeUid = App.repo.session?.uid.orEmpty()
         var profileAvatarUrl by remember(activeUid, guest) {
             mutableStateOf(
@@ -699,8 +697,8 @@ fun MainShell(nav: NavState) {
                 else App.store.accounts().firstOrNull { it.uid == activeUid }?.avatar?.takeIf { it.isNotBlank() },
             )
         }
-        LaunchedEffect(activeUid, guest, profileTabAvatar) {
-            if (guest || !profileTabAvatar || activeUid.isBlank() || !profileAvatarUrl.isNullOrBlank()) {
+        LaunchedEffect(activeUid, guest) {
+            if (guest || activeUid.isBlank() || !profileAvatarUrl.isNullOrBlank()) {
                 return@LaunchedEffect
             }
             val fetched = runCatching { App.repo.profile(activeUid) }.getOrNull() ?: return@LaunchedEffect
@@ -798,10 +796,9 @@ fun MainShell(nav: NavState) {
                         ProfileCircleButton(
                             selected = tab == 2,
                             onClick = { nav.setTab(2) },
-                            avatarUrl = if (profileTabAvatar && !guest) profileAvatarUrl else null,
-                            overflowMenu = if (quickSwitchAccount) {
-                                {
-                                    ProfileQuickSwitchMenu(
+                            avatarUrl = if (!guest) profileAvatarUrl else null,
+                            overflowMenu = {
+                                ProfileQuickSwitchMenu(
                                         guest = guest,
                                         onSwitchAccount = { account ->
                                             App.repo.switchAccount(account)
@@ -820,9 +817,6 @@ fun MainShell(nav: NavState) {
                                         onDeleteAccount = { account -> pendingDeleteAccount = account },
                                         onAccountRelated = { nav.push(Route.AccountRelated) },
                                     )
-                                }
-                            } else {
-                                null
                             },
                             glassActive = App.settings.blurEffects && LocalBackdrop.current != null,
                             backdrop = LocalBackdrop.current,

@@ -232,14 +232,6 @@ class Settings(context: Context) {
     var inAppBrowser by mutableStateOf(sp.getBoolean("in_app_browser", true))
         private set
 
-    /** 长按悬浮底栏的「我」是否显示快捷切换账号菜单。默认开。 */
-    var quickSwitchAccount by mutableStateOf(sp.getBoolean("quick_switch_account", true))
-        private set
-
-    /** 悬浮底栏的「我」是否显示当前账号头像（代替默认图标）。默认开。 */
-    var profileTabAvatar by mutableStateOf(sp.getBoolean("profile_tab_avatar", true))
-        private set
-
     /**
      * 首页信息流的微博是否保留最外层卡片外框。关掉后卡片背景与圆角去掉，正文横向撑到与顶栏
      * 按钮对齐；卡片内部的区块（转发块、投票卡、媒体、楼中楼）仍保留各自的外框。默认保留。
@@ -509,16 +501,6 @@ class Settings(context: Context) {
     fun applyInAppBrowser(value: Boolean) {
         inAppBrowser = value
         sp.edit().putBoolean("in_app_browser", value).apply()
-    }
-
-    fun applyQuickSwitchAccount(value: Boolean) {
-        quickSwitchAccount = value
-        sp.edit().putBoolean("quick_switch_account", value).apply()
-    }
-
-    fun applyProfileTabAvatar(value: Boolean) {
-        profileTabAvatar = value
-        sp.edit().putBoolean("profile_tab_avatar", value).apply()
     }
 
     fun applyFeedCardFrame(value: Boolean) {

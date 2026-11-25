@@ -1198,7 +1198,6 @@ private fun HubRowIcon(imageVector: ImageVector) {
 private fun SettingsGroup.hubIcon(): ImageVector = when (this) {
     SettingsGroup.Display -> MeIcons.DisplaySettings
     SettingsGroup.Feed -> MeIcons.FeedSettings
-    SettingsGroup.AccountAndContent -> MeIcons.AccountSettings
     SettingsGroup.Other -> MeIcons.OtherSettings
 }
 

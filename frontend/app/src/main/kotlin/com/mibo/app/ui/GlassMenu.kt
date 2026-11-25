@@ -11,8 +11,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.platform.LocalWindowInfo
 import com.mibo.app.App
+import androidx.compose.ui.unit.dp
 import top.yukonga.miuix.kmp.glass.GlassDropdownPopup
 import top.yukonga.miuix.kmp.glass.GlassPopupDefaults
+import top.yukonga.miuix.kmp.glass.GlassPopupSizing
 import top.yukonga.miuix.kmp.glass.GlassPopupItem
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -50,6 +52,9 @@ fun GlassMenuHost() {
             onDismissRequest = { App.dismissGlassMenu() },
             anchorBounds = anchor,
             backdrop = if (glassActive) backdrop else null,
+            // 默认上限 416dp 只装得下 8 行，「全部」菜单的「附近」和关注分组会被截在
+            // 可滚动区域之外、看起来像不存在；放宽到 640dp 让常用菜单一屏放完。
+            sizing = GlassPopupSizing(maxHeight = 640.dp),
             visuals = GlassPopupDefaults.visuals(alpha = App.settings.barGlassAlpha),
         ) {
             val current = drilled
