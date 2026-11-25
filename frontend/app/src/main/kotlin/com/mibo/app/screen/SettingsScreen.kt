@@ -152,11 +152,9 @@ private class SettingsUiState(context: Context) {
     var message by mutableStateOf("")
     var logout by mutableStateOf(false)
     var feedLeftTab by mutableStateOf(App.settings.feedLeftTab)
-    var feedCenterTab by mutableStateOf(App.settings.feedCenterTab)
     var feedRightTab by mutableStateOf(App.settings.feedRightTab)
     var feedGroups by mutableStateOf<List<FollowGroup>>(emptyList())
     var pickFeedLeft by mutableStateOf(false)
-    var pickFeedCenter by mutableStateOf(false)
     var pickFeedRight by mutableStateOf(false)
     var pickAccentColor by mutableStateOf(false)
 }
@@ -166,8 +164,8 @@ private fun rememberSettingsUiState(): SettingsUiState {
     val context = LocalContext.current
     val state = remember { SettingsUiState(context) }
     // 关注分组是账号里的数据：只在真的要选栏位内容时才去网页版拉一次，拉不到就只列内置流。
-    LaunchedEffect(state.pickFeedLeft, state.pickFeedCenter, state.pickFeedRight) {
-        if (state.guest || !(state.pickFeedLeft || state.pickFeedCenter || state.pickFeedRight)) {
+    LaunchedEffect(state.pickFeedLeft, state.pickFeedRight) {
+        if (state.guest || !(state.pickFeedLeft || state.pickFeedRight)) {
             return@LaunchedEffect
         }
         runCatching { App.repo.followGroups() }.onSuccess { state.feedGroups = it }
@@ -407,12 +405,6 @@ private fun LazyListScope.feedSettingsItems(
                 onClick = { state.pickFeedLeft = true },
             )
             ArrowPreference(
-                title = "微博中间栏",
-                modifier = Modifier.testTag("settings_feed_center_tab"),
-                summary = state.feedCenterTab.label,
-                onClick = { state.pickFeedCenter = true },
-            )
-            ArrowPreference(
                 title = "微博右侧栏",
                 modifier = Modifier.testTag("settings_feed_right_tab"),
                 summary = state.feedRightTab.label,
@@ -606,7 +598,6 @@ private fun SettingsDialogs(
     state: SettingsUiState,
 ) {
     val leftOptions = feedTabOptions(state.feedGroups, allowNone = true, current = if (state.guest) null else state.feedLeftTab)
-    val centerOptions = feedTabOptions(state.feedGroups, allowNone = false, current = if (state.guest) null else state.feedCenterTab)
     val rightOptions = feedTabOptions(state.feedGroups, allowNone = true, current = if (state.guest) null else state.feedRightTab)
 
     if (state.logout) {
@@ -635,20 +626,6 @@ private fun SettingsDialogs(
                 App.settings.applyFeedLeftTab(selection)
                 state.feedLeftTab = selection
                 state.pickFeedLeft = false
-            },
-        )
-    }
-
-    if (state.pickFeedCenter) {
-        FeedTabPicker(
-            title = "微博中间栏内容",
-            selected = state.feedCenterTab,
-            options = centerOptions,
-            onDismiss = { state.pickFeedCenter = false },
-            onPick = { selection ->
-                App.settings.applyFeedCenterTab(selection)
-                state.feedCenterTab = selection
-                state.pickFeedCenter = false
             },
         )
     }
