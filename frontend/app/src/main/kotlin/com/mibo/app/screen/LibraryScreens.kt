@@ -180,10 +180,9 @@ private val HistoryPlacementSpec: FiniteAnimationSpec<IntOffset> =
 fun HistoryScreen(nav: NavState) {
     var history by remember { mutableStateOf(App.store.history()) }
     var confirm by remember { mutableStateOf(false) }
-    // 同一时间只展开一行，和通知栏一样：拉开新的一行，上一行自己收回去。
-    var openId by remember { mutableStateOf<String?>(null) }
+    var pendingDelete by remember { mutableStateOf<HistoryItem?>(null) }
     val listState = rememberLazyListState()
-    // 筛选：点漏斗展开搜索框，输入即过滤；再点一次收起，同时清掉关键词和过滤结果。
+    // 筛选：点搜索展开搜索框，输入即过滤；再点一次收起，同时清掉关键词和过滤结果。
     var filterOpen by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
     var filterRowPx by remember { mutableIntStateOf(0) }
@@ -196,12 +195,6 @@ fun HistoryScreen(nav: NavState) {
     val shown = remember(history, query) {
         val key = query.trim()
         if (key.isEmpty()) history else history.filter { it.matches(key) }
-    }
-
-    // 从详情页回来时不重排：看过的记录只把浏览时间写回文件，顺序要等离开本页再进来才生效。
-    // 否则刚看完的那一条会当着人的面被抬到最前面，整个列表跟着错位。
-    LaunchedEffect(nav.current) {
-        if (nav.current is Route.History) openId = null
     }
 
     val pageColor = pageContainerColor()
@@ -227,7 +220,7 @@ fun HistoryScreen(nav: NavState) {
                     shown.isEmpty() -> item { EmptyState("没有匹配的记录") }
                     else -> item {
                         Text(
-                            "左滑记录可删除",
+                            "长按记录可删除",
                             fontSize = 12.sp,
                             color = MiuixTheme.colorScheme.onSurfaceSecondary,
                             modifier = Modifier.padding(horizontal = 4.dp),
@@ -235,43 +228,18 @@ fun HistoryScreen(nav: NavState) {
                     }
                 }
                 itemsIndexed(shown, key = { _, item -> item.id }) { index, item: HistoryItem ->
-                    val swipe = rememberNotificationSwipeState()
-                    val scope = rememberCoroutineScope()
-                    LaunchedEffect(swipe.isRevealed) {
-                        if (swipe.isRevealed) openId = item.id
-                    }
-                    LaunchedEffect(openId) {
-                        if (openId != item.id && swipe.isRevealed) swipe.close()
-                    }
-                    NotificationSwipeBox(
-                        onSettings = null,
-                        onDismiss = {
-                            App.store.removeHistory(item.id)
-                            history = history.filterNot { it.id == item.id }
-                        },
-                        settingsIcon = null,
-                        dismissIcon = null,
-                        // 删掉的一行已经滑走淡出，不再要淡出动画；下面的条目按 animateItem 补位。
+                    HistoryRowBody(
+                        item = item,
                         modifier = Modifier
                             .animateItem(fadeInSpec = null, placementSpec = HistoryPlacementSpec, fadeOutSpec = null)
+                            .clip(RoundedCornerShape(CardDefaults.CornerRadius))
+                            .background(CardDefaults.defaultColors().color)
+                            .combinedClickable(
+                                onClick = { nav.push(Route.Detail(item.id, item.mid)) },
+                                onLongClick = { pendingDelete = item },
+                            )
                             .testTag("history_row_$index"),
-                        state = swipe,
-                        minHeight = 0.dp,
-                        containerColor = CardDefaults.defaultColors().color,
-                        dismissOnFullSwipe = true,
-                        dismissDescription = "删除这条记录",
-                    ) {
-                        HistoryRowBody(
-                            item = item,
-                            modifier = Modifier.clickable {
-                                if (swipe.isRevealed) {
-                                    scope.launch { swipe.close() }
-                                } else {
-                                    nav.push(Route.Detail(item.id, item.mid))
-                                }
-                            },
-                        )
-                    }
+                    )
                 }
             }
         }
@@ -361,6 +329,20 @@ fun HistoryScreen(nav: NavState) {
                 filterOpen = false
                 query = ""
                 confirm = false
+            },
+        )
+    }
+
+    pendingDelete?.let { target ->
+        ConfirmDialog(
+            title = "删除记录",
+            message = "是否删除这条浏览记录？",
+            confirmText = "删除",
+            onDismiss = { pendingDelete = null },
+            onConfirm = {
+                App.store.removeHistory(target.id)
+                history = history.filterNot { it.id == target.id }
+                pendingDelete = null
             },
         )
     }
