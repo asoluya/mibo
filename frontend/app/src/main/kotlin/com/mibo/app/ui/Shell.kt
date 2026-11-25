@@ -818,6 +818,7 @@ fun MainShell(nav: NavState) {
                                             )
                                         },
                                         onDeleteAccount = { account -> pendingDeleteAccount = account },
+                                        onAccountRelated = { nav.push(Route.AccountRelated) },
                                     )
                                 }
                             } else {
@@ -2446,6 +2447,7 @@ private fun ProfileQuickSwitchMenu(
     onManageAccounts: () -> Unit,
     onReloginAccount: (Account) -> Unit,
     onDeleteAccount: (Account) -> Unit,
+    onAccountRelated: () -> Unit,
 ) {
     val accounts = remember { App.store.accounts() }
     val currentUid = remember { App.repo.session?.uid }
@@ -2457,7 +2459,7 @@ private fun ProfileQuickSwitchMenu(
         !guest && (it.uid == currentUid || it.cookie == currentCookie)
     }
     val totalCount = accounts.size + 1 + (if (showManage) 1 else 0) +
-        (if (currentAccount != null) 2 else 0)
+        (if (currentAccount != null) 3 else 0)
     val actionIconTint = MiuixTheme.colorScheme.onSurfaceContainer
 
     // Miuix 的 DropdownImpl 没有 COUI 的 groupKey 与 modifier 参数：
@@ -2530,7 +2532,27 @@ private fun ProfileQuickSwitchMenu(
     }
 
     if (currentAccount != null) {
-        val reloginIndex = addIndex + 2
+        Box(Modifier.testTag("quick_switch_account_related")) {
+            DropdownImpl(
+                item = DropdownItem(
+                    text = "账号相关",
+                    icon = { iconModifier ->
+                        Box(iconModifier, contentAlignment = Alignment.Center) {
+                            Icon(MiboIcons.AdminShield, null, Modifier.size(20.dp), tint = actionIconTint)
+                        }
+                    },
+                ),
+                optionSize = totalCount,
+                isSelected = false,
+                index = addIndex + 2,
+                onSelectedIndexChange = {
+                    dismiss?.invoke()
+                    onAccountRelated()
+                },
+            )
+        }
+
+        val reloginIndex = addIndex + 3
         Box(Modifier.testTag("quick_switch_relogin")) {
             DropdownImpl(
                 item = DropdownItem(

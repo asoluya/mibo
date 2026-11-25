@@ -82,6 +82,35 @@ object MiboIcons {
         }.build()
     }
 
+    /** 管理员：盾牌里一个对勾，安全与账号管理语义，给「账号相关」入口用。 */
+    val AdminShield: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "AdminShield",
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = 24f,
+            viewportHeight = 24f,
+        ).apply {
+            path(
+                stroke = SolidColor(Color.Black),
+                strokeLineWidth = 1.9f,
+                strokeLineCap = StrokeCap.Round,
+                strokeLineJoin = StrokeJoin.Round,
+            ) {
+                moveTo(12f, 3f)
+                lineTo(19f, 5.2f)
+                lineTo(19f, 11f)
+                curveTo(19f, 15.6f, 16.1f, 19.2f, 12f, 21f)
+                curveTo(7.9f, 19.2f, 5f, 15.6f, 5f, 11f)
+                lineTo(5f, 5.2f)
+                close()
+                moveTo(8.8f, 11.6f)
+                lineTo(11f, 13.8f)
+                lineTo(15.4f, 9.4f)
+            }
+        }.build()
+    }
+
     val HeartFill: ImageVector by lazy {
         ImageVector.Builder(
             name = "HeartFill",

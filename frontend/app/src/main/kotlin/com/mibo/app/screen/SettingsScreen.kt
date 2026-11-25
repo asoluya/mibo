@@ -162,18 +162,15 @@ private class SettingsUiState(context: Context) {
     var showVerifiedBadge by mutableStateOf(App.settings.showVerifiedBadge)
     var message by mutableStateOf("")
     var logout by mutableStateOf(false)
-    var localFollowUid by mutableStateOf(App.settings.localFollowUid)
     var feedLeftTab by mutableStateOf(App.settings.feedLeftTab)
     var feedCenterTab by mutableStateOf(App.settings.feedCenterTab)
     var feedRightTab by mutableStateOf(App.settings.feedRightTab)
     var feedGroups by mutableStateOf<List<FollowGroup>>(emptyList())
-    var pickLocalFollow by mutableStateOf(false)
     var pickFeedLeft by mutableStateOf(false)
     var pickFeedCenter by mutableStateOf(false)
     var pickFeedRight by mutableStateOf(false)
     var pickHotBoards by mutableStateOf(false)
     var pickAccentColor by mutableStateOf(false)
-    var syncingLocalFavorites by mutableStateOf(false)
 }
 
 @Composable
@@ -581,13 +578,6 @@ private fun LazyListScope.accountSettingsItems(
         item { SectionTitle("账号与内容") }
     }
     item {
-        val accounts = remember(state.localFollowUid) { App.store.accounts() }
-        val localFollowAccount = accounts.firstOrNull { it.uid == state.localFollowUid }
-        val localFollowSummary = if (localFollowAccount == null) {
-            "跟随当前账号"
-        } else {
-            "用 ${localFollowAccount.name.ifBlank { "UID ${localFollowAccount.uid}" }} 的身份取数"
-        }
         Card(
             modifier = Modifier.fillMaxWidth(),
             cornerRadius = CardDefaults.CornerRadius,
@@ -618,35 +608,6 @@ private fun LazyListScope.accountSettingsItems(
                 summary = "在悬浮底栏的「我」位置显示当前账号头像",
                 modifier = Modifier.testTag("settings_profile_tab_avatar"),
             )
-            // 纯本地模式一律用访客身份取数，没有账号可选。
-            if (!state.guest) {
-                ArrowPreference(
-                    title = "本地关注使用账号",
-                    modifier = Modifier.testTag("settings_local_follow"),
-                    summary = localFollowSummary,
-                    onClick = { state.pickLocalFollow = true },
-                )
-                ArrowPreference(
-                    title = "同步本地收藏",
-                    summary = if (state.syncingLocalFavorites) {
-                        "正在同步微博收藏"
-                    } else {
-                        "将微博收藏复制到本地收藏"
-                    },
-                    modifier = Modifier.testTag("settings_sync_local_favorites"),
-                    onClick = {
-                        if (!state.syncingLocalFavorites) {
-                            state.syncingLocalFavorites = true
-                            scope.launch {
-                                runCatching { App.repo.syncLocalFavorites() }
-                                    .onSuccess { count -> App.toast("已同步 $count 条微博到本地收藏") }
-                                    .onFailure { App.toast(it.message ?: "同步失败") }
-                                state.syncingLocalFavorites = false
-                            }
-                        }
-                    },
-                )
-            }
             if (includeLibraryShortcuts) {
                 ArrowPreference(
                     title = "草稿箱",
@@ -823,7 +784,6 @@ private fun SettingsDialogs(
     nav: NavState,
     state: SettingsUiState,
 ) {
-    val accounts = remember(state.localFollowUid) { App.store.accounts() }
     val leftOptions = feedTabOptions(state.feedGroups, allowNone = true, current = if (state.guest) null else state.feedLeftTab)
     val centerOptions = feedTabOptions(state.feedGroups, allowNone = false, current = if (state.guest) null else state.feedCenterTab)
     val rightOptions = feedTabOptions(state.feedGroups, allowNone = true, current = if (state.guest) null else state.feedRightTab)
@@ -840,19 +800,6 @@ private fun SettingsDialogs(
                 CookieManager.getInstance().flush()
                 App.repo.logout()
                 nav.reset(Route.SmsLogin())
-            },
-        )
-    }
-
-    if (state.pickLocalFollow) {
-        LocalFollowPicker(
-            accounts = accounts,
-            selectedUid = state.localFollowUid,
-            onDismiss = { state.pickLocalFollow = false },
-            onPick = { uid ->
-                App.settings.applyLocalFollowUid(uid)
-                state.localFollowUid = uid
-                state.pickLocalFollow = false
             },
         )
     }
@@ -933,6 +880,114 @@ private val RainbowSwatchColors = listOf(
     Color(0xFFAF52DE),
     Color(0xFFFF3B30),
 )
+
+/**
+ * 「账号相关」页：从长按底栏头像的菜单进入，收纳原设置页「账号与内容」里的
+ * 本地关注使用账号与同步本地收藏两项（已按用户要求从设置页移走）。
+ */
+@Composable
+fun AccountRelatedScreen(nav: NavState) {
+    val scope = rememberCoroutineScope()
+    var localFollowUid by remember { mutableStateOf(App.settings.localFollowUid) }
+    var pickLocalFollow by remember { mutableStateOf(false) }
+    var syncing by remember { mutableStateOf(false) }
+    val accounts = remember(localFollowUid) { App.store.accounts() }
+    val localFollowAccount = accounts.firstOrNull { it.uid == localFollowUid }
+    val localFollowSummary = if (localFollowAccount == null) {
+        "跟随当前账号"
+    } else {
+        "用 ${localFollowAccount.name.ifBlank { "UID ${localFollowAccount.uid}" }} 的身份取数"
+    }
+    val blurEffects = blurEffectsEnabled()
+    val pageColor = pageContainerColor()
+    val backdrop = rememberLayerBackdrop()
+    val topBarHeight = pinnedHeight(TopAppBarDefaults.SmallTopAppBarCenterHeight)
+    val listState = rememberLazyListState()
+
+    Box(Modifier.fillMaxSize().background(pageColor)) {
+        Box(Modifier.fillMaxSize().layerBackdropIf(blurEffects, backdrop).background(pageColor)) {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize().scrollEndHaptic(),
+                contentPadding = PaddingValues(
+                    start = 12.dp,
+                    top = glassBarContentTop(topBarHeight, 10.dp),
+                    end = 12.dp,
+                    bottom = 24.dp + navBottomPadding(),
+                ),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        cornerRadius = CardDefaults.CornerRadius,
+                        insideMargin = PaddingValues(0.dp),
+                    ) {
+                        ArrowPreference(
+                            title = "本地关注使用账号",
+                            summary = localFollowSummary,
+                            onClick = { pickLocalFollow = true },
+                            modifier = Modifier.testTag("account_related_local_follow"),
+                        )
+                        ArrowPreference(
+                            title = "同步本地收藏",
+                            summary = if (syncing) {
+                                "正在同步微博收藏"
+                            } else {
+                                "将微博收藏复制到本地收藏"
+                            },
+                            onClick = {
+                                if (!syncing) {
+                                    syncing = true
+                                    scope.launch {
+                                        runCatching { App.repo.syncLocalFavorites() }
+                                            .onSuccess { count ->
+                                                App.toast("已同步 $count 条微博到本地收藏")
+                                            }
+                                            .onFailure { App.toast(it.message ?: "同步失败") }
+                                        syncing = false
+                                    }
+                                }
+                            },
+                            modifier = Modifier.testTag("account_related_sync_favorites"),
+                        )
+                    }
+                }
+            }
+        }
+
+        CompositionLocalProvider(
+            LocalBackdrop provides if (blurEffects) backdrop else null,
+        ) {
+            PinnedBarDensity {
+                AppBarSurface(
+                    modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth(),
+                    containerColor = pageColor,
+                    scrollFraction = rememberListScrollFraction(listState),
+                ) {
+                    SmallTopAppBar(
+                        title = "账号相关",
+                        color = Color.Transparent,
+                        navigationIcon = { BackIconButton { nav.pop() } },
+                    )
+                }
+            }
+        }
+    }
+
+    if (pickLocalFollow) {
+        LocalFollowPicker(
+            accounts = accounts,
+            selectedUid = localFollowUid,
+            onDismiss = { pickLocalFollow = false },
+            onPick = { uid ->
+                App.settings.applyLocalFollowUid(uid)
+                localFollowUid = uid
+                pickLocalFollow = false
+            },
+        )
+    }
+}
 
 /**
  * 底栏位置调节页：全屏只有调节滑杆和底栏本体。底栏按主页同一套定位贴在屏幕底部

@@ -82,6 +82,7 @@ import com.mibo.app.screen.LoginScreen
 import com.mibo.app.screen.MyLikesScreen
 import com.mibo.app.screen.NearbyScreen
 import com.mibo.app.screen.NotificationsScreen
+import com.mibo.app.screen.AccountRelatedScreen
 import com.mibo.app.screen.BarPositionScreen
 import com.mibo.app.screen.PredictiveBackSettingsScreen
 import com.mibo.app.screen.ProfileScreen
@@ -820,6 +821,7 @@ private fun RouteContent(route: Route, nav: NavState) {
         is Route.SettingsDetail -> SettingsGroupScreen(nav, route.group)
         Route.PredictiveBackSettings -> PredictiveBackSettingsScreen(nav)
         Route.BarPosition -> BarPositionScreen(nav)
+        Route.AccountRelated -> AccountRelatedScreen(nav)
         Route.About -> AboutScreen(nav)
         Route.Nearby -> NearbyScreen(nav)
         is Route.Topic -> TopicScreen(nav, route.name)
