@@ -1788,6 +1788,13 @@ private fun FeedTabs(
     val labels = feedTabs.map { it.label }
     // 「全部」玻璃菜单的锚点：中间格的窗口坐标，点开时交给全局玻璃菜单宿主。
     var centerAnchorBounds by remember { mutableStateOf(Rect.Zero) }
+    // 左右两格已经占住的内容：顶栏一格一步可达，中间栏菜单里不再重复列出。
+    val sideSelectionKeys = feedTabs.filterNot { it.isCenter }.map { spec ->
+        when (spec) {
+            is FeedTabSpec.Custom -> spec.selection.key
+            is FeedTabSpec.Follow -> FeedTabItem.Follow.key
+        }
+    }.toSet()
 
     // 三格同宽，按「4 个字 + 箭头」预留：分组名是 2/3/4 个字时胶囊和格子都不动。
     // 用 sp 折算，系统字体放大时格子跟着变宽；先落到 px 再折算回去，容器宽度与
@@ -1895,6 +1902,7 @@ private fun FeedTabs(
                                 centerTab = centerTab,
                                 collapseFollowGroups = App.settings.collapseFollowGroups,
                                 onCenterSelected = onCenterSelected,
+                                sideKeys = sideSelectionKeys,
                             ).flatMap { it.items }.map { it.toGlassMenuItem() }
                             App.showGlassMenu(centerAnchorBounds, items)
                             onFilterMenuDismiss()
@@ -1915,9 +1923,12 @@ internal fun buildCenterMenuEntries(
     centerTab: FeedTabSelection,
     collapseFollowGroups: Boolean,
     onCenterSelected: (FeedTabSelection) -> Unit,
+    sideKeys: Set<String> = emptySet(),
 ): List<DropdownEntry> {
-    val builtinOptions = centerOptions.filterNot { it.isGroup }
-    val groupOptions = centerOptions.filter { it.isGroup }
+    // 左右两格占住的内容从菜单里剔除（中间栏当前项除外，它被选中时仍要能看到勾）。
+    val excluded = sideKeys - centerTab.key
+    val builtinOptions = centerOptions.filterNot { it.isGroup || it.key in excluded }
+    val groupOptions = centerOptions.filter { it.isGroup && it.key !in excluded }
     val currentGroupTitle = centerTab.group
         ?.takeIf { centerTab.isGroup }
         ?.title
