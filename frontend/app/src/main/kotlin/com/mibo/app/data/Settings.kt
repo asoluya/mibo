@@ -236,18 +236,6 @@ class Settings(context: Context) {
     var inAppBrowser by mutableStateOf(sp.getBoolean("in_app_browser", true))
         private set
 
-    /** 昵称旁是否显示 VIP / SVIP / VVIP 等级标识。默认开启。 */
-    var showVipLevel by mutableStateOf(sp.getBoolean("show_vip_level", true))
-        private set
-
-    /** 评论区昵称旁是否显示铁粉 / 金粉 / 钻粉等粉丝等级标识。默认开启。 */
-    var showFanLevel by mutableStateOf(sp.getBoolean("show_fan_level", true))
-        private set
-
-    /** 认证用户头像右下角是否显示金 V / 蓝 V 角标。默认开启。 */
-    var showVerifiedBadge by mutableStateOf(sp.getBoolean("show_verified_badge", true))
-        private set
-
     /** 实况图滑动自动播放：开启后进入或滑动到实况图时自动播放一次，结束后仅支持长按重播。默认开。 */
     var livePhotoAutoPlay by mutableStateOf(sp.getBoolean("live_photo_auto_play", true))
         private set
@@ -494,21 +482,6 @@ class Settings(context: Context) {
 
 
 
-
-    fun applyShowVipLevel(value: Boolean) {
-        showVipLevel = value
-        sp.edit().putBoolean("show_vip_level", value).apply()
-    }
-
-    fun applyShowFanLevel(value: Boolean) {
-        showFanLevel = value
-        sp.edit().putBoolean("show_fan_level", value).apply()
-    }
-
-    fun applyShowVerifiedBadge(value: Boolean) {
-        showVerifiedBadge = value
-        sp.edit().putBoolean("show_verified_badge", value).apply()
-    }
 
 
 

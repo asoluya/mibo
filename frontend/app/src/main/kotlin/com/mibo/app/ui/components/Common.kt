@@ -105,8 +105,7 @@ fun VerifiedBadge(
     size: Dp = 14.dp,
     kind: VerifiedKind = VerifiedKind.Gold,
 ) {
-    val showVerified = runCatching { com.mibo.app.App.settings.showVerifiedBadge }.getOrDefault(true)
-    if (kind == VerifiedKind.None || !showVerified) return
+    if (kind == VerifiedKind.None) return
     val scheme = MiuixTheme.colorScheme
     val fill = if (kind == VerifiedKind.Blue) VerifiedBlueBg else VerifiedGoldBg
     val ringColor = scheme.surfaceContainer
@@ -160,8 +159,6 @@ fun MemberBadge(
     rank: Int = 0,
     height: Dp = if (compact) CompactBadgeHeight else RegularBadgeHeight,
 ) {
-    val showVip = runCatching { com.mibo.app.App.settings.showVipLevel }.getOrDefault(true)
-    if (!showVip) return
     val style = when (membership) {
         Membership.None -> return
         Membership.Vip -> MemberBadgeStyle(MemberVipRed, Color.White, "vip_badge_vip", "VIP")

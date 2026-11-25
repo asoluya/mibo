@@ -812,9 +812,7 @@ internal fun CommentBadges(
     badges: List<CommentBadge>,
     height: Dp,
     fanTier: String = "",
-    showFanLevel: Boolean = runCatching { App.settings.showFanLevel }.getOrDefault(true),
 ) {
-    if (!showFanLevel) return
     if (badges.isEmpty() && fanTier.isNotBlank()) {
         Spacer(Modifier.width(4.dp))
         val (bg, fg) = when {
@@ -870,10 +868,9 @@ internal fun CommentBadges(
 internal fun shouldShowCommentMemberBadge(
     membership: Membership,
     badges: List<CommentBadge>,
-    showFanLevel: Boolean,
 ): Boolean {
     if (membership == Membership.None) return false
-    if (showFanLevel && badges.any { !it.pic.contains("member_0_") }) return false
+    if (badges.any { !it.pic.contains("member_0_") }) return false
     return true
 }
 
@@ -882,11 +879,10 @@ internal fun CommentHeaderBadges(
     comment: Comment,
     height: Dp,
 ) {
-    val showFan = runCatching { App.settings.showFanLevel }.getOrDefault(true)
-    CommentBadges(comment.badges, height, fanTier = comment.fanTier, showFanLevel = showFan)
+    CommentBadges(comment.badges, height, fanTier = comment.fanTier)
     val user = comment.user
     val membership = user?.membership ?: Membership.None
-    if (shouldShowCommentMemberBadge(membership, comment.badges, showFan)) {
+    if (shouldShowCommentMemberBadge(membership, comment.badges)) {
         Spacer(Modifier.width(4.dp))
         MemberBadge(membership, compact = true, rank = user?.mbrank ?: 0, height = height)
     }

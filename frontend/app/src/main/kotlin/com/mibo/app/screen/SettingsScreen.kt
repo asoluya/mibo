@@ -147,9 +147,6 @@ private class SettingsUiState(context: Context) {
     var barOffsetY by mutableFloatStateOf(App.settings.barOffsetY)
     var confirmLike by mutableStateOf(App.settings.confirmLike)
     var inAppBrowser by mutableStateOf(App.settings.inAppBrowser)
-    var showVipLevel by mutableStateOf(App.settings.showVipLevel)
-    var showFanLevel by mutableStateOf(App.settings.showFanLevel)
-    var showVerifiedBadge by mutableStateOf(App.settings.showVerifiedBadge)
     var message by mutableStateOf("")
     var logout by mutableStateOf(false)
     var feedLeftTab by mutableStateOf(App.settings.feedLeftTab)
@@ -431,36 +428,6 @@ private fun LazyListScope.feedSettingsItems(
                 title = "实况图播放声音",
                 summary = "播放实况图时同步播放附带的视频声音",
                 modifier = Modifier.testTag("settings_live_photo_sound"),
-            )
-            SwitchPreference(
-                checked = state.showVipLevel,
-                onCheckedChange = {
-                    state.showVipLevel = it
-                    App.settings.applyShowVipLevel(it)
-                },
-                title = "显示 VIP 等级",
-                summary = "开启后在昵称旁显示 VIP / SVIP / VVIP 及等级标识",
-                modifier = Modifier.testTag("settings_show_vip_level"),
-            )
-            SwitchPreference(
-                checked = state.showFanLevel,
-                onCheckedChange = {
-                    state.showFanLevel = it
-                    App.settings.applyShowFanLevel(it)
-                },
-                title = "显示粉丝等级",
-                summary = "开启后在评论区昵称旁显示铁粉、金粉、钻粉等粉丝标识",
-                modifier = Modifier.testTag("settings_show_fan_level"),
-            )
-            SwitchPreference(
-                checked = state.showVerifiedBadge,
-                onCheckedChange = {
-                    state.showVerifiedBadge = it
-                    App.settings.applyShowVerifiedBadge(it)
-                },
-                title = "显示认证 V 标",
-                summary = "开启后在认证用户头像右下角显示金 V / 蓝 V 标识",
-                modifier = Modifier.testTag("settings_show_verified_badge"),
             )
         }
     }
