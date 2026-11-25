@@ -1877,7 +1877,17 @@ private fun FeedTabs(
                 Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 6.dp)
-                    .onGloballyPositioned { if (menu) centerAnchorBounds = it.boundsInWindow() },
+                    .onGloballyPositioned { coordinates ->
+                if (menu) {
+                    val pos = coordinates.positionInWindow()
+                    centerAnchorBounds = Rect(
+                        pos.x,
+                        pos.y,
+                        pos.x + coordinates.size.width.toFloat(),
+                        pos.y + coordinates.size.height.toFloat(),
+                    )
+                }
+            },
                 contentAlignment = Alignment.Center,
             ) {
                 Row(
@@ -2106,7 +2116,15 @@ private fun FloatingBottomBar(
                 // 位置按用户要求交换：左「消息」、中「微博」、右「我」。tab 值仍沿用
                 // 0=微博 / 1=消息 / 2=我，只换视觉顺序，避免影响 nav.mainTab 的持久化语义。
                 Box(
-                    Modifier.onGloballyPositioned { messagesAnchorBounds = it.boundsInWindow() },
+                    Modifier.onGloballyPositioned { coordinates ->
+                    val pos = coordinates.positionInWindow()
+                    messagesAnchorBounds = Rect(
+                        pos.x,
+                        pos.y,
+                        pos.x + coordinates.size.width.toFloat(),
+                        pos.y + coordinates.size.height.toFloat(),
+                    )
+                },
                 ) {
                     FloatingTabItem(
                         selected = tab == 1,

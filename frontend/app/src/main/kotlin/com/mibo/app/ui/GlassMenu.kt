@@ -11,7 +11,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.platform.LocalWindowInfo
 import com.mibo.app.App
-import top.yukonga.miuix.kmp.blur.LocalBackdrop
 import top.yukonga.miuix.kmp.glass.GlassDropdownPopup
 import top.yukonga.miuix.kmp.glass.GlassPopupDefaults
 import top.yukonga.miuix.kmp.glass.GlassPopupItem
