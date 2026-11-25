@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.Image
@@ -389,31 +390,12 @@ private fun LazyListScope.displaySettingsItems(
                 enabled = state.blurEffects,
                 modifier = Modifier.testTag("settings_bar_glass_alpha"),
             )
-            SliderPreference(
-                value = state.barOffsetX,
-                onValueChange = {
-                    state.barOffsetX = it
-                    App.settings.applyBarOffsetX(it)
-                },
-                title = "底栏左右偏移",
-                summary = "左右移动悬浮底栏的位置，0 为原位置",
-                valueText = "${state.barOffsetX.toInt()}dp",
-                valueRange = -32f..32f,
-                modifier = Modifier.testTag("settings_bar_offset_x"),
+            ArrowPreference(
+                title = "底栏位置调节",
+                summary = "左右 ${App.settings.barOffsetX.toInt()}dp · 上下 ${App.settings.barOffsetY.toInt()}dp，点开对着底栏调",
+                onClick = { nav.push(Route.BarPosition) },
+                modifier = Modifier.testTag("settings_bar_position"),
             )
-            SliderPreference(
-                value = state.barOffsetY,
-                onValueChange = {
-                    state.barOffsetY = it
-                    App.settings.applyBarOffsetY(it)
-                },
-                title = "底栏上下偏移",
-                summary = "上下移动悬浮底栏的位置，0 为原位置",
-                valueText = "${state.barOffsetY.toInt()}dp",
-                valueRange = -32f..32f,
-                modifier = Modifier.testTag("settings_bar_offset_y"),
-            )
-            BottomBarPositionPreview(offsetX = state.barOffsetX, offsetY = state.barOffsetY)
             SwitchPreference(
                 checked = App.settings.livePhotoAutoPlay,
                 onCheckedChange = { App.settings.applyLivePhotoAutoPlay(it) },
@@ -956,64 +938,135 @@ private val RainbowSwatchColors = listOf(
 )
 
 /**
- * 底栏位置预览：设置页里看不到真正的悬浮底栏，拖偏移滑杆时用这个示意底栏同步移动，
- * 位置与主页底栏将生效的偏移一致（舞台高 128dp，示意底栏默认离舞台底 34dp，
- * 上下 ±32dp 都不出界）。
+ * 底栏位置调节页：全屏只有调节滑杆和底栏本体。底栏按主页同一套定位贴在屏幕底部
+ * （导航栏让位 + 底边 8dp + 当前偏移），拖滑杆时实时跟随，位置所见即所得。
  */
 @Composable
-private fun BottomBarPositionPreview(offsetX: Float, offsetY: Float) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-            .height(128.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .background(MiuixTheme.colorScheme.surfaceContainer),
-    ) {
-        Text(
-            text = "底栏位置预览",
-            fontSize = 12.sp,
-            color = MiuixTheme.colorScheme.onSurfaceSecondary,
-            modifier = Modifier.padding(start = 14.dp, top = 10.dp),
-        )
-        Row(
+fun BarPositionScreen(nav: NavState) {
+    var offsetX by remember { mutableFloatStateOf(App.settings.barOffsetX) }
+    var offsetY by remember { mutableFloatStateOf(App.settings.barOffsetY) }
+    val blurEffects = blurEffectsEnabled()
+    val pageColor = pageContainerColor()
+    val backdrop = rememberLayerBackdrop()
+    val topBarHeight = pinnedHeight(TopAppBarDefaults.SmallTopAppBarCenterHeight)
+
+    Box(Modifier.fillMaxSize().background(pageColor)) {
+        Box(Modifier.fillMaxSize().layerBackdropIf(blurEffects, backdrop).background(pageColor)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 12.dp, end = 12.dp, top = glassBarContentTop(topBarHeight, 10.dp)),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    cornerRadius = CardDefaults.CornerRadius,
+                    insideMargin = PaddingValues(0.dp),
+                ) {
+                    SliderPreference(
+                        value = offsetX,
+                        onValueChange = {
+                            offsetX = it
+                            App.settings.applyBarOffsetX(it)
+                        },
+                        title = "底栏左右偏移",
+                        summary = "左右移动悬浮底栏的位置，0 为原位置",
+                        valueText = "${offsetX.toInt()}dp",
+                        valueRange = -32f..32f,
+                        modifier = Modifier.testTag("bar_position_offset_x"),
+                    )
+                    SliderPreference(
+                        value = offsetY,
+                        onValueChange = {
+                            offsetY = it
+                            App.settings.applyBarOffsetY(it)
+                        },
+                        title = "底栏上下偏移",
+                        summary = "上下移动悬浮底栏的位置，0 为原位置",
+                        valueText = "${offsetY.toInt()}dp",
+                        valueRange = -32f..32f,
+                        modifier = Modifier.testTag("bar_position_offset_y"),
+                    )
+                }
+                if (offsetX != 0f || offsetY != 0f) {
+                    TextButton(
+                        text = "恢复默认位置",
+                        onClick = {
+                            offsetX = 0f
+                            offsetY = 0f
+                            App.settings.applyBarOffsetX(0f)
+                            App.settings.applyBarOffsetY(0f)
+                        },
+                        modifier = Modifier.testTag("bar_position_reset"),
+                    )
+                }
+            }
+        }
+
+        BottomBarReplica(
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .fillMaxWidth()
                 .offset(x = offsetX.dp, y = offsetY.dp)
-                .padding(bottom = 34.dp),
+                .navigationBarsPadding()
+                .padding(bottom = 8.dp),
+        )
+
+        CompositionLocalProvider(
+            LocalBackdrop provides if (blurEffects) backdrop else null,
+        ) {
+            PinnedBarDensity {
+                AppBarSurface(
+                    modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth(),
+                    containerColor = pageColor,
+                    scrollFraction = 0f,
+                ) {
+                    SmallTopAppBar(
+                        title = "底栏位置调节",
+                        color = Color.Transparent,
+                        navigationIcon = { BackIconButton { nav.pop() } },
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** 底栏示意本体：与主页悬浮底栏同结构（消息/微博/搜索胶囊 + 右侧展开圆钮），只用于位置调节页对位。 */
+@Composable
+private fun BottomBarReplica(modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(start = 12.dp)
+                .clip(CircleShape)
+                .background(MiuixTheme.colorScheme.surface)
+                .border(1.dp, MiuixTheme.colorScheme.outline, CircleShape)
+                .padding(horizontal = 6.dp, vertical = 5.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Row(
-                modifier = Modifier
-                    .padding(start = 12.dp)
-                    .clip(CircleShape)
-                    .background(MiuixTheme.colorScheme.surface)
-                    .border(1.dp, MiuixTheme.colorScheme.outline, CircleShape)
-                    .padding(horizontal = 6.dp, vertical = 5.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                BottomBarPreviewItem(MiboIcons.MessagesOutline, "消息")
-                BottomBarPreviewItem(MiboIcons.FeedOutline, "微博")
-                BottomBarPreviewItem(MiuixIcons.Search, "搜索")
-            }
-            Spacer(Modifier.weight(1f))
-            Box(
-                modifier = Modifier
-                    .padding(end = 36.dp)
-                    .size(52.dp)
-                    .clip(CircleShape)
-                    .background(MiuixTheme.colorScheme.surface)
-                    .border(1.dp, MiuixTheme.colorScheme.outline, CircleShape),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = MiuixIcons.ExpandLess,
-                    contentDescription = null,
-                    modifier = Modifier.size(24.dp),
-                    tint = MiuixTheme.colorScheme.onSurface,
-                )
-            }
+            BottomBarPreviewItem(MiboIcons.MessagesOutline, "消息")
+            BottomBarPreviewItem(MiboIcons.FeedOutline, "微博")
+            BottomBarPreviewItem(MiuixIcons.Search, "搜索")
+        }
+        Spacer(Modifier.weight(1f))
+        Box(
+            modifier = Modifier
+                .padding(end = 36.dp)
+                .size(52.dp)
+                .clip(CircleShape)
+                .background(MiuixTheme.colorScheme.surface)
+                .border(1.dp, MiuixTheme.colorScheme.outline, CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = MiuixIcons.ExpandLess,
+                contentDescription = null,
+                modifier = Modifier.size(24.dp),
+                tint = MiuixTheme.colorScheme.onSurface,
+            )
         }
     }
 }
