@@ -148,6 +148,8 @@ private class SettingsUiState(context: Context) {
     var acceptPrerelease by mutableStateOf(App.settings.acceptPrerelease)
     var blurEffects by mutableStateOf(App.settings.blurEffects)
     var barGlassAlpha by mutableFloatStateOf(App.settings.barGlassAlpha)
+    var barOffsetX by mutableFloatStateOf(App.settings.barOffsetX)
+    var barOffsetY by mutableFloatStateOf(App.settings.barOffsetY)
     var allowLandscape by mutableStateOf(App.settings.allowLandscape)
     var searchPanelAnimation by mutableStateOf(App.settings.searchPanelAnimation)
     var confirmLike by mutableStateOf(App.settings.confirmLike)
@@ -394,6 +396,30 @@ private fun LazyListScope.displaySettingsItems(
                 valueRange = 0.3f..1f,
                 enabled = state.blurEffects,
                 modifier = Modifier.testTag("settings_bar_glass_alpha"),
+            )
+            SliderPreference(
+                value = state.barOffsetX,
+                onValueChange = {
+                    state.barOffsetX = it
+                    App.settings.applyBarOffsetX(it)
+                },
+                title = "底栏左右偏移",
+                summary = "左右移动悬浮底栏的位置，0 为原位置",
+                valueText = "${state.barOffsetX.toInt()}dp",
+                valueRange = -32f..32f,
+                modifier = Modifier.testTag("settings_bar_offset_x"),
+            )
+            SliderPreference(
+                value = state.barOffsetY,
+                onValueChange = {
+                    state.barOffsetY = it
+                    App.settings.applyBarOffsetY(it)
+                },
+                title = "底栏上下偏移",
+                summary = "上下移动悬浮底栏的位置，0 为原位置",
+                valueText = "${state.barOffsetY.toInt()}dp",
+                valueRange = -32f..32f,
+                modifier = Modifier.testTag("settings_bar_offset_y"),
             )
             SwitchPreference(
                 checked = state.allowLandscape,

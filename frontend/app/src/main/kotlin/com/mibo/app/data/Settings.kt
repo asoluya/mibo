@@ -95,16 +95,16 @@ enum class SearchPanelAnimation(val key: String, val label: String) {
     }
 }
 
-/** 「我」页入口与一级设置选项左侧图标的配色样式，默认使用 ColorOS 17 语义彩色。 */
+/** 「我」页入口与一级设置选项左侧图标的配色样式，默认使用强调色（跟随全局强调色设置）。 */
 enum class MeIconStyle(val key: String, val label: String) {
-    Colorful("colorful", "默认"),
+    Colorful("colorful", "彩色"),
     Monochrome("monochrome", "黑白"),
     Accent("accent", "强调色"),
     ;
 
     companion object {
         fun fromKey(key: String?): MeIconStyle {
-            return entries.firstOrNull { it.key == key } ?: Colorful
+            return entries.firstOrNull { it.key == key } ?: Accent
         }
     }
 }
@@ -244,6 +244,13 @@ class Settings(context: Context) {
      * 与底栏底色都按它走。默认 0.78，即转换前 COUI 玻璃的既有观感。
      */
     var barGlassAlpha by mutableFloatStateOf(sp.getFloat("bar_glass_alpha", 0.78f))
+        private set
+
+    /** 悬浮底栏整体偏移（dp）：x 正值右移、y 正值下移，范围 -32..32，默认 0（原位置）。 */
+    var barOffsetX by mutableFloatStateOf(sp.getFloat("bar_offset_x", 0f))
+        private set
+
+    var barOffsetY by mutableFloatStateOf(sp.getFloat("bar_offset_y", 0f))
         private set
 
     /**
@@ -521,6 +528,19 @@ class Settings(context: Context) {
         barGlassAlpha = clamped
         sp.edit().putFloat("bar_glass_alpha", clamped).apply()
     }
+
+    fun applyBarOffsetX(value: Float) {
+        val clamped = value.coerceIn(-32f, 32f)
+        barOffsetX = clamped
+        sp.edit().putFloat("bar_offset_x", clamped).apply()
+    }
+
+    fun applyBarOffsetY(value: Float) {
+        val clamped = value.coerceIn(-32f, 32f)
+        barOffsetY = clamped
+        sp.edit().putFloat("bar_offset_y", clamped).apply()
+    }
+
 
     fun applyAllowLandscape(value: Boolean) {
         allowLandscape = value

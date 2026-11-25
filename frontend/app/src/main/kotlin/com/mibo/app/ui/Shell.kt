@@ -824,6 +824,7 @@ fun MainShell(nav: NavState) {
                     onExpandToggle = { if (!feedPanelCovering) fabExpanded = !fabExpanded },
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
+                        .offset(x = App.settings.barOffsetX.dp, y = App.settings.barOffsetY.dp)
                         .then(if (feedPanelCovering) Modifier.clearAndSetSemantics {} else Modifier),
                 )
             }
@@ -847,8 +848,8 @@ fun MainShell(nav: NavState) {
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
                             .padding(
-                                end = 36.dp,
-                                bottom = 74.dp +
+                                end = 36.dp - App.settings.barOffsetX.dp,
+                                bottom = 74.dp + App.settings.barOffsetY.dp +
                                     WindowInsets.navigationBars.asPaddingValues()
                                         .calculateBottomPadding(),
                             ),
