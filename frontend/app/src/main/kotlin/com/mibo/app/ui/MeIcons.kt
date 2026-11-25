@@ -2,12 +2,10 @@ package com.mibo.app.ui
 
 import androidx.compose.ui.graphics.vector.ImageVector
 import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.extended.Contacts
 import top.yukonga.miuix.kmp.icon.extended.Create
 import top.yukonga.miuix.kmp.icon.extended.Favorites
 import top.yukonga.miuix.kmp.icon.extended.Home
 import top.yukonga.miuix.kmp.icon.extended.Location
-import top.yukonga.miuix.kmp.icon.extended.Notes
 import top.yukonga.miuix.kmp.icon.extended.Settings
 import top.yukonga.miuix.kmp.icon.extended.Tune
 
@@ -16,9 +14,6 @@ import top.yukonga.miuix.kmp.icon.extended.Tune
  * 与全应用风格一致，不再使用 ColorOS 式双色面性图标。着色由 HubRowIcon 统一用强调色。
  */
 internal object MeIcons {
-
-    /** 我的微博：文稿。 */
-    val Statuses: ImageVector get() = MiuixIcons.Notes
 
     /** 我的收藏 / 本地收藏：星标。 */
     val Favorites: ImageVector get() = MiuixIcons.Favorites

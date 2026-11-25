@@ -893,7 +893,7 @@ fun ProfileContent(
 }
 
 /**
- * 「我」页面的一级功能与设置中心形态：保留顶部个人资料头，下方聚合我的微博、收藏、
+ * 「我」页面的一级功能与设置中心形态：保留顶部个人资料头，下方聚合收藏、
  * 赞过/收到的赞、发出/收到的评论、本机记录以及跳转各个设置分组二级页的入口。
  */
 @Composable
@@ -1025,8 +1025,6 @@ fun ProfileHubContent(
                 }
 
                 item {
-                    val currentUser = state.user
-                    val targetUid = currentUser?.id ?: state.resolvedUid
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1034,14 +1032,6 @@ fun ProfileHubContent(
                         cornerRadius = CardDefaults.CornerRadius,
                         insideMargin = PaddingValues(0.dp),
                     ) {
-                        ArrowPreference(
-                            title = "我的微博",
-                            startAction = { HubRowIcon(MeIcons.Statuses) },
-                            modifier = Modifier.testTag("hub_my_statuses"),
-                            onClick = {
-                                if (!targetUid.isNullOrBlank()) nav.push(Route.Profile(targetUid))
-                            },
-                        )
                         ArrowPreference(
                             title = "我的收藏",
                             startAction = { HubRowIcon(MeIcons.Favorites) },
