@@ -1993,7 +1993,7 @@ internal fun buildCenterMenuEntries(
                 DropdownEntry(
                     items = listOf(
                         DropdownItem(
-                            text = "全部",
+                            text = "关注",
                             selected = follow.key == centerTab.key,
                             onClick = { onCenterSelected(follow) },
                         )

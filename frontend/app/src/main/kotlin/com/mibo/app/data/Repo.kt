@@ -1479,7 +1479,7 @@ class Repo(private val context: Context, private val store: Store) {
     /**
      * 把一组人的微博拼成一条流。
      *
-     * 先扫关注流，按原本的时间序把他们挑出来（这样和「全部」看到的是同一批卡片）；本机标记的
+     * 先扫关注流，按原本的时间序把他们挑出来（这样和「关注」看到的是同一批卡片）；本机标记的
      * 人可能压根不在关注流里，所以再补一次各自的主页时间线，按 id 倒序去重。
      */
     private suspend fun byUsers(

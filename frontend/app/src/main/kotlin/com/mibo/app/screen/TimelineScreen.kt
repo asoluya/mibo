@@ -78,7 +78,7 @@ import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 
 enum class FeedFilter(val label: String, val emptyText: String) {
-    All("全部", "这里还没有微博"),
+    All("关注", "这里还没有微博"),
     Following("关注", "这里还没有微博"),
     Original("原创微博", "还没有原创微博"),
     Unread("未读微博", "还没有未读微博"),
