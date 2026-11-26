@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -1778,15 +1779,22 @@ private fun SegmentedTabRow(
     val backdrop = LocalBackdrop.current
     val density = LocalDensity.current
     val segmentWidthPx = with(density) { segmentWidth.toPx() }
-    val selectedOffset by animateDpAsState(
-        targetValue = segmentWidth * selectedIndex,
-        animationSpec = tween(280),
-        label = "segmentedTabIndicator",
-    )
+    // 灵动滑动：位置走弹簧（带回弹），胶囊宽度按速度拉伸——动得越快拉得越长，
+    // 停下时缩回一格宽，就是酷安底栏那种果冻感。位置以「格」为单位动画。
+    val posAnim = remember { Animatable(selectedIndex.toFloat()) }
+    LaunchedEffect(selectedIndex) {
+        posAnim.animateTo(
+            selectedIndex.toFloat(),
+            spring(dampingRatio = 0.7f, stiffness = 380f),
+        )
+    }
     var dragOffsetPx by remember { mutableFloatStateOf(0f) }
     val maxOffset = segmentWidth * (count - 1).coerceAtLeast(0)
-    val indicatorX = (selectedOffset + with(density) { dragOffsetPx.toDp() })
-        .coerceIn(0.dp, maxOffset)
+    val stretchSeg = (abs(posAnim.velocity) * 0.12f).coerceAtMost(0.6f)
+    val indicatorWidth = segmentWidth * (1f + stretchSeg)
+    val indicatorX = ((posAnim.value + 0.5f) * segmentWidth - indicatorWidth / 2 +
+        with(density) { dragOffsetPx.toDp() })
+        .coerceIn(0.dp, maxOffset + segmentWidth - indicatorWidth)
     val shape = RoundedCornerShape(50)
     Box(
         modifier
@@ -1819,7 +1827,7 @@ private fun SegmentedTabRow(
         Box(
             Modifier
                 .offset(x = indicatorX)
-                .width(segmentWidth)
+                .width(indicatorWidth)
                 .fillMaxHeight()
                 .clip(shape)
                 // 选中格衬底：带透明度的强调色填充 + 同色半透明轮廓（参考微信底栏选中态
