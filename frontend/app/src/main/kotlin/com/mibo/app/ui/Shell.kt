@@ -1792,7 +1792,7 @@ private fun SegmentedTabRow(
     val maxOffset = segmentWidth * (count - 1).coerceAtLeast(0)
     val stretchSeg = (abs(posAnim.velocity) * 0.12f).coerceAtMost(0.6f)
     val indicatorWidth = segmentWidth * (1f + stretchSeg)
-    val indicatorX = ((posAnim.value + 0.5f) * segmentWidth - indicatorWidth / 2 +
+    val indicatorX = (segmentWidth * (posAnim.value + 0.5f) - indicatorWidth / 2 +
         with(density) { dragOffsetPx.toDp() })
         .coerceIn(0.dp, maxOffset + segmentWidth - indicatorWidth)
     val shape = RoundedCornerShape(50)
