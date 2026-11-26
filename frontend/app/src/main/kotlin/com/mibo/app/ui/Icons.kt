@@ -128,9 +128,9 @@ object MiboIcons {
             ) {
                 moveTo(18f, 8f)
                 arcTo(6f, 6f, 0f, false, false, 6f, 8f)
-                cubicTo(6f, 15f, 3f, 17f, 3f, 17f)
+                curveTo(6f, 15f, 3f, 17f, 3f, 17f)
                 lineTo(21f, 17f)
-                cubicTo(21f, 17f, 18f, 15f, 18f, 8f)
+                curveTo(21f, 17f, 18f, 15f, 18f, 8f)
                 moveTo(13.73f, 21f)
                 arcTo(2f, 2f, 0f, false, true, 10.27f, 21f)
             }
