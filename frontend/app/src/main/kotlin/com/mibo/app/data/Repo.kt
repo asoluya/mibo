@@ -3583,22 +3583,27 @@ class Repo(private val context: Context, private val store: Store) {
             }
             val token = session?.accessToken.orEmpty()
             if (token.isNotBlank()) {
-                try {
-                    val root = Api.upload(
-                        "https://upload.api.weibo.com/2/mss/media_upload.json?source=209678993&type=image",
-                        bytes, name, mime, "", null,
-                        field = "media",
-                        extra = mapOf("access_token" to token),
-                    )
-                    val mediaId = root.str("media_id")
-                    if (mediaId.isNotBlank() && mediaId.all { it.isDigit() }) {
-                        return createWithFids(mediaId)
+                // access_token 放 query（OAuth 惯例），source 两个候选都试：
+                // 209678993 是 webim/私信下载用的，7501641714 是容器分享的。
+                val mssUrls = listOf(
+                    "https://upload.api.weibo.com/2/mss/media_upload.json?source=209678993&type=image&access_token=$token",
+                    "https://upload.api.weibo.com/2/mss/media_upload.json?source=7501641714&type=image&access_token=$token",
+                )
+                for ((index, url) in mssUrls.withIndex()) {
+                    try {
+                        val root = Api.upload(url, bytes, name, mime, "", null, field = "media")
+                        val mediaId = root.str("media_id")
+                        if (mediaId.isNotBlank() && mediaId.all { it.isDigit() }) {
+                            return createWithFids(mediaId)
+                        }
+                        errors.add("mss${index + 1}:${root.toString().take(70)}")
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: ApiHttpException) {
+                        errors.add("mss${index + 1}:HTTP${e.code}:${e.body.take(70)}")
+                    } catch (e: Throwable) {
+                        errors.add("mss${index + 1}:${e.message}")
                     }
-                    errors.add("mss:${root.toString().take(80)}")
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Throwable) {
-                    errors.add("mss:${e.message}")
                 }
             } else {
                 errors.add("mss:无accessToken")
@@ -3614,9 +3619,11 @@ class Repo(private val context: Context, private val store: Store) {
                 if (webFid.isNotBlank() && webFid.all { it.isDigit() }) {
                     return createWithFids(webFid)
                 }
-                errors.add("webim:${root.toString().take(80)}")
+                errors.add("webim:${root.toString().take(70)}")
             } catch (e: CancellationException) {
                 throw e
+            } catch (e: ApiHttpException) {
+                errors.add("webim:HTTP${e.code}:${e.body.take(70)}")
             } catch (e: Throwable) {
                 errors.add("webim:${e.message}")
             }
@@ -3643,7 +3650,7 @@ class Repo(private val context: Context, private val store: Store) {
                     }
                 }
             }
-            throw ApiException("发图失败：" + errors.joinToString("；").take(180))
+            throw ApiException("发图失败：" + errors.joinToString(" | ").take(320))
         }
         val fids = uploadChatImage(uid, uri, gid)
         return sendChatImage(uid, fids, gid)
