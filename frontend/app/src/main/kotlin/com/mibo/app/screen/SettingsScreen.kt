@@ -1573,6 +1573,7 @@ private fun DialogButtons(
 fun NotifySettingsScreen(nav: NavState) {
     val context = LocalContext.current
     var enabled by remember { mutableStateOf(App.settings.notifyEnabled) }
+    var newPosts by remember { mutableStateOf(App.settings.notifyNewPosts) }
     var intervalText by remember { mutableStateOf(App.settings.notifyIntervalSeconds.toString()) }
     var batteryIgnored by remember { mutableStateOf(isIgnoringBatteryOptimizations(context)) }
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -1640,6 +1641,16 @@ fun NotifySettingsScreen(nav: NavState) {
                             title = "后台通知",
                             summary = "应用不在前台时，定时检查新的赞、评论和 @，有新的就发系统通知",
                             modifier = Modifier.testTag("notify_enabled"),
+                        )
+                        SwitchPreference(
+                            checked = newPosts,
+                            onCheckedChange = { v ->
+                                newPosts = v
+                                App.settings.applyNotifyNewPosts(v)
+                            },
+                            title = "新帖推送",
+                            summary = "关注的人发新微博时也发一条通知",
+                            modifier = Modifier.testTag("notify_new_posts"),
                         )
                         Row(
                             modifier = Modifier
