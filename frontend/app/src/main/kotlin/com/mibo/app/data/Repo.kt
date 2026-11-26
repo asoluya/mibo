@@ -3566,28 +3566,73 @@ class Repo(private val context: Context, private val store: Store) {
                 mime.contains("webp") -> "pic.webp"
                 else -> "pic.jpg"
             }
+            // create 的图片字段已实测锁定为 fids，值必须是纯数字（"param fids
+            // must be digit !"）。但发微博的 unistore 上传只给复合 media_id 或图片
+            // pid，永远凑不出数字 fid——数字 fid 只能来自私信年代的上传口。依次试：
+            // 一、老 MSS media_upload（2014 年那套，返回数字 media_id）用客户端
+            //     登录的 access_token + webim 的 source；
+            // 二、webim 的 upload_pic（桌面网页聊天上传口，存在性未证实）；
+            // 三、unistore 上传的候选值兜底（已知大概率被拒，留诊断）。
+            val errors = ArrayList<String>()
+            suspend fun createWithFids(fids: String): ChatMessage? {
+                val root = containerPost(
+                    "direct_messages/create",
+                    mapOf("uid" to uid, "text" to "", "fids" to fids, "media_type" to "1"),
+                )
+                return ChatMessage.fromClient(root)
+            }
+            val token = session?.accessToken.orEmpty()
+            if (token.isNotBlank()) {
+                try {
+                    val root = Api.upload(
+                        "https://upload.api.weibo.com/2/mss/media_upload.json?source=209678993&type=image",
+                        bytes, name, mime, "", null,
+                        field = "media",
+                        extra = mapOf("access_token" to token),
+                    )
+                    val mediaId = root.str("media_id")
+                    if (mediaId.isNotBlank() && mediaId.all { it.isDigit() }) {
+                        return createWithFids(mediaId)
+                    }
+                    errors.add("mss:${root.toString().take(80)}")
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Throwable) {
+                    errors.add("mss:${e.message}")
+                }
+            } else {
+                errors.add("mss:无accessToken")
+            }
+            try {
+                val root = Api.upload(
+                    "https://api.weibo.com/webim/2/direct_messages/upload_pic.json?source=209678993",
+                    bytes, name, mime, desktopCookie(), null,
+                    field = "pic",
+                )
+                val webFid = root.str("fid").ifBlank { root.str("media_id") }
+                    .ifBlank { root.optJSONObject("data")?.str("fid").orEmpty() }
+                if (webFid.isNotBlank() && webFid.all { it.isDigit() }) {
+                    return createWithFids(webFid)
+                }
+                errors.add("webim:${root.toString().take(80)}")
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                errors.add("webim:${e.message}")
+            }
             val uploaded = withContainerAuth { cUid, gsid, aid ->
                 ContainerApi.uploadPic(cUid, gsid, aid, bytes, name, ContainerApi.md5Hex(bytes))
             }
-            // create 的图片字段已实测锁定为 fids（#105 的报错从「内容不能为空」
-            // 变成了 "param fids must be digit !"）——字段对了，值必须是纯数字。
-            // 发微博那套 MSS 上传给的 media_id 是 "1042018:m1" 这种复合串，冒号前
-            // 的数字段最可能就是私信要的 fid。依次试数字段、原值，报错全文留底。
             val fidCandidates = buildList {
                 if (uploaded.dmFid.isNotBlank() && uploaded.dmFid.all { it.isDigit() }) add(uploaded.dmFid)
                 val prefix = uploaded.mediaId.substringBefore(':', "")
                 if (prefix.isNotBlank() && prefix.all { it.isDigit() }) add(prefix)
                 add(uploaded.dmFid)
                 add(uploaded.fid)
-            }.distinct()
-            val errors = ArrayList<String>()
+            }.filter { it.isNotBlank() }.distinct()
             for (candidate in fidCandidates) {
                 try {
-                    val root = containerPost(
-                        "direct_messages/create",
-                        mapOf("uid" to uid, "text" to "", "fids" to candidate, "media_type" to "1"),
-                    )
-                    return ChatMessage.fromClient(root)
+                    return createWithFids(candidate)
                 } catch (e: ApiException) {
                     errors.add("$candidate→${e.message}")
                     val msg = e.message.orEmpty()
