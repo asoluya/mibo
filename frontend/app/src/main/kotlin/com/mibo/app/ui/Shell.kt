@@ -1950,11 +1950,12 @@ private fun FeedTabs(
         glass = glass,
         modifier = modifier.width(containerWidth),
         tabModifier = { index -> Modifier.testTag(feedTabs[index].tag) },
-        tabContent = { index, _ ->
+        tabContent = { index, active ->
             val label = labels[index]
             val menu = filterMenu && feedTabs.getOrNull(index)?.isCenter == true
-            // 两态同色，和系统 SegmentButton 一致：靠滑块和字重区分选中，不靠灰一档。
-            val labelColor = scheme.onSurface
+            // 选中格按强调色显示（文字与展开三角同色），再配指示器的强调色轮廓：
+            // 参考微信底栏那种选中即变色的读法，一眼能分清选中的是哪格。
+            val labelColor = if (active) scheme.primary else scheme.onSurface
             Box(
                 Modifier
                     .fillMaxWidth()
