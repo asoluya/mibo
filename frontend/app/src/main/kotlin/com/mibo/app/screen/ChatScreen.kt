@@ -68,6 +68,7 @@ import coil3.compose.AsyncImage
 import com.mibo.app.App
 import com.mibo.app.data.ApiException
 import com.mibo.app.data.ChatMessage
+import com.mibo.app.data.Pic
 import com.mibo.app.data.chatPlainText
 import com.mibo.app.data.User
 import com.mibo.app.ui.NavState
@@ -437,6 +438,21 @@ fun ChatScreen(nav: NavState, uid: String, name: String, gid: String = "") {
                                                 messages.remove(item)
                                             }
                                         },
+                                        onOpenImage = { msg ->
+                                            nav.push(
+                                                Route.Images(
+                                                    listOf(
+                                                        Pic(
+                                                            thumb = msg.thumbUrl,
+                                                            large = msg.imageUrl,
+                                                            width = msg.width,
+                                                            height = msg.height,
+                                                        ),
+                                                    ),
+                                                    0,
+                                                ),
+                                            )
+                                        },
                                     )
                                 }
                             }
@@ -707,6 +723,7 @@ private fun ChatBubble(
     avatar: String?,
     senderName: String? = null,
     onRetry: () -> Unit,
+    onOpenImage: (ChatMessage) -> Unit,
 ) {
     val scheme = MiuixTheme.colorScheme
     if (message.isNotice) {
@@ -760,11 +777,21 @@ private fun ChatBubble(
             ) {
                 when {
                     message.isImage -> {
-                        // 服务端给了原始宽高，先按比例占好位；加载失败也不会塌成一条细边。
-                        val ratio = if (message.width > 0 && message.height > 0) {
-                            message.width.toFloat() / message.height
-                        } else {
-                            4f / 3f
+                        // 气泡直接加载原图（msget）：240 的缩略图放大到 180dp 必糊。
+                        // 原图加载失败再退回缩略图。宽高服务端没给，先按 4:3 占位，
+                        // 加载成功后按真实比例修正。点气泡打开看图页；失败气泡的
+                        // 点击留给外层的重发，所以这里禁用。
+                        var model by remember(message.id) {
+                            mutableStateOf(message.imageUrl.ifBlank { message.thumbUrl })
+                        }
+                        var ratio by remember(message.id) {
+                            mutableStateOf(
+                                if (message.width > 0 && message.height > 0) {
+                                    message.width.toFloat() / message.height
+                                } else {
+                                    4f / 3f
+                                },
+                            )
                         }
                         val boxWidth = 180.dp
                         val boxHeight = (boxWidth / ratio).coerceAtMost(220.dp)
@@ -772,13 +799,24 @@ private fun ChatBubble(
                             Modifier
                                 .size(boxWidth, boxHeight)
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(scheme.surfaceContainerHigh),
+                                .background(scheme.surfaceContainerHigh)
+                                .clickable(enabled = !message.failed) { onOpenImage(message) },
                         ) {
                             AsyncImage(
-                                model = message.thumbUrl.ifBlank { message.imageUrl },
+                                model = model,
                                 contentDescription = null,
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize(),
+                                onSuccess = { state ->
+                                    val w = state.result.image.width
+                                    val h = state.result.image.height
+                                    if (w > 0 && h > 0) ratio = w.toFloat() / h
+                                },
+                                onError = {
+                                    if (model != message.thumbUrl && message.thumbUrl.isNotBlank()) {
+                                        model = message.thumbUrl
+                                    }
+                                },
                             )
                         }
                     }
