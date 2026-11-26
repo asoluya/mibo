@@ -688,6 +688,9 @@ fun MainShell(nav: NavState) {
 
     val feedPanelCovering = tab == 0 && panelMounted
 
+    // 右下展开钮的状态（声明在前：下面的滚动连接要在滑动时直接收起展开的三钮）。
+    var fabExpanded by remember { mutableStateOf(false) }
+
     // 滑动隐藏顶/底栏（设置开关）：嵌套滚动只观察不消费——向下滚过阈值收起两栏，
     // 向上滚一点就恢复；切标签页、搜索面板盖住时强制恢复显示。
     var barsHidden by remember { mutableStateOf(false) }
@@ -700,9 +703,20 @@ fun MainShell(nav: NavState) {
         object : NestedScrollConnection {
             var downAcc = 0f
             var upAcc = 0f
+            var trioAcc = 0f
             override fun onPreScroll(available: Offset, source: androidx.compose.ui.input.nestedscroll.NestedScrollSource): Offset {
-                if (!App.settings.hideBarsOnScroll || panelCoveringNow.value) return Offset.Zero
                 val y = available.y
+                // 三钮展开时，只要页面真的滚动起来就收起（与隐藏两栏的开关无关）。
+                if (fabExpanded) {
+                    trioAcc += kotlin.math.abs(y)
+                    if (trioAcc > 24f) {
+                        fabExpanded = false
+                        trioAcc = 0f
+                    }
+                } else {
+                    trioAcc = 0f
+                }
+                if (!App.settings.hideBarsOnScroll || panelCoveringNow.value) return Offset.Zero
                 if (y < 0f) {
                     downAcc += -y; upAcc = 0f
                 } else if (y > 0f) {
@@ -720,8 +734,6 @@ fun MainShell(nav: NavState) {
         label = "barsHideFraction",
     )
 
-    // 右下展开钮的状态：默认展开后常驻、再点展开钮收回；设置里开了自动关闭则点任意地方收回。
-    var fabExpanded by remember { mutableStateOf(false) }
     // 两栏收起时展开的三钮也一并收回（三钮本就锚在底栏上方）。
     LaunchedEffect(barsHidden) { if (barsHidden) fabExpanded = false }
 
