@@ -252,8 +252,8 @@ class Settings(context: Context) {
     var notifyEnabled by mutableStateOf(sp.getBoolean("notify_enabled", false))
         private set
 
-    /** 后台通知轮询间隔（分钟）：越短越及时也越耗电。默认 5 分钟，范围 1..120。 */
-    var notifyIntervalMinutes by mutableStateOf(sp.getInt("notify_interval_minutes", 5))
+    /** 后台通知轮询间隔（秒）：越短越及时也越耗电。默认 60 秒，范围 10..3600。 */
+    var notifyIntervalSeconds by mutableStateOf(sp.getInt("notify_interval_seconds", 60))
         private set
 
     /** 上次检查更新的时间戳。 */
@@ -513,10 +513,10 @@ class Settings(context: Context) {
         sp.edit().putBoolean("notify_enabled", value).apply()
     }
 
-    fun applyNotifyIntervalMinutes(value: Int) {
-        val coerced = value.coerceIn(1, 120)
-        notifyIntervalMinutes = coerced
-        sp.edit().putInt("notify_interval_minutes", coerced).apply()
+    fun applyNotifyIntervalSeconds(value: Int) {
+        val coerced = value.coerceIn(10, 3600)
+        notifyIntervalSeconds = coerced
+        sp.edit().putInt("notify_interval_seconds", coerced).apply()
     }
 
 

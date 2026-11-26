@@ -63,8 +63,8 @@ class NotifyPollService : Service() {
     private suspend fun pollLoop() {
         while (true) {
             runCatching { pollOnce() }
-            val minutes = runCatching { App.settings.notifyIntervalMinutes }.getOrDefault(5).coerceIn(1, 120)
-            delay(minutes * 60_000L)
+            val seconds = runCatching { App.settings.notifyIntervalSeconds }.getOrDefault(60).coerceIn(10, 3600)
+            delay(seconds * 1_000L)
         }
     }
 
@@ -175,11 +175,11 @@ private fun openAppIntent(context: Context): PendingIntent {
 }
 
 private fun buildServiceNotification(context: Context): Notification {
-    val minutes = runCatching { App.settings.notifyIntervalMinutes }.getOrDefault(5)
+    val seconds = runCatching { App.settings.notifyIntervalSeconds }.getOrDefault(60)
     return Notification.Builder(context, CHANNEL_SERVICE)
         .setSmallIcon(android.R.drawable.ic_popup_reminder)
         .setContentTitle("Mibo 通知监测运行中")
-        .setContentText("每 $minutes 分钟检查一次新的赞、评论和 @")
+        .setContentText("每 $seconds 秒检查一次新的赞、评论和 @")
         .setOngoing(true)
         .setContentIntent(openAppIntent(context))
         .build()

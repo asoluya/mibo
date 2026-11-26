@@ -1572,7 +1572,7 @@ private fun DialogButtons(
 fun NotifySettingsScreen(nav: NavState) {
     val context = LocalContext.current
     var enabled by remember { mutableStateOf(App.settings.notifyEnabled) }
-    var intervalText by remember { mutableStateOf(App.settings.notifyIntervalMinutes.toString()) }
+    var intervalText by remember { mutableStateOf(App.settings.notifyIntervalSeconds.toString()) }
     var batteryIgnored by remember { mutableStateOf(isIgnoringBatteryOptimizations(context)) }
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -1649,7 +1649,7 @@ fun NotifySettingsScreen(nav: NavState) {
                             Column(Modifier.weight(1f)) {
                                 Text("轮询间隔")
                                 Text(
-                                    "单位分钟，时间越短越耗电",
+                                    "单位秒，时间越短越耗电",
                                     fontSize = 13.sp,
                                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                                 )
@@ -1657,20 +1657,20 @@ fun NotifySettingsScreen(nav: NavState) {
                             TextField(
                                 value = intervalText,
                                 onValueChange = { input ->
-                                    intervalText = input.filter { it.isDigit() }.take(3)
+                                    intervalText = input.filter { it.isDigit() }.take(4)
                                 },
                                 modifier = Modifier
                                     .width(96.dp)
                                     .onFocusChanged { focus ->
                                         if (!focus.isFocused) {
                                             intervalText.trim().toIntOrNull()?.let {
-                                                App.settings.applyNotifyIntervalMinutes(it)
+                                                App.settings.applyNotifyIntervalSeconds(it)
                                             }
-                                            intervalText = App.settings.notifyIntervalMinutes.toString()
+                                            intervalText = App.settings.notifyIntervalSeconds.toString()
                                         }
                                     }
                                     .testTag("notify_interval"),
-                                label = "分钟",
+                                label = "秒",
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 maxLines = 1,
                                 minLines = 1,
