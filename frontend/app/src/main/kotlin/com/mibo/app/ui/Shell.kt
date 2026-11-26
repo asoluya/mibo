@@ -1822,9 +1822,10 @@ private fun SegmentedTabRow(
                 .width(segmentWidth)
                 .fillMaxHeight()
                 .clip(shape)
-                .background(if (glass) scheme.surface.copy(alpha = 0.85f) else scheme.surface)
-                // 选中格加一圈强调色轮廓：只靠底色在玻璃上看不出选中了哪格。
-                .border(1.5.dp, scheme.primary, shape),
+                // 选中格衬底：带透明度的强调色填充 + 同色半透明轮廓（参考微信底栏选中态
+                // 那种淡淡的彩色胶囊），配选中文字变强调色，一眼能分清选中的是哪格。
+                .background(scheme.primary.copy(alpha = 0.15f))
+                .border(1.5.dp, scheme.primary.copy(alpha = 0.55f), shape),
         )
         Row(
             Modifier.pointerInput(count, segmentWidthPx) {
