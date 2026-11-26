@@ -157,7 +157,6 @@ private class SettingsUiState(context: Context) {
     var autoCheckUpdate by mutableStateOf(App.settings.autoCheckUpdate)
     var checkUpdateOnStartup by mutableStateOf(App.settings.checkUpdateOnStartup)
     var acceptPrerelease by mutableStateOf(App.settings.acceptPrerelease)
-    var blurEffects by mutableStateOf(App.settings.blurEffects)
     var barGlassAlpha by mutableFloatStateOf(App.settings.barGlassAlpha)
     var barOffsetX by mutableFloatStateOf(App.settings.barOffsetX)
     var barOffsetY by mutableFloatStateOf(App.settings.barOffsetY)
@@ -165,7 +164,6 @@ private class SettingsUiState(context: Context) {
     var hideBarsOnScroll by mutableStateOf(App.settings.hideBarsOnScroll)
     var inAppBrowser by mutableStateOf(App.settings.inAppBrowser)
     var message by mutableStateOf("")
-    var logout by mutableStateOf(false)
     var feedLeftTab by mutableStateOf(App.settings.feedLeftTab)
     var feedRightTab by mutableStateOf(App.settings.feedRightTab)
     var feedGroups by mutableStateOf<List<FollowGroup>>(emptyList())
@@ -251,7 +249,7 @@ private fun SettingsScaffold(
     val listState = rememberLazyListState()
 
     Box(Modifier.fillMaxSize().background(pageColor)) {
-        Box(Modifier.fillMaxSize().layerBackdropIf(state.blurEffects, backdrop).background(pageColor)) {
+        Box(Modifier.fillMaxSize().layerBackdropIf(blurEffectsEnabled(), backdrop).background(pageColor)) {
             LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize().scrollEndHaptic(),
@@ -269,7 +267,7 @@ private fun SettingsScaffold(
         }
 
         CompositionLocalProvider(
-            LocalBackdrop provides if (state.blurEffects) backdrop else null,
+            LocalBackdrop provides if (blurEffectsEnabled()) backdrop else null,
         ) {
             PinnedBarDensity {
                 AppBarSurface(
@@ -348,16 +346,6 @@ private fun LazyListScope.displaySettingsItems(
                 modifier = Modifier.testTag("settings_predictive_back_entry"),
                 onClick = { nav.push(Route.PredictiveBackSettings) },
             )
-            SwitchPreference(
-                checked = state.blurEffects,
-                onCheckedChange = {
-                    state.blurEffects = it
-                    App.settings.applyBlurEffects(it)
-                },
-                title = "模糊效果",
-                summary = "关闭后顶栏与玻璃面改画纯色，滑动更省电",
-                modifier = Modifier.testTag("settings_blur"),
-            )
             SliderPreference(
                 value = state.barGlassAlpha,
                 onValueChange = {
@@ -365,10 +353,9 @@ private fun LazyListScope.displaySettingsItems(
                     App.settings.applyBarGlassAlpha(it)
                 },
                 title = "顶栏与底栏透明度",
-                summary = "模糊开启时顶栏与悬浮底栏的玻璃浓度，越低越透",
+                summary = "顶栏与悬浮底栏的玻璃浓度，越低越透",
                 valueText = "${(state.barGlassAlpha * 100).toInt()}%",
                 valueRange = 0.3f..1f,
-                enabled = state.blurEffects,
                 modifier = Modifier.testTag("settings_bar_glass_alpha"),
             )
             ArrowPreference(
@@ -558,36 +545,8 @@ private fun LazyListScope.otherSettingsItems(
         }
     }
 
-    // 更新组已并入「其他」：更新卡排在其他卡之后、退出卡之前。
+    // 更新组已并入「其他」：更新卡排在其他卡之后。
     updateSettingsItems(nav = nav, state = state, scope = scope, showHeader = false)
-
-    // 退出是破坏性操作，单独一张卡，不和其他条目挤在一起。
-    item {
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            cornerRadius = CardDefaults.CornerRadius,
-            insideMargin = PaddingValues(0.dp),
-        ) {
-            if (state.guest) {
-                ArrowPreference(
-                    title = "退出纯本地模式",
-                    modifier = Modifier.testTag("settings_leave_local"),
-                    summary = "回到登录页，本地关注名单保留",
-                    onClick = {
-                        App.settings.applyLocalMode(false)
-                        nav.reset(Route.SmsLogin())
-                    },
-                )
-            } else {
-                ArrowPreference(
-                    title = "退出登录",
-                    modifier = Modifier.testTag("settings_logout"),
-                    summary = "清除本地会话",
-                    onClick = { state.logout = true },
-                )
-            }
-        }
-    }
 
     if (state.message.isNotBlank()) {
         item {
@@ -608,22 +567,6 @@ private fun SettingsDialogs(
 ) {
     val leftOptions = feedTabOptions(state.feedGroups, allowNone = true, current = if (state.guest) null else state.feedLeftTab)
     val rightOptions = feedTabOptions(state.feedGroups, allowNone = true, current = if (state.guest) null else state.feedRightTab)
-
-    if (state.logout) {
-        ConfirmDialog(
-            title = "退出登录",
-            message = "会清除本地保存的 Cookie，下次需要重新登录。",
-            confirmText = "退出",
-            onDismiss = { state.logout = false },
-            onConfirm = {
-                state.logout = false
-                CookieManager.getInstance().removeAllCookies(null)
-                CookieManager.getInstance().flush()
-                App.repo.logout()
-                nav.reset(Route.SmsLogin())
-            },
-        )
-    }
 
     if (state.pickFeedLeft) {
         FeedTabPicker(
@@ -687,6 +630,7 @@ fun AccountRelatedScreen(nav: NavState) {
     var localFollowUid by remember { mutableStateOf(App.settings.localFollowUid) }
     var pickLocalFollow by remember { mutableStateOf(false) }
     var syncing by remember { mutableStateOf(false) }
+    var confirmLogout by remember { mutableStateOf(false) }
     val accounts = remember(localFollowUid) { App.store.accounts() }
     val localFollowAccount = accounts.firstOrNull { it.uid == localFollowUid }
     val localFollowSummary = if (localFollowAccount == null) {
@@ -755,6 +699,33 @@ fun AccountRelatedScreen(nav: NavState) {
                         )
                     }
                 }
+                // 退出登录从设置「应用相关」移来：破坏性操作，单独一张卡。
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        cornerRadius = CardDefaults.CornerRadius,
+                        insideMargin = PaddingValues(0.dp),
+                    ) {
+                        if (App.repo.guest) {
+                            ArrowPreference(
+                                title = "退出纯本地模式",
+                                modifier = Modifier.testTag("settings_leave_local"),
+                                summary = "回到登录页，本地关注名单保留",
+                                onClick = {
+                                    App.settings.applyLocalMode(false)
+                                    nav.reset(Route.SmsLogin())
+                                },
+                            )
+                        } else {
+                            ArrowPreference(
+                                title = "退出登录",
+                                modifier = Modifier.testTag("settings_logout"),
+                                summary = "清除本地会话",
+                                onClick = { confirmLogout = true },
+                            )
+                        }
+                    }
+                }
             }
         }
 
@@ -786,6 +757,22 @@ fun AccountRelatedScreen(nav: NavState) {
                 App.settings.applyLocalFollowUid(uid)
                 localFollowUid = uid
                 pickLocalFollow = false
+            },
+        )
+    }
+
+    if (confirmLogout) {
+        ConfirmDialog(
+            title = "退出登录",
+            message = "会清除本地保存的 Cookie，下次需要重新登录。",
+            confirmText = "退出",
+            onDismiss = { confirmLogout = false },
+            onConfirm = {
+                confirmLogout = false
+                CookieManager.getInstance().removeAllCookies(null)
+                CookieManager.getInstance().flush()
+                App.repo.logout()
+                nav.reset(Route.SmsLogin())
             },
         )
     }

@@ -204,13 +204,6 @@ class Settings(context: Context) {
         private set
 
     /**
-     * 模糊效果：顶栏的渐变玻璃和页面里的玻璃面都要每帧采样背后的内容。
-     * 关掉之后改为纯色，页面也不再录制 backdrop。默认开，和以前的外观一致。
-     */
-    var blurEffects by mutableStateOf(sp.getBoolean("blur_effects", true))
-        private set
-
-    /**
      * 顶栏与悬浮底栏的玻璃混色不透明度（0.3–1.0）：模糊开启时顶栏 textureBlur 的混色浓度
      * 与底栏底色都按它走。默认 0.78，即转换前 COUI 玻璃的既有观感。
      */
@@ -441,11 +434,6 @@ class Settings(context: Context) {
     fun applyPredictiveBackImageFling(value: Boolean) {
         predictiveBackImageFling = value
         sp.edit().putBoolean("predictive_back_image_fling", value).apply()
-    }
-
-    fun applyBlurEffects(value: Boolean) {
-        blurEffects = value
-        sp.edit().putBoolean("blur_effects", value).apply()
     }
 
     fun applyBarGlassAlpha(value: Float) {
