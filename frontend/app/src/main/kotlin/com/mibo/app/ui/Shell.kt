@@ -2332,8 +2332,9 @@ private fun FloatingTabItem(
     modifier: Modifier = Modifier,
 ) {
     val colorScheme = MiuixTheme.colorScheme
+    // 选中项图标与文字都按强调色（与顶栏分段一致，参考微信底栏选中即变色）。
     val tint = if (selected) {
-        colorScheme.onSurface
+        colorScheme.primary
     } else {
         colorScheme.onSurface.copy(alpha = FloatingNavigationBarDefaults.UnselectedAlpha)
     }
