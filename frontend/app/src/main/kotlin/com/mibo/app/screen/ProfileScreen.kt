@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -145,7 +147,9 @@ import top.yukonga.miuix.kmp.basic.PullToRefresh
 import top.yukonga.miuix.kmp.basic.PullToRefreshState
 import top.yukonga.miuix.kmp.basic.RefreshState
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
+import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.VerticalDivider
 import top.yukonga.miuix.kmp.basic.TopAppBarDefaults
 import top.yukonga.miuix.kmp.basic.rememberPullToRefreshState
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
@@ -1032,30 +1036,55 @@ fun ProfileHubContent(
                         cornerRadius = CardDefaults.CornerRadius,
                         insideMargin = PaddingValues(0.dp),
                     ) {
-                        ArrowPreference(
-                            title = "我赞过的",
-                            startAction = { HubRowIcon(MeIcons.MyLikes) },
-                            modifier = Modifier.testTag("hub_my_likes"),
-                            onClick = { nav.push(Route.MyLikes) },
-                        )
-                        ArrowPreference(
-                            title = "收到的赞",
-                            startAction = { HubRowIcon(MeIcons.ReceivedLikes) },
-                            modifier = Modifier.testTag("hub_received_likes"),
-                            onClick = { nav.push(Route.Notifications(NotificationTab.Like)) },
-                        )
-                        ArrowPreference(
-                            title = "收到评论",
-                            startAction = { HubRowIcon(MeIcons.ReceivedComments) },
-                            modifier = Modifier.testTag("hub_received_comments"),
-                            onClick = { nav.push(Route.Notifications(NotificationTab.Comment)) },
-                        )
-                        ArrowPreference(
-                            title = "发出评论",
-                            startAction = { HubRowIcon(MeIcons.SentComments) },
-                            modifier = Modifier.testTag("hub_sent_comments"),
-                            onClick = { nav.push(Route.Notifications(NotificationTab.SentComment)) },
-                        )
+                        Column {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(IntrinsicSize.Min),
+                            ) {
+                                HubGridCell(
+                                    title = "我赞过的",
+                                    icon = MeIcons.MyLikes,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .testTag("hub_my_likes"),
+                                    onClick = { nav.push(Route.MyLikes) },
+                                )
+                                VerticalDivider(modifier = Modifier.fillMaxHeight())
+                                HubGridCell(
+                                    title = "收到的赞",
+                                    icon = MeIcons.ReceivedLikes,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .testTag("hub_received_likes"),
+                                    onClick = { nav.push(Route.Notifications(NotificationTab.Like)) },
+                                )
+                            }
+                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(IntrinsicSize.Min),
+                            ) {
+                                HubGridCell(
+                                    title = "收到评论",
+                                    icon = MeIcons.ReceivedComments,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .testTag("hub_received_comments"),
+                                    onClick = { nav.push(Route.Notifications(NotificationTab.Comment)) },
+                                )
+                                VerticalDivider(modifier = Modifier.fillMaxHeight())
+                                HubGridCell(
+                                    title = "发出评论",
+                                    icon = MeIcons.SentComments,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .testTag("hub_sent_comments"),
+                                    onClick = { nav.push(Route.Notifications(NotificationTab.SentComment)) },
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -1156,6 +1185,26 @@ fun ProfileHubContent(
 }
 
 @Composable
+/** 「我」页四宫格单元格：图标在上、标题在下，整格可点。 */
+@Composable
+private fun HubGridCell(
+    title: String,
+    icon: ImageVector,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    Column(
+        modifier = modifier
+            .clickable(onClick = onClick)
+            .padding(vertical = 14.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        HubRowIcon(icon)
+        Spacer(Modifier.height(6.dp))
+        Text(text = title, fontSize = 13.sp)
+    }
+}
+
 private fun HubRowIcon(imageVector: ImageVector) {
     Icon(
         imageVector = imageVector,
