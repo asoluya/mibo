@@ -2080,13 +2080,18 @@ data class ChatMessage(
             val recipient = o.optJSONObject("recipient")
             val senderId = o.str("sender_id").ifBlank { sender?.str("idstr").orEmpty() }.ifBlank { sender?.str("id").orEmpty() }
             val recipientId = o.str("recipient_id").ifBlank { recipient?.str("idstr").orEmpty() }.ifBlank { recipient?.str("id").orEmpty() }
-            // attachinfo 在部分响应里是序列化成字符串的 JSON 数组，先兼容这一种。
-            val attachArr = o.optJSONArray("attachinfo")
+            // 图片信息在 attachments（现行结构：fid 是数字 media_id，url 常为
+            // null，缩略图是 msget_thumbnail 直链）；attachinfo 是旧结构，兜底；
+            // 再不行用 att_ids 里的数字 fid 拼 msget 地址。
+            val attachArr = o.optJSONArray("attachments")
+                ?: o.optJSONArray("attachinfo")
                 ?: o.optString("attachinfo").takeIf { it.startsWith("[") }
                     ?.let { runCatching { JSONArray(it) }.getOrNull() }
             val firstAttach = attachArr?.optJSONObject(0)
             val fid = firstAttach?.str("fid").orEmpty()
+                .ifBlank { o.optJSONArray("att_ids")?.opt(0)?.toString().orEmpty() }
             val s3Url = firstAttach?.str("s3_url").orEmpty()
+                .ifBlank { firstAttach?.str("url").orEmpty() }
             val rawThumb = firstAttach?.str("thumbnail_240").orEmpty()
                 .ifBlank { firstAttach?.str("thumbnail").orEmpty() }
             val imageUrl = when {
@@ -2100,30 +2105,9 @@ data class ChatMessage(
                 else -> imageUrl
             }
             val mediaType = o.int("media_type").let { if (it == 0 && (imageUrl.isNotBlank() || thumbUrl.isNotBlank())) 1 else it }
-            // 临时诊断（定位后删除）：像图片消息却没解析出图时，把原始 JSON 拼进
-            // 正文，气泡里就能看到服务端到底给了什么字段。
-            val rawText = o.str("text")
-            val displayText = if (imageUrl.isBlank() &&
-                (o.int("media_type") != 0 || rawText.contains("分享") || o.has("attachinfo") || o.has("fids"))
-            ) {
-                // 用户对象太肥会把附件字段挤出截断范围，逐字段列（跳过 sender/recipient）。
-                val dbg = buildString {
-                    val keys = o.keys()
-                    while (keys.hasNext()) {
-                        val k = keys.next()
-                        if (k == "sender" || k == "recipient") continue
-                        append(k).append('=')
-                            .append(o.opt(k)?.toString()?.take(300))
-                            .append(';')
-                    }
-                }.take(1000)
-                rawText + "\n[DBG]" + dbg
-            } else {
-                rawText
-            }
             return ChatMessage(
                 id = id,
-                text = displayText,
+                text = o.str("text"),
                 senderId = senderId,
                 recipientId = recipientId,
                 createdAt = o.str("created_at"),
