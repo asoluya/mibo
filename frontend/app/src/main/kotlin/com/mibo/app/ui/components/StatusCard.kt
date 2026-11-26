@@ -97,6 +97,7 @@ import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.Checkbox
+import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.RadioButton
 import top.yukonga.miuix.kmp.basic.Text
@@ -135,8 +136,9 @@ fun StatusCard(
     /** Opens the quoted post when it is tapped; the frame grows from and returns into that block. */
     onOpenQuoted: ((Status, ExpandOrigin) -> Unit)? = null,
     onDeleted: (() -> Unit)? = null,
-    /** 是否保留最外层卡片外框。关掉后只去掉卡片底色与圆角，内容横向与顶栏按钮对齐。 */
-    /** 去掉卡片外框时，是否在两条微博之间画一条与正文同缩进的底部分割线。 */
+    /** 是否保留最外层卡片外框。false 时平铺成列表：无卡片底色与圆角，内容全宽，
+     * 条与条之间一条与正文同缩进的细分隔线（首页信息流用，其余页面仍是卡片）。 */
+    framed: Boolean = true,
     /** 信息流按官方 140 字规则折叠长文；详情页传 false，始终显示全文。 */
     foldLongText: Boolean = true,
 ) {
@@ -239,9 +241,9 @@ fun StatusCard(
             )
         if (showOuterVote) {
             Spacer(Modifier.height(8.dp))
-            StatusVoteCard(status = status, actionsEnabled = actionsEnabled, onCard = true)
+            StatusVoteCard(status = status, actionsEnabled = actionsEnabled, onCard = framed)
         }
-        StatusMedia(status, compact, onImage, onVideo, onCard = true)
+        StatusMedia(status, compact, onImage, onVideo, onCard = framed)
         if (status.retweeted != null) {
             Spacer(Modifier.height(8.dp))
             RetweetBlock(
@@ -253,7 +255,7 @@ fun StatusCard(
                 onUser = onUser,
                 onImage = onImage,
                 onVideo = onVideo,
-                onCard = true,
+                onCard = framed,
                 foldLongText = foldLongText,
             )
         }
@@ -309,13 +311,30 @@ fun StatusCard(
             }
         }
     }
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        cornerRadius = CardDefaults.CornerRadius,
-        insideMargin = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
-        onClick = onOpen,
-        content = content,
-    )
+    if (framed) {
+        Card(
+            modifier = modifier.fillMaxWidth(),
+            cornerRadius = CardDefaults.CornerRadius,
+            insideMargin = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
+            onClick = onOpen,
+            content = content,
+        )
+    } else {
+        Column(modifier = modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onOpen)
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                content = content,
+            )
+            HorizontalDivider(
+                modifier = Modifier.padding(horizontal = 16.dp),
+                color = scheme.dividerLine.copy(alpha = 0.6f),
+                thickness = 0.6.dp,
+            )
+        }
+    }
     if (confirmDelete) {
         ConfirmDialog(
             title = "删除微博",
@@ -588,7 +607,13 @@ fun StatusMedia(
     val bigPic = status.bigPic
     if (bigPic != null && bigPic.url.isNotBlank()) {
         Spacer(Modifier.height(8.dp))
-        if (bigPic.isLarge) {
+        // 大图卡里分两类：商品/文章等链接卡改走小图横排（整幅大图太占屏）；
+        // 图片页 / wbox / 超话这类本质是图片的仍走大图，点开看图。
+        val openImageFirst = isWeiboWboxLink(bigPic.scheme) ||
+            superTopicId(bigPic.scheme) != null ||
+            isImageLink(bigPic.scheme) ||
+            isWeiboPhotoPageLink(bigPic.scheme)
+        if (bigPic.isLarge && (openImageFirst || bigPic.scheme.isBlank())) {
             BigPicCard(bigPic, onImage)
         } else {
             PageLinkCard(bigPic, compact = compact, onCard = onCard)

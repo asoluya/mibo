@@ -866,12 +866,12 @@ private fun TimelinePage(
             state = listState,
             modifier = Modifier.fillMaxSize().scrollEndHaptic().overScrollVertical(),
             contentPadding = PaddingValues(
-                start = 12.dp,
+                start = 0.dp,
                 top = topInset + 16.dp,
-                end = 12.dp,
+                end = 0.dp,
                 bottom = 96.dp + navBottomPadding(),
             ),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(0.dp),
         ) {
             if (store.items.isEmpty()) {
                 item {
@@ -901,15 +901,17 @@ private fun TimelinePage(
                     is FeedEntry.Gap -> {
                         FeedGapCard(
                             gap = entry.gap,
-                            modifier = Modifier,
+                            modifier = Modifier.padding(horizontal = 12.dp),
                             onClick = { scope.launch { store.loadGap(entry.gap.id) } },
                         )
                     }
                     is FeedEntry.ReadMarker -> {
+                      Box(Modifier.padding(horizontal = 12.dp)) {
                         FeedReadMarker(
                             refreshing = store.refreshing,
                             onClick = { scope.launch { store.refresh() } },
                         )
+                      }
                     }
                     is FeedEntry.Post -> {
                         val status = entry.status
@@ -925,6 +927,7 @@ private fun TimelinePage(
                         }
                         StatusCard(
                             status = status,
+                            framed = false,
                             modifier = Modifier.expandOrigin(origin).testTag("feed_card_$index"),
                             onOpen = { nav.push(Route.Detail(status.id, status.mid, store.readOnly), origin) },
                             onUser = { nav.push(Route.Profile(it.id)) },
