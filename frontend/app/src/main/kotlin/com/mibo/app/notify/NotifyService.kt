@@ -114,6 +114,26 @@ class NotifyPollService : Service() {
             prefs.edit().putString(stateKey, topId).apply()
             postInteractionNotification(this, check.notificationId, check.label, newCount, entries.first().second)
         }
+        // 新帖推送（单独开关）：顺带查一次关注流，榜首变了就按同样的规则发一条。
+        if (runCatching { App.settings.notifyNewPosts }.getOrDefault(false)) {
+            val items = runCatching { App.repo.friends(null, force = true) }.getOrNull()?.items.orEmpty()
+            if (items.isNotEmpty()) {
+                val topId = items.first().id
+                val stateKey = "last_friends"
+                val lastSeen = prefs.getString(stateKey, null)
+                if (lastSeen == null) {
+                    prefs.edit().putString(stateKey, topId).apply()
+                } else if (topId != lastSeen) {
+                    val knownIndex = items.indexOfFirst { it.id == lastSeen }
+                    val newCount = if (knownIndex >= 0) knownIndex else items.size
+                    prefs.edit().putString(stateKey, topId).apply()
+                    val top = items.first()
+                    val firstText = listOf(top.user?.name.orEmpty(), plainText(top.textHtml))
+                        .filter { it.isNotBlank() }.joinToString("：")
+                    postInteractionNotification(this, 1005, "微博", newCount, firstText)
+                }
+            }
+        }
     }
 
     companion object {

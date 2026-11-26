@@ -508,6 +508,15 @@ class Settings(context: Context) {
         sp.edit().putBoolean("monitor_new_posts", value).apply()
     }
 
+    /** 后台通知是否也推关注新帖：默认关；开了之后每轮轮询顺带查关注流，有新帖发通知。 */
+    var notifyNewPosts by mutableStateOf(sp.getBoolean("notify_new_posts", false))
+        private set
+
+    fun applyNotifyNewPosts(value: Boolean) {
+        notifyNewPosts = value
+        sp.edit().putBoolean("notify_new_posts", value).apply()
+    }
+
     fun applyNotifyEnabled(value: Boolean) {
         notifyEnabled = value
         sp.edit().putBoolean("notify_enabled", value).apply()

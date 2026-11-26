@@ -1822,7 +1822,9 @@ private fun SegmentedTabRow(
                 .width(segmentWidth)
                 .fillMaxHeight()
                 .clip(shape)
-                .background(if (glass) scheme.surface.copy(alpha = 0.85f) else scheme.surface),
+                .background(if (glass) scheme.surface.copy(alpha = 0.85f) else scheme.surface)
+                // 选中格加一圈强调色轮廓：只靠底色在玻璃上看不出选中了哪格。
+                .border(1.5.dp, scheme.primary, shape),
         )
         Row(
             Modifier.pointerInput(count, segmentWidthPx) {
