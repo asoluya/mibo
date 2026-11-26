@@ -25,6 +25,8 @@ object ContainerApi {
         val bypass: String = "unistore.image",
         /** 发布媒体类型：普通图片 pic；动态照片勾选实况时 livephoto。 */
         val type: String = "pic",
+        /** MSS 计划的原始 media_id（如 "1042018:m1"）；Legacy 计划为空。 */
+        val mediaId: String = "",
     )
 
     internal data class PicDiscovery(
@@ -584,7 +586,12 @@ object ContainerApi {
             is PicUploadInit.Mss -> plan.mediaId
             is PicUploadInit.Legacy -> legacyFid.ifBlank { throw ApiException("图片上传失败") }
         }
-        return UploadedMedia(fid = fid, md5 = md5Hex, bypass = discovery.bypass)
+        return UploadedMedia(
+            fid = fid,
+            md5 = md5Hex,
+            bypass = discovery.bypass,
+            mediaId = (plan as? PicUploadInit.Mss)?.mediaId.orEmpty(),
+        )
     }
 
     /**
