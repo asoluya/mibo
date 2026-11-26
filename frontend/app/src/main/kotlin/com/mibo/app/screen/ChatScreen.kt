@@ -122,10 +122,10 @@ private const val ChatPollMillis = 15_000L
 private const val TimeGapMillis = 5 * 60 * 1000L
 
 /** 底栏胶囊高度：输入框与发送按钮共用，保证两者单行时严格等高。 */
-private val ChatComposerHeight = 36.dp
+private val ChatComposerHeight = 52.dp
 
 /** 输入框最多长到多高，再多就在框里自己滚。 */
-private val ChatComposerMaxHeight = 108.dp
+private val ChatComposerMaxHeight = 120.dp
 
 private val WeiboTimeFormat = "EEE MMM dd HH:mm:ss Z yyyy"
 
@@ -460,7 +460,7 @@ fun ChatScreen(nav: NavState, uid: String, name: String, gid: String = "") {
                         Modifier
                             .align(Alignment.BottomCenter)
                             .fillMaxWidth()
-                            .padding(bottom = navPad)
+                            .padding(bottom = navPad + 10.dp)
                             .onSizeChanged { composerHeightPx = it.height },
                     ) {
                         ChatBottomBar(
@@ -619,18 +619,18 @@ private fun ChatBottomBar(
             // 表情钮在输入框左侧（参考官方私信页）：贴底放，草稿变多行时始终落在第一行那侧。
             ComposerToolButton(
                 active = emotePanelOpen,
-                size = 30.dp,
-                cornerRadius = 15.dp,
+                size = 38.dp,
+                cornerRadius = 19.dp,
                 onClick = onToggleEmote,
                 modifier = Modifier
                     .align(Alignment.Bottom)
-                    .padding(start = 5.dp, bottom = 3.dp)
+                    .padding(start = 6.dp, bottom = 7.dp)
                     .testTag("chat_emoji"),
             ) {
                 Icon(
                     imageVector = MiboIcons.Emoji,
                     contentDescription = "表情",
-                    modifier = Modifier.size(20.dp),
+                    modifier = Modifier.size(22.dp),
                     tint = if (emotePanelOpen) scheme.primary else scheme.onSurface,
                 )
             }
@@ -672,7 +672,7 @@ private fun ChatBottomBar(
                 Icon(
                     imageVector = MiuixIcons.Send,
                     contentDescription = "发送",
-                    modifier = Modifier.size(18.dp),
+                    modifier = Modifier.size(20.dp),
                     tint = scheme.onPrimary,
                 )
             }
@@ -693,7 +693,7 @@ private fun ChatBottomBar(
                 Icon(
                     imageVector = MiuixIcons.Add,
                     contentDescription = "图片",
-                    modifier = Modifier.size(20.dp),
+                    modifier = Modifier.size(24.dp),
                     tint = scheme.onSurface,
                 )
             }

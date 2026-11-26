@@ -3551,21 +3551,36 @@ class Repo(private val context: Context, private val store: Store) {
             ?: throw ApiException("无法读取图片")
         val mime = resolver.getType(uri) ?: "image/jpeg"
         val name = "chat." + (mime.substringAfterLast('/', "jpg"))
-        var root = uploadChatAttempt(uid, gid, bytes, name, mime)
-        if (root.optInt("ok", 0) != 1 && isClientLogin() && refreshClientSession(force = true)) {
+        var root: JSONObject? = null
+        var failure: Throwable? = null
+        try {
+            root = uploadChatAttempt(uid, gid, bytes, name, mime)
+        } catch (e: ApiHttpException) {
+            // HTTP 层被拒（多半是网页登录态失效）：先记下，续签换新 Cookie 后重试。
+            failure = e
+        }
+        if ((root == null || root.optInt("ok", 0) != 1) && isClientLogin() &&
+            refreshClientSession(force = true, bypassCooldown = true)
+        ) {
             // 私信发图只有 H5 一条路（m.weibo.cn + 网页 Cookie），而客户端登录的网页 Cookie
             // 会先于 gsid 过期：文字走容器通道照常能发，图片却会被拒。续签换新 Cookie 后重试。
-            root = uploadChatAttempt(uid, gid, bytes, name, mime)
+            try {
+                root = uploadChatAttempt(uid, gid, bytes, name, mime)
+                failure = null
+            } catch (e: ApiHttpException) {
+                failure = e
+            }
         }
-        val fids = root.optJSONObject("data")?.str("fids").orEmpty()
+        val fids = root?.optJSONObject("data")?.str("fids").orEmpty()
         if (fids.isBlank()) {
-            val msg = root.str("msg")
-            val errno = root.str("errno")
+            val msg = root?.str("msg").orEmpty()
+            val errno = root?.str("errno").orEmpty()
             throw ApiException(
                 when {
                     msg.isNotBlank() -> msg
                     errno.isNotBlank() -> "图片上传失败（$errno）"
-                    else -> "图片上传失败"
+                    root != null -> "图片上传失败：${root.toString().take(120)}"
+                    else -> "图片上传失败：${failure?.message ?: "网络异常"}"
                 },
                 errno,
             )
