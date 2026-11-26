@@ -325,8 +325,7 @@ fun ChatScreen(nav: NavState, uid: String, name: String, gid: String = "") {
         scope.launch {
             listState.animateScrollToItem(0)
             try {
-                val fids = App.repo.uploadChatImage(uid, uri, gid)
-                val real = App.repo.sendChatImage(uid, fids, gid)
+                val real = App.repo.sendChatImageMessage(uid, uri, gid)
                 val index = messages.indexOfFirst { it.id == tempId }
                 if (index >= 0) {
                     messages[index] = real ?: messages[index].copy(pending = false)

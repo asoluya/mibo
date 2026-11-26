@@ -3544,6 +3544,41 @@ class Repo(private val context: Context, private val store: Store) {
         )
     }
 
+    /**
+     * 发一张图片私信（一步到位，供聊天页调用）。
+     *
+     * 客户端通道（gsid）走容器：图片先用发微博那套 MSS 上传（init/upload）拿到 fid，
+     * 再 `direct_messages/create` 带 fid 发送——收到的图片私信在容器通道里正是
+     * `attachinfo[].fid` + `media_type=1`。H5 那条路（`api/chat/upload`）只认网页
+     * Cookie，客户端登录的网页 Cookie 会被 m.weibo.cn 的 SSO 直接拒掉（ok=-100 跳
+     * passport 登录页，2026-11-26 实测），所以客户端会话不再走它。
+     * 其余会话（网页登录、群聊）仍走 H5 两步。
+     */
+    suspend fun sendChatImageMessage(uid: String, uri: Uri, gid: String = ""): ChatMessage? {
+        if (gid.isBlank() && isClientChannel()) {
+            val resolver = context.contentResolver
+            val bytes = resolver.openInputStream(uri)?.use { it.readBytes() }
+                ?: throw ApiException("无法读取图片")
+            val mime = resolver.getType(uri) ?: "image/jpeg"
+            val name = when {
+                mime.contains("png") -> "pic.png"
+                mime.contains("gif") -> "pic.gif"
+                mime.contains("webp") -> "pic.webp"
+                else -> "pic.jpg"
+            }
+            val uploaded = withContainerAuth { cUid, gsid, aid ->
+                ContainerApi.uploadPic(cUid, gsid, aid, bytes, name, ContainerApi.md5Hex(bytes))
+            }
+            val root = containerPost(
+                "direct_messages/create",
+                mapOf("uid" to uid, "fid" to uploaded.fid),
+            )
+            return ChatMessage.fromClient(root)
+        }
+        val fids = uploadChatImage(uid, uri, gid)
+        return sendChatImage(uid, fids, gid)
+    }
+
     /** 上传私信图片，返回 `fids`。群聊传 [gid]，上传字段换成 `tochatid`。 */
     suspend fun uploadChatImage(uid: String, uri: Uri, gid: String = ""): String {
         val resolver = context.contentResolver
