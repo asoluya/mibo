@@ -3569,17 +3569,16 @@ class Repo(private val context: Context, private val store: Store) {
             val uploaded = withContainerAuth { cUid, gsid, aid ->
                 ContainerApi.uploadPic(cUid, gsid, aid, bytes, name, ContainerApi.md5Hex(bytes))
             }
-            // create 对图片附件的字段形状没有公开文档：#103 实测只带 fid 会被判
-            // 「发送的内容不能为空」。按可能性依次试三种形状，只在参数类拒绝
-            // （不能为空/参数）时才换下一种——被拒即没发出去，不会重复发送。
-            val mediaJson = ContainerApi.buildPublishMediaJson(listOf(uploaded))
+            // create 对图片附件的字段形状没有公开文档，只能按证据试：
+            // #103 实测只带 fid 被判「发送的内容不能为空」；#104 的 fid/media JSON/
+            // attachinfo 三种也全被拒。DM 核心自己的词是 fids（H5 的 api/chat/send
+            // 就是 fids + media_type=1），MSS 那边同个 id 叫 media_id——这轮试这组，
+            // 仍只在参数类拒绝（不能为空/参数）时换下一种，被拒即没发出去，不会重复发送。
+            val fid = uploaded.fid
             val attempts: List<Map<String, String>> = listOf(
-                mapOf("uid" to uid, "text" to "", "fid" to uploaded.fid),
-                mapOf("uid" to uid, "text" to "", "media" to mediaJson, "media_type" to "1"),
-                mapOf(
-                    "uid" to uid, "text" to "", "media_type" to "1",
-                    "attachinfo" to "[{\"fid\":\"${uploaded.fid}\"}]",
-                ),
+                mapOf("uid" to uid, "text" to "", "fids" to fid, "media_type" to "1"),
+                mapOf("uid" to uid, "content" to "", "fids" to fid, "media_type" to "1"),
+                mapOf("uid" to uid, "text" to "", "media_id" to fid, "media_type" to "1"),
             )
             var lastError: Throwable? = null
             for (form in attempts) {
@@ -3591,6 +3590,15 @@ class Repo(private val context: Context, private val store: Store) {
                     val msg = e.message.orEmpty()
                     if (!msg.contains("不能为空") && !msg.contains("参数")) throw e
                 }
+            }
+            try {
+                val root = containerPostMultipart(
+                    "direct_messages/create",
+                    mapOf("uid" to uid, "text" to "", "fids" to fid, "media_type" to "1"),
+                )
+                return ChatMessage.fromClient(root)
+            } catch (e: ApiException) {
+                lastError = e
             }
             throw lastError ?: ApiException("图片发送失败")
         }
