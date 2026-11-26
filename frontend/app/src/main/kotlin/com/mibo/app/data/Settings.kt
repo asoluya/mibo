@@ -233,7 +233,7 @@ class Settings(context: Context) {
         private set
 
     /** 滑动时隐藏顶栏和底栏：向下滑动浏览时自动收起两栏，向上滑动恢复。默认关。 */
-    var hideBarsOnScroll by mutableStateOf(sp.getBoolean("hide_bars_on_scroll", false))
+    var hideBarsOnScroll by mutableStateOf(sp.getBoolean("hide_bars_on_scroll", true))
         private set
 
     /** 使用内置浏览器打开外部网页：开启后在应用内 WebView 打开，关闭后直接跳转系统浏览器。默认开。 */
