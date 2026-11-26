@@ -688,7 +688,7 @@ fun MainShell(nav: NavState) {
 
     val feedPanelCovering = tab == 0 && panelMounted
 
-    // 右下展开钮的状态（声明在前：下面的滚动连接要在滑动时直接收起展开的三钮）。
+    // 右下展开钮的状态：默认展开后常驻、再点展开钮收回；设置里开了自动关闭则点任意地方收回。
     var fabExpanded by remember { mutableStateOf(false) }
 
     // 滑动隐藏顶/底栏（设置开关）：嵌套滚动只观察不消费——向下滚过阈值收起两栏，
@@ -703,20 +703,9 @@ fun MainShell(nav: NavState) {
         object : NestedScrollConnection {
             var downAcc = 0f
             var upAcc = 0f
-            var trioAcc = 0f
             override fun onPreScroll(available: Offset, source: androidx.compose.ui.input.nestedscroll.NestedScrollSource): Offset {
-                val y = available.y
-                // 三钮展开时，只要页面真的滚动起来就收起（与隐藏两栏的开关无关）。
-                if (fabExpanded) {
-                    trioAcc += kotlin.math.abs(y)
-                    if (trioAcc > 24f) {
-                        fabExpanded = false
-                        trioAcc = 0f
-                    }
-                } else {
-                    trioAcc = 0f
-                }
                 if (!App.settings.hideBarsOnScroll || panelCoveringNow.value) return Offset.Zero
+                val y = available.y
                 if (y < 0f) {
                     downAcc += -y; upAcc = 0f
                 } else if (y > 0f) {
@@ -734,8 +723,6 @@ fun MainShell(nav: NavState) {
         label = "barsHideFraction",
     )
 
-    // 两栏收起时展开的三钮也一并收回（三钮本就锚在底栏上方）。
-    LaunchedEffect(barsHidden) { if (barsHidden) fabExpanded = false }
 
     Box(Modifier.fillMaxSize().nestedScroll(hideBarsConnection)) {
         // The bar floats over the page, so the line it ends at is reported from the bar itself and
@@ -909,7 +896,12 @@ fun MainShell(nav: NavState) {
                     visible = fabExpanded,
                     enter = fadeIn(tween(180)),
                     exit = fadeOut(tween(150)),
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        // 三钮跟随底栏一起隐藏/恢复：只是视觉上随栏位移淡出，
+                        // 展开状态本身保留，两栏恢复时三钮仍是展开的。
+                        .offset { IntOffset(0, (140.dp * barsHideFraction.value).roundToPx()) }
+                        .graphicsLayer { alpha = 1f - barsHideFraction.value },
                 ) {
                   BoxWithConstraints(Modifier.fillMaxSize()) {
                     if (App.settings.expandAutoClose) {
