@@ -80,32 +80,23 @@ import com.mibo.app.data.FeedTabSelection
 import com.mibo.app.data.FollowGroup
 import com.mibo.app.data.Updater
 import com.mibo.app.data.feedTabOptions
-import com.mibo.app.ui.AccentHueCycle
-import com.mibo.app.ui.AccentMonet
-import com.mibo.app.ui.AccentPresets
 import com.mibo.app.ui.AppBarSurface
 import com.mibo.app.ui.LocalBackdrop
 import com.mibo.app.ui.openExternalUrl
 import com.mibo.app.ui.MiboIcons
-import com.mibo.app.ui.DefaultAccentSwatchColor
 import com.mibo.app.ui.NavState
 import com.mibo.app.ui.PinnedBarDensity
 import com.mibo.app.ui.FloatingBottomBar
 import com.mibo.app.ui.Route
-import com.mibo.app.ui.accentColorSummary
-import com.mibo.app.ui.systemMonetArgb
 import com.mibo.app.ui.blurEffectsEnabled
 import com.mibo.app.ui.components.BackIconButton
 import com.mibo.app.ui.components.ConfirmDialog
 import com.mibo.app.ui.components.SectionTitle
 import com.mibo.app.ui.components.navBottomPadding
-import com.mibo.app.ui.formatHexColor
 import com.mibo.app.ui.glassBarContentTop
-import com.mibo.app.ui.hueCycleArgb
 import com.mibo.app.ui.isDarkTheme
 import com.mibo.app.ui.layerBackdropIf
 import com.mibo.app.ui.pageContainerColor
-import com.mibo.app.ui.parseHexColor
 import com.mibo.app.ui.pinnedHeight
 import com.mibo.app.ui.rememberListScrollFraction
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
@@ -152,7 +143,6 @@ private class SettingsUiState(context: Context) {
     val guest: Boolean = App.repo.guest
 
     var darkMode by mutableIntStateOf(App.settings.darkMode)
-    var accentColor by mutableIntStateOf(App.settings.accentColor)
     var fontScale by mutableFloatStateOf(App.settings.fontScale)
     var autoCheckUpdate by mutableStateOf(App.settings.autoCheckUpdate)
     var checkUpdateOnStartup by mutableStateOf(App.settings.checkUpdateOnStartup)
@@ -169,7 +159,6 @@ private class SettingsUiState(context: Context) {
     var feedGroups by mutableStateOf<List<FollowGroup>>(emptyList())
     var pickFeedLeft by mutableStateOf(false)
     var pickFeedRight by mutableStateOf(false)
-    var pickAccentColor by mutableStateOf(false)
 }
 
 @Composable
@@ -312,22 +301,6 @@ private fun LazyListScope.displaySettingsItems(
                 },
                 onClick = { state.darkMode = App.settings.cycleDarkMode() },
             )
-            ArrowPreference(
-                title = "强调色",
-                modifier = Modifier.testTag("settings_accent_color"),
-                summary = accentColorSummary(state.accentColor),
-                endActions = {
-                    Box(
-                        Modifier
-                            .padding(end = 6.dp)
-                            .size(18.dp)
-                            .clip(CircleShape)
-                            .background(MiuixTheme.colorScheme.primary)
-                            .border(1.dp, MiuixTheme.colorScheme.outline, CircleShape),
-                    )
-                },
-                onClick = { state.pickAccentColor = true },
-            )
             SliderPreference(
                 value = state.fontScale,
                 // 拖动时只动本地状态（滑块和百分比）：字号是全局密度，逐帧应用会让整棵界面
@@ -339,12 +312,6 @@ private fun LazyListScope.displaySettingsItems(
                 valueText = "${(state.fontScale * 100).toInt()}%",
                 valueRange = 0.8f..1.2f,
                 modifier = Modifier.testTag("settings_font"),
-            )
-            ArrowPreference(
-                title = "预测性返回手势设置",
-                summary = if (App.settings.predictiveBack) "已开启" else "已关闭",
-                modifier = Modifier.testTag("settings_predictive_back_entry"),
-                onClick = { nav.push(Route.PredictiveBackSettings) },
             )
             SliderPreference(
                 value = state.barGlassAlpha,
@@ -596,29 +563,7 @@ private fun SettingsDialogs(
         )
     }
 
-    if (state.pickAccentColor) {
-        AccentColorPickerDialog(
-            currentArgb = state.accentColor,
-            onDismiss = { state.pickAccentColor = false },
-            onConfirm = { picked ->
-                App.settings.applyAccentColor(picked)
-                state.accentColor = picked
-                state.pickAccentColor = false
-            },
-        )
-    }
 }
-
-private val RainbowSwatchColors = listOf(
-    Color(0xFFFF3B30),
-    Color(0xFFFF9500),
-    Color(0xFFFFCC00),
-    Color(0xFF34C759),
-    Color(0xFF00C7BE),
-    Color(0xFF007AFF),
-    Color(0xFFAF52DE),
-    Color(0xFFFF3B30),
-)
 
 /**
  * 「账号相关」页：从长按底栏头像的菜单进入，收纳原设置页「账号与内容」里的
@@ -919,357 +864,6 @@ internal fun RewardCodeDialog(onDismiss: () -> Unit) {
     }
 }
 
-/**
- * 自定义强调色弹窗：支持常用色板快选（含「Jeb_」动态循环）、HSV 三通道微调与十六进制色号输入。
- */
-@Composable
-private fun AccentColorPickerDialog(
-    currentArgb: Int,
-    onDismiss: () -> Unit,
-    onConfirm: (Int) -> Unit,
-) {
-    var show by remember { mutableStateOf(false) }
-    var apply by remember { mutableStateOf(false) }
-    var settled by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { show = true }
-
-    val dark = isDarkTheme()
-    val themePrimary = MiuixTheme.colorScheme.primary
-    val context = LocalContext.current
-    val monetColor = Color(systemMonetArgb(context, dark))
-    var pickedArgb by remember { mutableIntStateOf(currentArgb) }
-    val initialColor = when (currentArgb) {
-        0 -> DefaultAccentSwatchColor
-        AccentHueCycle -> themePrimary
-        AccentMonet -> monetColor
-        else -> Color(currentArgb)
-    }
-    val initialHsv = remember {
-        FloatArray(3).also { AndroidColor.colorToHSV(initialColor.toArgb(), it) }
-    }
-    var hue by remember { mutableFloatStateOf(initialHsv[0]) }
-    var saturation by remember { mutableFloatStateOf(initialHsv[1]) }
-    var brightness by remember { mutableFloatStateOf(initialHsv[2]) }
-    var hexInput by remember { mutableStateOf(formatHexColor(initialColor.toArgb())) }
-
-    val isHueCycle = pickedArgb == AccentHueCycle
-    LaunchedEffect(isHueCycle, dark) {
-        if (!isHueCycle) return@LaunchedEffect
-        val startMs = System.currentTimeMillis()
-        val startHue = hue
-        while (true) {
-            val elapsed = System.currentTimeMillis() - startMs
-            val nextHue = (startHue + elapsed / 100f) % 360f
-            val cycleRgb = hueCycleArgb(nextHue, dark)
-            val hsv = FloatArray(3)
-            AndroidColor.colorToHSV(cycleRgb, hsv)
-            hue = hsv[0]
-            saturation = hsv[1]
-            brightness = hsv[2]
-            hexInput = formatHexColor(cycleRgb)
-            kotlinx.coroutines.delay(120L)
-        }
-    }
-
-    val previewColor = when (pickedArgb) {
-        0 -> DefaultAccentSwatchColor
-        AccentHueCycle -> Color(hueCycleArgb(hue, dark))
-        AccentMonet -> monetColor
-        else -> Color(pickedArgb)
-    }
-
-    fun selectArgb(argb: Int) {
-        pickedArgb = argb
-        if (argb == AccentHueCycle || argb == AccentMonet) return
-        val displayArgb = if (argb == 0) DefaultAccentSwatchColor.toArgb() else argb
-        val hsv = FloatArray(3)
-        AndroidColor.colorToHSV(displayArgb, hsv)
-        hue = hsv[0]
-        saturation = hsv[1]
-        brightness = hsv[2]
-        hexInput = formatHexColor(displayArgb)
-    }
-
-    fun updateFromHsv() {
-        val c = AndroidColor.HSVToColor(floatArrayOf(hue, saturation, brightness))
-        pickedArgb = c
-        hexInput = formatHexColor(c)
-    }
-
-    OverlayDialog(
-        show = show,
-        title = null,
-        outsideMargin = DpSize(16.dp, 8.dp),
-        onDismissRequest = { show = false },
-        onDismissFinished = {
-            if (!settled) {
-                settled = true
-                if (apply) onConfirm(pickedArgb) else onDismiss()
-            }
-        },
-    ) {
-        Column {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 20.dp, end = 16.dp, top = 16.dp, bottom = 6.dp),
-            ) {
-                Text(
-                    text = "强调色",
-                    fontSize = MiuixTheme.textStyles.title4.fontSize,
-                    fontWeight = FontWeight.SemiBold,
-                    color = DialogDefaults.titleColor(),
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.align(Alignment.Center),
-                )
-                val canReset = pickedArgb != 0
-                IconButton(
-                    onClick = { selectArgb(0) },
-                    enabled = canReset,
-                    modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .alpha(if (canReset) 1f else 0.36f)
-                        .testTag("accent_reset_default"),
-                ) {
-                    Icon(
-                        imageVector = MiuixIcons.Undo,
-                        contentDescription = "恢复默认",
-                        modifier = Modifier.size(18.dp),
-                    )
-                }
-            }
-            Column(
-                modifier = Modifier
-                    .heightIn(max = 460.dp)
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(previewColor)
-                            .border(1.dp, MiuixTheme.colorScheme.outline, CircleShape),
-                    )
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            text = accentColorSummary(pickedArgb),
-                            fontSize = 14.sp,
-                            color = MiuixTheme.colorScheme.onSurface,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Spacer(Modifier.height(2.dp))
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(3.dp),
-                        ) {
-                            Icon(
-                                imageVector = MiboIcons.SuperTopic,
-                                contentDescription = null,
-                                tint = previewColor,
-                                modifier = Modifier.size(14.dp),
-                            )
-                            Text(
-                                text = "超话  #话题#  @用户",
-                                fontSize = 12.sp,
-                                color = previewColor,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-                    }
-                }
-
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    AccentPresets.chunked(5).forEachIndexed { rowIdx, rowPresets ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                        ) {
-                            rowPresets.forEachIndexed { colIdx, preset ->
-                                val presetIndex = rowIdx * 5 + colIdx
-                                val isRainbowPreset = preset.argb == AccentHueCycle
-                                val swatchColor = when (preset.argb) {
-                                    0 -> DefaultAccentSwatchColor
-                                    AccentHueCycle -> previewColor
-                                    AccentMonet -> monetColor
-                                    else -> Color(preset.argb)
-                                }
-                                val selected = when (preset.argb) {
-                                    0 -> pickedArgb == 0
-                                    AccentHueCycle -> pickedArgb == AccentHueCycle
-                                    AccentMonet -> pickedArgb == AccentMonet
-                                    else -> pickedArgb != 0 && pickedArgb != AccentHueCycle &&
-                                        (pickedArgb or 0xFF000000.toInt()) == preset.argb
-                                }
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clip(RoundedCornerShape(10.dp))
-                                        .clickable { selectArgb(preset.argb) }
-                                        .padding(horizontal = 2.dp, vertical = 4.dp)
-                                        .testTag("accent_preset_$presetIndex"),
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(30.dp)
-                                            .clip(CircleShape)
-                                            .then(
-                                                if (isRainbowPreset) {
-                                                    Modifier.background(Brush.sweepGradient(RainbowSwatchColors))
-                                                } else {
-                                                    Modifier.background(swatchColor)
-                                                },
-                                            )
-                                            .then(
-                                                if (selected) {
-                                                    Modifier.border(2.dp, MiuixTheme.colorScheme.onSurface, CircleShape)
-                                                } else {
-                                                    Modifier.border(1.dp, MiuixTheme.colorScheme.outline, CircleShape)
-                                                },
-                                            ),
-                                        contentAlignment = Alignment.Center,
-                                    ) {
-                                        if (selected) {
-                                            Icon(
-                                                imageVector = MiboIcons.Check,
-                                                contentDescription = "已选",
-                                                tint = if (!isRainbowPreset && swatchColor.luminance() > 0.55f) {
-                                                    Color(0xE6000000)
-                                                } else {
-                                                    Color.White
-                                                },
-                                                modifier = Modifier.size(16.dp),
-                                            )
-                                        }
-                                    }
-                                    Spacer(Modifier.height(3.dp))
-                                    Text(
-                                        text = preset.label,
-                                        fontSize = 10.sp,
-                                        color = if (selected) {
-                                            MiuixTheme.colorScheme.onSurface
-                                        } else {
-                                            MiuixTheme.colorScheme.onSurfaceSecondary
-                                        },
-                                        maxLines = 1,
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-
-                TextField(
-                    value = hexInput,
-                    onValueChange = { raw ->
-                        val cleaned = raw.uppercase().take(7)
-                        hexInput = cleaned
-                        parseHexColor(cleaned)?.let { parsed ->
-                            pickedArgb = parsed
-                            val hsv = FloatArray(3)
-                            AndroidColor.colorToHSV(parsed, hsv)
-                            hue = hsv[0]
-                            saturation = hsv[1]
-                            brightness = hsv[2]
-                        }
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(44.dp)
-                        .testTag("accent_hex_input"),
-                    label = "十六进制色号 (#RRGGBB)",
-                    insideMargin = DpSize(0.dp, 8.dp),
-                    colors = TextFieldDefaults.textFieldColors(
-                        borderColor = previewColor,
-                    ),
-                    singleLine = true,
-                )
-
-                AccentSliderRow(
-                    label = "色相",
-                    valueText = "${hue.toInt()}°",
-                    value = hue,
-                    valueRange = 0f..360f,
-                    accentColor = previewColor,
-                    onValueChange = {
-                        hue = it
-                        updateFromHsv()
-                    },
-                )
-                AccentSliderRow(
-                    label = "饱和度",
-                    valueText = "${(saturation * 100).toInt()}%",
-                    value = saturation,
-                    valueRange = 0f..1f,
-                    accentColor = previewColor,
-                    onValueChange = {
-                        saturation = it
-                        updateFromHsv()
-                    },
-                )
-                AccentSliderRow(
-                    label = "明度",
-                    valueText = "${(brightness * 100).toInt()}%",
-                    value = brightness,
-                    valueRange = 0f..1f,
-                    accentColor = previewColor,
-                    onValueChange = {
-                        brightness = it
-                        updateFromHsv()
-                    },
-                )
-            }
-            Spacer(Modifier.height(6.dp))
-            DialogButtons(
-                negativeText = "取消",
-                onNegative = { show = false },
-                positiveText = "确定",
-                onPositive = {
-                    apply = true
-                    show = false
-                },
-            )
-        }
-    }
-}
-
-@Composable
-private fun AccentSliderRow(
-    label: String,
-    valueText: String,
-    value: Float,
-    valueRange: ClosedFloatingPointRange<Float>,
-    accentColor: Color,
-    onValueChange: (Float) -> Unit,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(label, fontSize = 12.sp, color = MiuixTheme.colorScheme.onSurfaceSecondary)
-            Text(valueText, fontSize = 12.sp, color = MiuixTheme.colorScheme.onSurfaceSecondary)
-        }
-        Slider(
-            value = value,
-            onValueChange = onValueChange,
-            valueRange = valueRange,
-            colors = SliderDefaults.sliderColors(foregroundColor = accentColor),
-            modifier = Modifier.fillMaxWidth(),
-        )
-    }
-}
-
 @Composable
 private fun LocalFollowPicker(
     accounts: List<Account>,
@@ -1429,117 +1023,6 @@ private fun OptionPicker(
     }
 }
 
-@Composable
-fun PredictiveBackSettingsScreen(nav: NavState) {
-    var predictiveBack by remember { mutableStateOf(App.settings.predictiveBack) }
-    var predictiveBackCardFling by remember { mutableStateOf(App.settings.predictiveBackCardFling) }
-    var predictiveBackImageFling by remember { mutableStateOf(App.settings.predictiveBackImageFling) }
-    val blurEffects = blurEffectsEnabled()
-
-    val pageColor = pageContainerColor()
-    val backdrop = rememberLayerBackdrop()
-    val topBarHeight = pinnedHeight(TopAppBarDefaults.SmallTopAppBarCenterHeight)
-    val listState = rememberLazyListState()
-
-    Box(Modifier.fillMaxSize().background(pageColor)) {
-        Box(Modifier.fillMaxSize().layerBackdropIf(blurEffects, backdrop).background(pageColor)) {
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.fillMaxSize().scrollEndHaptic(),
-                contentPadding = PaddingValues(
-                    start = 12.dp,
-                    top = glassBarContentTop(topBarHeight, 10.dp),
-                    end = 12.dp,
-                    bottom = 24.dp + navBottomPadding(),
-                ),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                item {
-                    Text(
-                        text = "配置侧滑返回时的页面跟手预览与轨迹甩出效果。",
-                        fontSize = 13.sp,
-                        lineHeight = 18.sp,
-                        color = MiuixTheme.colorScheme.onSurfaceSecondary,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                    )
-                }
-
-                item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        cornerRadius = CardDefaults.CornerRadius,
-                        insideMargin = PaddingValues(0.dp),
-                                ) {
-                        SwitchPreference(
-                            checked = predictiveBack,
-                            onCheckedChange = {
-                                predictiveBack = it
-                                App.settings.applyPredictiveBack(it)
-                            },
-                            title = "预测性返回手势",
-                            summary = "开启后返回时页面跟随手指往回收；关闭后直接返回",
-                            modifier = Modifier.testTag("settings_predictive_back"),
-                        )
-                    }
-                }
-
-                item {
-                    AnimatedVisibility(visible = predictiveBack) {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            cornerRadius = CardDefaults.CornerRadius,
-                            insideMargin = PaddingValues(0.dp),
-                                        ) {
-                            SwitchPreference(
-                                checked = predictiveBackCardFling,
-                                onCheckedChange = {
-                                    predictiveBackCardFling = it
-                                    App.settings.applyPredictiveBackCardFling(it)
-                                },
-                                title = "返回跟手轨迹",
-                                summary = "卡片详情预测性返回时跟随手指偏移，并顺着甩出方向回缩",
-                                modifier = Modifier.testTag("settings_predictive_back_card_fling"),
-                            )
-                            SwitchPreference(
-                                checked = predictiveBackImageFling,
-                                onCheckedChange = {
-                                    predictiveBackImageFling = it
-                                    App.settings.applyPredictiveBackImageFling(it)
-                                },
-                                title = "图片返回跟手轨迹",
-                                summary = "看图页预测性返回时跟随手指偏移，并顺着甩出方向缩回原图",
-                                modifier = Modifier.testTag("settings_predictive_back_image_fling"),
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        CompositionLocalProvider(
-            LocalBackdrop provides if (blurEffects) backdrop else null,
-        ) {
-            PinnedBarDensity {
-                AppBarSurface(
-                    modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth(),
-                    containerColor = pageColor,
-                    scrollFraction = rememberListScrollFraction(listState),
-                ) {
-                    SmallTopAppBar(
-                        title = "预测性返回手势设置",
-                        color = Color.Transparent,
-                        navigationIcon = { BackIconButton { nav.pop() } },
-                    )
-                }
-            }
-        }
-    }
-}
-
-/**
- * 弹窗底部按钮条（替代 COUI 的 DialogButtonBar）：右对齐的取消/确定文字按钮，
- * 确定用主色文字按钮。positiveText 为 null 时只显示取消。
- */
 @Composable
 private fun DialogButtons(
     negativeText: String,

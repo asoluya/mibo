@@ -85,7 +85,6 @@ import com.mibo.app.screen.NotificationsScreen
 import com.mibo.app.screen.AccountRelatedScreen
 import com.mibo.app.screen.NotifySettingsScreen
 import com.mibo.app.screen.BarPositionScreen
-import com.mibo.app.screen.PredictiveBackSettingsScreen
 import com.mibo.app.screen.ProfileScreen
 import com.mibo.app.screen.PublishScreen
 import com.mibo.app.screen.RelationsScreen
@@ -459,7 +458,7 @@ fun MiboPredictiveBackHandler(nav: NavState) {
     val hasPage = nav.stack.size > 1
     // A pane page never covered the window, so there is no card to shrink back into and no page
     // underneath to preview: back simply closes it, like a regular panel.
-    if (!App.settings.predictiveBack || nav.paneEntry != null) {
+    if (nav.paneEntry != null) {
         BackHandler(enabled = hasPage) {
             if (nav.stack.lastOrNull()?.exiting != true) nav.pop()
         }
@@ -478,11 +477,8 @@ fun MiboPredictiveBackHandler(nav: NavState) {
             return@PredictiveBackHandler
         }
 
-        val trackFinger = when {
-            entry.growsFromImage -> App.settings.predictiveBackImageFling
-            entry.expand -> App.settings.predictiveBackCardFling
-            else -> false
-        }
+        // 跟手轨迹恒定开启（原预测性返回设置已去掉）：图片页与卡片详情返回都跟手。
+        val trackFinger = entry.growsFromImage || entry.expand
         val dragTracker = if (trackFinger) PredictiveBackDragTracker() else null
         var lastProgress = 1f
         var moved = false
@@ -797,7 +793,6 @@ private fun RouteContent(route: Route, nav: NavState) {
         Route.MyLikes -> MyLikesScreen(nav)
         Route.Settings -> SettingsScreen(nav)
         is Route.SettingsDetail -> SettingsGroupScreen(nav, route.group)
-        Route.PredictiveBackSettings -> PredictiveBackSettingsScreen(nav)
         Route.BarPosition -> BarPositionScreen(nav)
         Route.AccountRelated -> AccountRelatedScreen(nav)
         Route.NotifySettings -> NotifySettingsScreen(nav)

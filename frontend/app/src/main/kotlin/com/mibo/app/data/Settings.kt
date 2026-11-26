@@ -113,10 +113,6 @@ class Settings(context: Context) {
     var fontScale by mutableFloatStateOf(sp.getFloat("font_scale", 1f).coerceIn(0.8f, 1.2f))
         private set
 
-    /** 自定义强调色（ARGB 整型）；`0` 表示使用 Miuix 默认蓝，未设置时默认莫奈取色。 */
-    var accentColor by mutableIntStateOf(sp.getInt("accent_color", com.mibo.app.ui.AccentMonet))
-        private set
-
     /** 「我」页入口及一级设置选项图标配色样式。 */
 
     var mainTab by mutableIntStateOf(sp.getInt("main_tab", 0))
@@ -182,25 +178,6 @@ class Settings(context: Context) {
 
     /** 接收预发布版本；关闭后更新检查只认正式版。默认开，和以前的更新行为一致。 */
     var acceptPrerelease by mutableStateOf(sp.getBoolean("accept_prerelease", true))
-        private set
-
-    /**
-     * 预测性返回手势：返回时页面跟着手指往回收。关掉之后退回普通返回——按一下才走，
-     * 没有跟手的预览动画。默认开。
-     */
-    var predictiveBack by mutableStateOf(sp.getBoolean("predictive_back", true))
-        private set
-
-    /**
-     * 动态卡片返回跟手轨迹：卡片详情预测性返回时跟随手指偏移，并顺着甩出方向回缩。默认关。
-     */
-    var predictiveBackCardFling by mutableStateOf(sp.getBoolean("predictive_back_card_fling", false))
-        private set
-
-    /**
-     * 图片返回跟手轨迹：看图页预测性返回时跟随手指偏移，并顺着甩出方向缩回原图。默认关。
-     */
-    var predictiveBackImageFling by mutableStateOf(sp.getBoolean("predictive_back_image_fling", false))
         private set
 
     /**
@@ -421,21 +398,6 @@ class Settings(context: Context) {
         sp.edit().putBoolean("accept_prerelease", value).apply()
     }
 
-    fun applyPredictiveBack(value: Boolean) {
-        predictiveBack = value
-        sp.edit().putBoolean("predictive_back", value).apply()
-    }
-
-    fun applyPredictiveBackCardFling(value: Boolean) {
-        predictiveBackCardFling = value
-        sp.edit().putBoolean("predictive_back_card_fling", value).apply()
-    }
-
-    fun applyPredictiveBackImageFling(value: Boolean) {
-        predictiveBackImageFling = value
-        sp.edit().putBoolean("predictive_back_image_fling", value).apply()
-    }
-
     fun applyBarGlassAlpha(value: Float) {
         val clamped = value.coerceIn(0.3f, 1f)
         barGlassAlpha = clamped
@@ -555,15 +517,6 @@ class Settings(context: Context) {
         val clamped = value.coerceIn(0.8f, 1.2f)
         fontScale = clamped
         sp.edit().putFloat("font_scale", clamped).apply()
-    }
-
-    fun applyAccentColor(argb: Int) {
-        val normalized = when (argb) {
-            0, com.mibo.app.ui.AccentHueCycle, com.mibo.app.ui.AccentMonet -> argb
-            else -> argb or 0xFF000000.toInt()
-        }
-        accentColor = normalized
-        sp.edit().putInt("accent_color", normalized).apply()
     }
 
     fun cycleDarkMode(): Int {

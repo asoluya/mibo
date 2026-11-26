@@ -264,7 +264,6 @@ sealed interface Route {
     data object MyLikes : Route
     data object Settings : Route
     data class SettingsDetail(val group: SettingsGroup) : Route
-    data object PredictiveBackSettings : Route
     data object BarPosition : Route
     data object AccountRelated : Route
     data object NotifySettings : Route
