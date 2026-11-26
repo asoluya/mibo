@@ -2080,7 +2080,10 @@ data class ChatMessage(
             val recipient = o.optJSONObject("recipient")
             val senderId = o.str("sender_id").ifBlank { sender?.str("idstr").orEmpty() }.ifBlank { sender?.str("id").orEmpty() }
             val recipientId = o.str("recipient_id").ifBlank { recipient?.str("idstr").orEmpty() }.ifBlank { recipient?.str("id").orEmpty() }
+            // attachinfo 在部分响应里是序列化成字符串的 JSON 数组，先兼容这一种。
             val attachArr = o.optJSONArray("attachinfo")
+                ?: o.optString("attachinfo").takeIf { it.startsWith("[") }
+                    ?.let { runCatching { JSONArray(it) }.getOrNull() }
             val firstAttach = attachArr?.optJSONObject(0)
             val fid = firstAttach?.str("fid").orEmpty()
             val s3Url = firstAttach?.str("s3_url").orEmpty()
@@ -2097,9 +2100,19 @@ data class ChatMessage(
                 else -> imageUrl
             }
             val mediaType = o.int("media_type").let { if (it == 0 && (imageUrl.isNotBlank() || thumbUrl.isNotBlank())) 1 else it }
+            // 临时诊断（定位后删除）：像图片消息却没解析出图时，把原始 JSON 拼进
+            // 正文，气泡里就能看到服务端到底给了什么字段。
+            val rawText = o.str("text")
+            val displayText = if (imageUrl.isBlank() &&
+                (o.int("media_type") != 0 || rawText.contains("分享") || o.has("attachinfo") || o.has("fids"))
+            ) {
+                rawText + "\n[DBG]" + o.toString().take(600)
+            } else {
+                rawText
+            }
             return ChatMessage(
                 id = id,
-                text = o.str("text"),
+                text = displayText,
                 senderId = senderId,
                 recipientId = recipientId,
                 createdAt = o.str("created_at"),
