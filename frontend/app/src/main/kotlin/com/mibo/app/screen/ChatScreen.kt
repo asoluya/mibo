@@ -12,6 +12,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -80,7 +81,6 @@ import com.mibo.app.ui.pinnedHeight
 import com.mibo.app.ui.Route
 import com.mibo.app.ui.components.Avatar
 import com.mibo.app.ui.components.BackIconButton
-import com.mibo.app.ui.components.CompactSendButton
 import com.mibo.app.ui.components.ComposerEmoteTextField
 import com.mibo.app.ui.components.ComposerToolButton
 import com.mibo.app.ui.components.EmptyState
@@ -101,7 +101,8 @@ import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.basic.Close
-import top.yukonga.miuix.kmp.icon.extended.Photos
+import top.yukonga.miuix.kmp.icon.extended.Add
+import top.yukonga.miuix.kmp.icon.extended.Send
 import top.yukonga.miuix.kmp.overlay.OverlayBottomSheet
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
@@ -453,7 +454,7 @@ fun ChatScreen(nav: NavState, uid: String, name: String, gid: String = "") {
                 }
 
                 if (!dead) {
-                    // 底栏照搬 BiliCO 私信页：整条不铺底色，输入胶囊和发送按钮各自悬浮在页面上，
+                    // 底栏参考官方私信页：整条不铺底色，输入胶囊与右侧独立圆钮各自悬浮在页面上，
                     // 两者共用同一个高度，单行时严格等高。
                     Box(
                         Modifier
@@ -576,7 +577,8 @@ fun ChatScreen(nav: NavState, uid: String, name: String, gid: String = "") {
     }
 }
 
-/** 私信底栏：一个输入胶囊 + 一个发送胶囊，两者共用 [ChatComposerHeight]，单行时严格等高。 */
+/** 私信底栏：左侧输入胶囊（表情钮在框内左侧）+ 右侧独立圆钮，两者共用 [ChatComposerHeight]，
+ * 单行时严格等高；圆钮无文字时是「+」（发图片），有文字时变实心强调色发送键。 */
 @Composable
 private fun ChatBottomBar(
     value: TextFieldValue,
@@ -614,6 +616,25 @@ private fun ChatBottomBar(
                 )
                 .clip(composerShape),
         ) {
+            // 表情钮在输入框左侧（参考官方私信页）：贴底放，草稿变多行时始终落在第一行那侧。
+            ComposerToolButton(
+                active = emotePanelOpen,
+                size = 30.dp,
+                cornerRadius = 15.dp,
+                onClick = onToggleEmote,
+                modifier = Modifier
+                    .align(Alignment.Bottom)
+                    .padding(start = 5.dp, bottom = 3.dp)
+                    .testTag("chat_emoji"),
+            ) {
+                Icon(
+                    imageVector = MiboIcons.Emoji,
+                    contentDescription = "表情",
+                    modifier = Modifier.size(20.dp),
+                    tint = if (emotePanelOpen) scheme.primary else scheme.onSurface,
+                )
+            }
+
             ComposerEmoteTextField(
                 value = value,
                 onValueChange = onValueChange,
@@ -627,64 +648,56 @@ private fun ChatBottomBar(
                     .testTag("chat_input"),
                 label = label,
                 minLines = 1,
-                insideMargin = DpSize(14.dp, 6.dp),
+                insideMargin = DpSize(4.dp, 6.dp),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                 keyboardActions = KeyboardActions(onSend = { onSend() }),
                 compact = true,
             )
-
-            Row(
-                modifier = Modifier
-                    .align(Alignment.Bottom)
-                    .padding(bottom = 3.dp, end = 5.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                ComposerToolButton(
-                    active = emotePanelOpen,
-                    size = 30.dp,
-                    cornerRadius = 15.dp,
-                    onClick = onToggleEmote,
-                    modifier = Modifier.testTag("chat_emoji"),
-                ) {
-                    Icon(
-                        imageVector = MiboIcons.Emoji,
-                        contentDescription = "表情",
-                        modifier = Modifier.size(20.dp),
-                        tint = if (emotePanelOpen) scheme.primary else scheme.onSurface,
-                    )
-                }
-
-                Spacer(Modifier.width(2.dp))
-
-                ComposerToolButton(
-                    active = false,
-                    size = 30.dp,
-                    cornerRadius = 15.dp,
-                    onClick = onPickImage,
-                    modifier = Modifier.testTag("chat_pick"),
-                ) {
-                    Icon(
-                        imageVector = MiuixIcons.Photos,
-                        contentDescription = "图片",
-                        modifier = Modifier.size(20.dp),
-                        tint = scheme.onSurface,
-                    )
-                }
-            }
         }
 
         Spacer(Modifier.width(8.dp))
 
-        CompactSendButton(
-            text = if (isSending) "发送中" else "发送",
-            onClick = onSend,
-            enabled = value.text.isNotBlank() && !isSending,
-            height = ChatComposerHeight,
-            containerColor = scheme.surfaceContainer,
-            isDark = isDark,
-            backdrop = backdrop,
-            modifier = Modifier.testTag("chat_send"),
-        )
+        // 右侧独立圆钮（参考官方私信页）：没文字时是「+」（发图片），有文字时变实心强调色发送键。
+        val canSend = value.text.isNotBlank()
+        if (canSend) {
+            Box(
+                modifier = Modifier
+                    .size(ChatComposerHeight)
+                    .clip(CircleShape)
+                    .background(scheme.primary)
+                    .clickable(enabled = !isSending, onClick = onSend)
+                    .testTag("chat_send"),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = MiuixIcons.Send,
+                    contentDescription = "发送",
+                    modifier = Modifier.size(18.dp),
+                    tint = scheme.onPrimary,
+                )
+            }
+        } else {
+            Box(
+                modifier = Modifier
+                    .size(ChatComposerHeight)
+                    .inputCapsuleGlass(
+                        backdrop = backdrop,
+                        isDark = isDark,
+                        cornerRadius = ChatComposerHeight / 2,
+                    )
+                    .clip(CircleShape)
+                    .clickable(onClick = onPickImage)
+                    .testTag("chat_pick"),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = MiuixIcons.Add,
+                    contentDescription = "图片",
+                    modifier = Modifier.size(20.dp),
+                    tint = scheme.onSurface,
+                )
+            }
+        }
     }
 }
 
