@@ -161,7 +161,7 @@ private class SettingsUiState(context: Context) {
     var barGlassAlpha by mutableFloatStateOf(App.settings.barGlassAlpha)
     var barOffsetX by mutableFloatStateOf(App.settings.barOffsetX)
     var barOffsetY by mutableFloatStateOf(App.settings.barOffsetY)
-    var confirmLike by mutableStateOf(App.settings.confirmLike)
+    var expandAutoClose by mutableStateOf(App.settings.expandAutoClose)
     var inAppBrowser by mutableStateOf(App.settings.inAppBrowser)
     var message by mutableStateOf("")
     var logout by mutableStateOf(false)
@@ -377,6 +377,16 @@ private fun LazyListScope.displaySettingsItems(
                 modifier = Modifier.testTag("settings_bar_position"),
             )
             SwitchPreference(
+                checked = state.expandAutoClose,
+                onCheckedChange = {
+                    state.expandAutoClose = it
+                    App.settings.applyExpandAutoClose(it)
+                },
+                title = "展开按钮自动关闭",
+                summary = "底栏按钮展开后，点任意其他地方自动收起",
+                modifier = Modifier.testTag("settings_expand_auto_close"),
+            )
+            SwitchPreference(
                 checked = state.inAppBrowser,
                 onCheckedChange = {
                     state.inAppBrowser = it
@@ -385,15 +395,6 @@ private fun LazyListScope.displaySettingsItems(
                 title = "使用内置浏览器打开外部网页",
                 summary = "关闭后点击外部链接将直接调用系统浏览器打开",
                 modifier = Modifier.testTag("settings_in_app_browser"),
-            )
-            SwitchPreference(
-                checked = state.confirmLike,
-                onCheckedChange = {
-                    state.confirmLike = it
-                    App.settings.applyConfirmLike(it)
-                },
-                title = "点赞前确认",
-                modifier = Modifier.testTag("settings_confirm_like"),
             )
         }
     }

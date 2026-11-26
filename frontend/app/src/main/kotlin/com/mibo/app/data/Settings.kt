@@ -228,8 +228,8 @@ class Settings(context: Context) {
     var barScale by mutableFloatStateOf(sp.getFloat("bar_scale", 1f))
         private set
 
-    /** 点赞前确认：点爱心之后先弹窗问一句，避免手滑。默认关，和以前一样点一下就赞；取消赞不拦。 */
-    var confirmLike by mutableStateOf(sp.getBoolean("confirm_like", false))
+    /** 展开按钮自动关闭：开启后底栏三钮展开时，点任意其他地方就收起。默认关（展开后常驻）。 */
+    var expandAutoClose by mutableStateOf(sp.getBoolean("expand_auto_close", false))
         private set
 
     /** 使用内置浏览器打开外部网页：开启后在应用内 WebView 打开，关闭后直接跳转系统浏览器。默认开。 */
@@ -478,9 +478,9 @@ class Settings(context: Context) {
     }
 
 
-    fun applyConfirmLike(value: Boolean) {
-        confirmLike = value
-        sp.edit().putBoolean("confirm_like", value).apply()
+    fun applyExpandAutoClose(value: Boolean) {
+        expandAutoClose = value
+        sp.edit().putBoolean("expand_auto_close", value).apply()
     }
 
     fun applyInAppBrowser(value: Boolean) {

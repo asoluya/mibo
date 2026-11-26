@@ -405,7 +405,7 @@ fun MiboRoot() {
             // HUD 独立于菜单，菜单收起之后它还要自己活 1.6 秒。
             Box(Modifier.fillMaxSize().zIndex(10f)) { SaveHud(saveState) }
 
-            // 保存图片菜单与点赞确认挂在根节点，弹层内容由外层根 Scaffold 的 popupHost 统一承载并采样 rootBackdrop。
+            // 保存图片菜单挂在根节点，弹层内容由外层根 Scaffold 的 popupHost 统一承载并采样 rootBackdrop。
             Box(
                 Modifier
                     .fillMaxSize()
@@ -421,8 +421,6 @@ fun MiboRoot() {
                         onDismiss = { saveTargets = null },
                         state = saveState,
                     )
-                    // 点赞前确认也挂在根节点：任何页面的爱心都走 App.confirmLike，由这里统一问一句。
-                    LikeConfirmPrompt()
                 }
             }
 
@@ -445,27 +443,6 @@ private fun UpdatePrompt() {
             App.dismissUpdate()
         },
     )
-}
-
-/**
- * 点赞前确认。设置里打开后，爱心被点中的那一刻先在这里问一句，答复才回到
- * [App.confirmLike] 挂起的那个动作上。关掉弹窗、或者动作所在的页面被销毁，
- * 都会按「不赞」处理。取消赞不走这里，点了就直接生效。
- */
-@Composable
-private fun LikeConfirmPrompt() {
-    val gate = App.pendingLikeConfirm ?: return
-    // 连点两下时上一次的弹窗可能还在收；换一次确认就换一个实例，别复用上一次的 show 状态。
-    key(gate) {
-        ConfirmDialog(
-            title = "点赞",
-            message = "确定要点赞吗？",
-            confirmText = "点赞",
-            centered = true,
-            onDismiss = { App.answerLikeConfirm(false) },
-            onConfirm = { App.answerLikeConfirm(true) },
-        )
-    }
 }
 
 /**

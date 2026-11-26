@@ -493,8 +493,7 @@ fun DetailScreen(nav: NavState, id: String, mid: String, readOnly: Boolean = fal
                         val current = comments[at]
                         if (App.repo.isCommentLikeInFlight(current.id)) return@CommentCard
                         scope.launch {
-                            // 先问再改：确认框弹着的这段时间列表可能刷新过，回来重新找一遍位置。
-                            if (!App.confirmLike(current.liked)) return@launch
+                            // 改之前重新找一遍位置：列表可能刚刷新过。
                             if (App.repo.isCommentLikeInFlight(current.id)) return@launch
                             val now = comments.indexOfFirst { it.id == current.id }
                             if (now < 0) return@launch
@@ -1063,8 +1062,7 @@ private fun CommentCard(    comment: Comment,
         val current = replies[at]
         if (App.repo.isCommentLikeInFlight(current.id)) return
         scope.launch {
-            // 同上：先问再改，确认期间列表可能刷新，回来重新找一遍位置。
-            if (!App.confirmLike(current.liked)) return@launch
+            // 同上：改之前重新找一遍位置，列表可能刚刷新过。
             if (App.repo.isCommentLikeInFlight(current.id)) return@launch
             val now = replies.indexOfFirst { it.id == current.id }
             if (now < 0) return@launch

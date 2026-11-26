@@ -15,7 +15,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import com.mibo.app.data.CacheStore
 import com.mibo.app.data.FeedSnapshotStore
 import com.mibo.app.data.FollowTags
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.launch
 import com.mibo.app.data.Repo
@@ -247,42 +246,10 @@ object App {
     }
 
     /**
-     * 正在等用户回答的点赞确认。设置里打开「点赞前确认」后 [confirmLike] 把它挂上，
-     * 根节点看到非空就弹窗，答复完（或调用方被取消）再清掉。
-     */
-    var pendingLikeConfirm by mutableStateOf<CompletableDeferred<Boolean>?>(null)
-        private set
-
-    /**
-     * 点赞前问一句。设置里没开就直接放行；开了就挂起，等根节点上的弹窗给答复。
-     * 只有点赞要问：[cancelLike] 为 true 表示这次点的是已经赞过的爱心，取消赞直接生效，不打断。
-     *
-     * 放在动作这一层而不是 [Repo.like]：详情页的评论点赞是先改界面再发请求，
-     * 取消时得在改界面之前就退出去，不能在数据层里悄悄吞掉。
-     */
-    suspend fun confirmLike(cancelLike: Boolean): Boolean {
-        if (!settings.confirmLike || cancelLike) return true
-        val gate = CompletableDeferred<Boolean>()
-        // 上一次还挂着（例如弹窗正在收起）就先按「不赞」结掉，别让它永远等不到答复。
-        pendingLikeConfirm?.complete(false)
-        pendingLikeConfirm = gate
-        return try {
-            gate.await()
-        } finally {
-            if (pendingLikeConfirm === gate) pendingLikeConfirm = null
-        }
-    }
-
-    fun answerLikeConfirm(confirmed: Boolean) {
-        pendingLikeConfirm?.complete(confirmed)
-    }
-
-    /**
-     * 统一执行微博点赞/取消赞：防重复点击、询问点赞前确认、成功后同步所有列表状态，失败弹出可读提示。
+     * 统一执行微博点赞/取消赞：防重复点击、成功后同步所有列表状态，失败弹出可读提示。
      */
     suspend fun toggleStatusLike(status: Status): Status? {
         if (status.id.isBlank() || repo.isLikeInFlight(status.id)) return null
-        if (!confirmLike(status.liked)) return null
         if (repo.isLikeInFlight(status.id)) return null
         return try {
             repo.like(status.id, status.liked)

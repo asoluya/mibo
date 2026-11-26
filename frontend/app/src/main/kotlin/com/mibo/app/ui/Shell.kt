@@ -684,7 +684,7 @@ fun MainShell(nav: NavState) {
 
     val feedPanelCovering = tab == 0 && panelMounted
 
-    // 右下展开钮的状态：展开后常驻，只有再点展开钮才收回，不自动收。
+    // 右下展开钮的状态：默认展开后常驻、再点展开钮收回；设置里开了自动关闭则点任意地方收回。
     var fabExpanded by remember { mutableStateOf(false) }
 
     Box(Modifier.fillMaxSize()) {
@@ -843,7 +843,7 @@ fun MainShell(nav: NavState) {
         }
 
         // 右下悬浮竖列：底栏展开钮点开后出现（自上而下 刷新 / 发布 / 我的），
-        // 展开后常驻不自动收回；盖在页面之上、搜索面板之下。
+        // 盖在页面之上、搜索面板之下；开了自动关闭时先铺一层透明遮罩，接住任意点击收起。
         if (!feedPanelCovering) {
             CompositionLocalProvider(
                 LocalBackdrop provides if (blur) backdrop else null,
@@ -856,6 +856,16 @@ fun MainShell(nav: NavState) {
                     modifier = Modifier.fillMaxSize(),
                 ) {
                   BoxWithConstraints(Modifier.fillMaxSize()) {
+                    if (App.settings.expandAutoClose) {
+                        Box(
+                            Modifier
+                                .fillMaxSize()
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                ) { fabExpanded = false },
+                        )
+                    }
                     Column(
                         modifier = Modifier
                             .align(Alignment.BottomEnd)

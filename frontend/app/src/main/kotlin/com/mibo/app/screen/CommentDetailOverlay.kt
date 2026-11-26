@@ -282,7 +282,6 @@ private fun CommentDetailSheetContent(
         val current = rootComment
         if (App.repo.isCommentLikeInFlight(current.id)) return
         scope.launch {
-            if (!App.confirmLike(current.liked)) return@launch
             if (App.repo.isCommentLikeInFlight(current.id)) return@launch
             val optimistic = current.copy(
                 liked = !current.liked,
@@ -305,7 +304,6 @@ private fun CommentDetailSheetContent(
         val current = rawReplies[idx]
         if (App.repo.isCommentLikeInFlight(current.id)) return
         scope.launch {
-            if (!App.confirmLike(current.liked)) return@launch
             if (App.repo.isCommentLikeInFlight(current.id)) return@launch
             val now = rawReplies.indexOfFirst { it.id == current.id }
             if (now < 0) return@launch
