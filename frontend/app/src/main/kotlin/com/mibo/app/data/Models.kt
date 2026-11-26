@@ -2106,7 +2106,18 @@ data class ChatMessage(
             val displayText = if (imageUrl.isBlank() &&
                 (o.int("media_type") != 0 || rawText.contains("分享") || o.has("attachinfo") || o.has("fids"))
             ) {
-                rawText + "\n[DBG]" + o.toString().take(600)
+                // 用户对象太肥会把附件字段挤出截断范围，逐字段列（跳过 sender/recipient）。
+                val dbg = buildString {
+                    val keys = o.keys()
+                    while (keys.hasNext()) {
+                        val k = keys.next()
+                        if (k == "sender" || k == "recipient") continue
+                        append(k).append('=')
+                            .append(o.opt(k)?.toString()?.take(300))
+                            .append(';')
+                    }
+                }.take(1000)
+                rawText + "\n[DBG]" + dbg
             } else {
                 rawText
             }
