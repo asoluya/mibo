@@ -244,8 +244,8 @@ class Settings(context: Context) {
     var livePhotoSound by mutableStateOf(sp.getBoolean("live_photo_sound", true))
         private set
 
-    /** 前台监测新帖：应用在前台时每 20 秒检测一次关注流，有新微博时刷新按钮发光提醒。默认开。 */
-    var monitorNewPosts by mutableStateOf(sp.getBoolean("monitor_new_posts", true))
+    /** 前台监测新帖：应用在前台时每 20 秒检测一次关注流，有新微博时刷新按钮发光提醒。默认关。 */
+    var monitorNewPosts by mutableStateOf(sp.getBoolean("monitor_new_posts", false))
         private set
 
     /** 上次检查更新的时间戳。 */
