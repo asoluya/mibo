@@ -3574,8 +3574,10 @@ class Repo(private val context: Context, private val store: Store) {
             // 发微博那套 MSS 上传给的 media_id 是 "1042018:m1" 这种复合串，冒号前
             // 的数字段最可能就是私信要的 fid。依次试数字段、原值，报错全文留底。
             val fidCandidates = buildList {
+                if (uploaded.dmFid.isNotBlank() && uploaded.dmFid.all { it.isDigit() }) add(uploaded.dmFid)
                 val prefix = uploaded.mediaId.substringBefore(':', "")
                 if (prefix.isNotBlank() && prefix.all { it.isDigit() }) add(prefix)
+                add(uploaded.dmFid)
                 add(uploaded.fid)
             }.distinct()
             val errors = ArrayList<String>()

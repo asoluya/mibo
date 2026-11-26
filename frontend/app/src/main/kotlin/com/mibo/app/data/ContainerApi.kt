@@ -27,6 +27,8 @@ object ContainerApi {
         val type: String = "pic",
         /** MSS 计划的原始 media_id（如 "1042018:m1"）；Legacy 计划为空。 */
         val mediaId: String = "",
+        /** 上传分片响应里原生的 `fid` 字段（若有）；发微博用不到，私信 fids 只认它。 */
+        val dmFid: String = "",
     )
 
     internal data class PicDiscovery(
@@ -512,6 +514,7 @@ object ContainerApi {
 
         val totalChunks = (bytes.size + plan.chunkBytes - 1) / plan.chunkBytes
         var legacyFid = ""
+        var rawFid = ""
         for (index in 0 until totalChunks) {
             val start = index * plan.chunkBytes
             val end = minOf(bytes.size, start + plan.chunkBytes)
@@ -570,6 +573,7 @@ object ContainerApi {
             )
             ClientLogin.recordValidator(resp.xValidator)
             checkSuccess(resp.json)
+            resp.json.str("fid").takeIf { it.isNotBlank() }?.let { rawFid = it }
             when (plan) {
                 is PicUploadInit.Mss -> {
                     if (!resp.json.optBoolean("result", false)) {
@@ -591,6 +595,7 @@ object ContainerApi {
             md5 = md5Hex,
             bypass = discovery.bypass,
             mediaId = (plan as? PicUploadInit.Mss)?.mediaId.orEmpty(),
+            dmFid = rawFid,
         )
     }
 
