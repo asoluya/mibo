@@ -94,8 +94,6 @@ import com.mibo.app.ui.components.SaveImageItem
 import com.mibo.app.ui.rememberExpandOrigin
 import com.mibo.app.ui.resolveWeiboLink
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
-import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.Checkbox
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Icon
@@ -136,9 +134,6 @@ fun StatusCard(
     /** Opens the quoted post when it is tapped; the frame grows from and returns into that block. */
     onOpenQuoted: ((Status, ExpandOrigin) -> Unit)? = null,
     onDeleted: (() -> Unit)? = null,
-    /** 是否保留最外层卡片外框。false 时平铺成列表：无卡片底色与圆角，内容全宽，
-     * 条与条之间一条与正文同缩进的细分隔线（首页信息流用，其余页面仍是卡片）。 */
-    framed: Boolean = true,
     /** 信息流按官方 140 字规则折叠长文；详情页传 false，始终显示全文。 */
     foldLongText: Boolean = true,
 ) {
@@ -241,9 +236,9 @@ fun StatusCard(
             )
         if (showOuterVote) {
             Spacer(Modifier.height(8.dp))
-            StatusVoteCard(status = status, actionsEnabled = actionsEnabled, onCard = framed)
+            StatusVoteCard(status = status, actionsEnabled = actionsEnabled, onCard = false)
         }
-        StatusMedia(status, compact, onImage, onVideo, onCard = framed)
+        StatusMedia(status, compact, onImage, onVideo, onCard = false)
         if (status.retweeted != null) {
             Spacer(Modifier.height(8.dp))
             RetweetBlock(
@@ -255,7 +250,7 @@ fun StatusCard(
                 onUser = onUser,
                 onImage = onImage,
                 onVideo = onVideo,
-                onCard = framed,
+                onCard = false,
                 foldLongText = foldLongText,
             )
         }
@@ -311,29 +306,20 @@ fun StatusCard(
             }
         }
     }
-    if (framed) {
-        Card(
-            modifier = modifier.fillMaxWidth(),
-            cornerRadius = CardDefaults.CornerRadius,
-            insideMargin = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
-            onClick = onOpen,
+    // 全应用统一平铺：无卡片底色与圆角，内容全宽，条间一条与正文同缩进的细分隔线。
+    Column(modifier = modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onOpen)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
             content = content,
         )
-    } else {
-        Column(modifier = modifier.fillMaxWidth()) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(onClick = onOpen)
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                content = content,
-            )
-            HorizontalDivider(
-                modifier = Modifier.padding(horizontal = 16.dp),
-                color = scheme.dividerLine.copy(alpha = 0.6f),
-                thickness = 0.6.dp,
-            )
-        }
+        HorizontalDivider(
+            modifier = Modifier.padding(horizontal = 16.dp),
+            color = scheme.dividerLine.copy(alpha = 0.6f),
+            thickness = 0.6.dp,
+        )
     }
     if (confirmDelete) {
         ConfirmDialog(

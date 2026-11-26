@@ -181,12 +181,12 @@ fun NearbyScreen(nav: NavState) {
                 modifier = Modifier.fillMaxSize().scrollEndHaptic().testTag("nearby_list"),
                 // 内容从顶栏玻璃下面滚过去，顶栏才有东西可采样。
                 contentPadding = PaddingValues(
-                    start = 12.dp,
+                    start = 0.dp,
                     top = glassBarContentTop(topBarHeight, 8.dp),
-                    end = 12.dp,
+                    end = 0.dp,
                     bottom = 8.dp + navBottomPadding(),
                 ),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(0.dp),
             ) {
                 val feed = store
                 if (feed == null) {

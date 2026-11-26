@@ -1,5 +1,6 @@
 package com.mibo.app.screen
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -61,8 +62,7 @@ import com.mibo.app.ui.components.LoadingState
 import com.mibo.app.ui.components.StatusCard
 import com.mibo.app.ui.components.navBottomPadding
 import kotlinx.coroutines.CancellationException
-import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.CardDefaults
+import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.PullToRefresh
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.rememberPullToRefreshState
@@ -902,17 +902,15 @@ private fun TimelinePage(
                     is FeedEntry.Gap -> {
                         FeedGapCard(
                             gap = entry.gap,
-                            modifier = Modifier.padding(horizontal = 12.dp),
+                            modifier = Modifier,
                             onClick = { scope.launch { store.loadGap(entry.gap.id) } },
                         )
                     }
                     is FeedEntry.ReadMarker -> {
-                      Box(Modifier.padding(horizontal = 12.dp)) {
                         FeedReadMarker(
                             refreshing = store.refreshing,
                             onClick = { scope.launch { store.refresh() } },
                         )
-                      }
                     }
                     is FeedEntry.Post -> {
                         val status = entry.status
@@ -928,7 +926,6 @@ private fun TimelinePage(
                         }
                         StatusCard(
                             status = status,
-                            framed = false,
                             modifier = Modifier.expandOrigin(origin).testTag("feed_card_$index"),
                             onOpen = { nav.push(Route.Detail(status.id, status.mid, store.readOnly), origin) },
                             onUser = { nav.push(Route.Profile(it.id)) },
@@ -1011,17 +1008,15 @@ private fun FeedGapCard(
     onClick: () -> Unit,
 ) {
     val scheme = MiuixTheme.colorScheme
-    Card(
-        modifier = modifier.fillMaxWidth().testTag("feed_gap_${gap.id}"),
-        cornerRadius = CardDefaults.CornerRadius,
-        insideMargin = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
-        onClick = if (gap.loading) null else onClick,
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("feed_gap_${gap.id}")
+            .then(if (gap.loading) Modifier else Modifier.clickable(onClick = onClick))
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
             if (gap.loading) {
                 MiboRefreshSpinner(size = 16.dp, strokeWidth = 2.dp)
                 Spacer(Modifier.width(8.dp))
@@ -1050,14 +1045,11 @@ private fun FeedGapCard(
                     fontWeight = FontWeight.Medium,
                 )
             }
-        }
     }
 }
 
 /**
- * 「上次阅读到这里，点击刷新」分割标记：
- * - 关闭首页卡片外框时：复刻 Share 的直线分割样式（左右横线 + 居中文字，无外框）。
- * - 开启首页卡片外框时：套一层单行 Card 外框，仅居中显示文字。
+ * 「上次阅读到这里，点击刷新」分割标记：左右横线 + 居中文字，无外框。
  */
 @Composable
 private fun FeedReadMarker(
@@ -1065,37 +1057,46 @@ private fun FeedReadMarker(
     onClick: () -> Unit,
 ) {
     val scheme = MiuixTheme.colorScheme
-    val markerModifier = Modifier.fillMaxWidth().testTag("feed_read_marker")
-        Card(
-            modifier = markerModifier,
-            cornerRadius = CardDefaults.CornerRadius,
-            insideMargin = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
-            onClick = if (refreshing) null else onClick,
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("feed_read_marker")
+            .then(if (refreshing) Modifier else Modifier.clickable(onClick = onClick))
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        HorizontalDivider(
+            modifier = Modifier.weight(1f),
+            color = scheme.dividerLine.copy(alpha = 0.6f),
+            thickness = 0.6.dp,
+        )
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                if (refreshing) {
-                    MiboRefreshSpinner(size = 16.dp, strokeWidth = 2.dp)
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        text = "正在刷新…",
-                        color = scheme.onSurfaceSecondary,
-                        fontSize = 13.sp,
-                    )
-                } else {
-                    Text(
-                        text = "上次阅读到这里，点击刷新",
-                        color = scheme.primary,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium,
-                    )
-                }
+            if (refreshing) {
+                MiboRefreshSpinner(size = 16.dp, strokeWidth = 2.dp)
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "正在刷新…",
+                    color = scheme.onSurfaceSecondary,
+                    fontSize = 13.sp,
+                )
+            } else {
+                Text(
+                    text = "上次阅读到这里，点击刷新",
+                    color = scheme.primary,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                )
             }
         }
-    
+        HorizontalDivider(
+            modifier = Modifier.weight(1f),
+            color = scheme.dividerLine.copy(alpha = 0.6f),
+            thickness = 0.6.dp,
+        )
+    }
 }
 
 /** 刷新头最短可见时间：空列表/命中缓存时也要让界面看到一次 `refreshing = true`。 */

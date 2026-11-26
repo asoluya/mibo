@@ -122,7 +122,7 @@ import com.mibo.app.ui.components.navBottomPadding
 import com.mibo.app.ui.isLongImageAspect
 import kotlinx.coroutines.CancellationException
 import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.CardDefaults
+import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.DropdownImpl
 import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.FloatingToolbar
@@ -353,12 +353,12 @@ fun DetailScreen(nav: NavState, id: String, mid: String, readOnly: Boolean = fal
                 state = listState,
                 modifier = Modifier.fillMaxSize().scrollEndHaptic(),
                 contentPadding = PaddingValues(
-                    start = 12.dp,
+                    start = 0.dp,
                     top = topBarHeight + 8.dp,
-                    end = 12.dp,
+                    end = 0.dp,
                     bottom = bottomBarHeight + 16.dp,
                 ),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(0.dp),
             ) {
                 when {
                     status != null -> item(key = "status") {
@@ -399,14 +399,14 @@ fun DetailScreen(nav: NavState, id: String, mid: String, readOnly: Boolean = fal
 
                 if ((status?.editCount ?: 0) > 0) {
                     item {
-                        Card(
+                        Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .testTag("detail_edit_history"),
-                            insideMargin = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
-                            onClick = { nav.push(Route.EditHistory(effectiveMid())) },
+                                .testTag("detail_edit_history")
+                                .clickable { nav.push(Route.EditHistory(effectiveMid())) }
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(
                                     MiuixIcons.Edit,
                                     null,
@@ -424,7 +424,6 @@ fun DetailScreen(nav: NavState, id: String, mid: String, readOnly: Boolean = fal
                                     fontSize = 13.sp,
                                     color = scheme.primary,
                                 )
-                            }
                         }
                     }
                 }
@@ -473,6 +472,7 @@ fun DetailScreen(nav: NavState, id: String, mid: String, readOnly: Boolean = fal
                 }
 
                 itemsIndexed(comments, key = { index, comment -> "${comment.id}#$index" }) { index, comment ->
+                  Column {
                     CommentCard(
                         comment = comment,
                         statusId = id,
@@ -481,7 +481,6 @@ fun DetailScreen(nav: NavState, id: String, mid: String, readOnly: Boolean = fal
                         likeTag = Modifier.testTag("comment_like_$index"),
                         replyTag = Modifier.testTag("comment_reply_$index"),
                         readOnly = readOnly,
-                        keepFrame = true,
                         onOpenDetail = { activeCommentDetail = comment },
                         onImage = { pics, index -> nav.push(Route.Images(pics, index)) },
                         onRepost = { repostComment = it },
@@ -510,6 +509,12 @@ fun DetailScreen(nav: NavState, id: String, mid: String, readOnly: Boolean = fal
                                 }
                         }
                     }
+                    HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        color = scheme.dividerLine.copy(alpha = 0.6f),
+                        thickness = 0.6.dp,
+                    )
+                  }
                 }
 
                 item {
@@ -627,7 +632,6 @@ fun DetailScreen(nav: NavState, id: String, mid: String, readOnly: Boolean = fal
             statusId = effectiveId(),
             mid = effectiveMid(),
             readOnly = readOnly,
-            keepFrame = true,
             onImage = { pics, idx -> nav.push(Route.Images(pics, idx)) },
             onRepost = { repostComment = it },
             onReport = { nav.push(Route.Web(commentReportUrl(effectiveMid(), it.id), "投诉")) },
@@ -995,8 +999,6 @@ private fun CommentCard(    comment: Comment,
     likeTag: Modifier = Modifier,
     replyTag: Modifier = Modifier,
     readOnly: Boolean = false,
-    /** 是否保留评论卡片外框；详情页设为去掉外框时，评论同样铺满整行。 */
-    keepFrame: Boolean = true,
     onOpenDetail: () -> Unit = {},
     onImage: (List<Pic>, Int) -> Unit,
     onRepost: (Comment) -> Unit,
@@ -1005,9 +1007,8 @@ private fun CommentCard(    comment: Comment,
     onLike: () -> Unit,
 ) {
     val scheme = MiuixTheme.colorScheme
-    // 楼中楼、引用回复这些嵌套块的底色：在卡片面上用页面灰，卡片拆掉后要用卡片白，
-    // 否则和外框一起消失，看不出还是一个独立的块。
-    val nestedTone = if (keepFrame) pageContainerColor() else scheme.surfaceContainer
+    // 楼中楼、引用回复这些嵌套块的底色：平铺后用卡片白，不然看不出还是一个独立的块。
+    val nestedTone = scheme.surfaceContainer
     val scope = rememberCoroutineScope()
     val replies = remember(comment.id) {
         mutableStateListOf<Comment>().apply { addAll(comment.replies) }
@@ -1117,7 +1118,7 @@ private fun CommentCard(    comment: Comment,
                     onClick = onOpenDetail,
                 )
                 .padding(
-                    horizontal = if (keepFrame) 14.dp else FlatCommentInset,
+                    horizontal = 16.dp,
                     vertical = 12.dp,
                 )
         ) {
@@ -1200,10 +1201,8 @@ private fun CommentCard(    comment: Comment,
                         CommentInlinePics(reply, 72.dp, onImage)
                     }
                 }
-                if (!keepFrame) {
-                    Spacer(Modifier.height(4.dp))
-                    actions()
-                }
+                Spacer(Modifier.height(4.dp))
+                actions()
                 val total = maxOf(replyTotal, replies.size)
                 if (total > 0) {
                     Spacer(Modifier.height(6.dp))
@@ -1221,7 +1220,6 @@ private fun CommentCard(    comment: Comment,
                                 onLike = { likeReply(reply) },
                                 onReply = { replyTarget = reply },
                                 enabled = !readOnly,
-                                keepFrame = keepFrame,
                                 showActions = expanded,
                                 onImage = onImage,
                                 onRepost = onRepost,
@@ -1264,21 +1262,10 @@ private fun CommentCard(    comment: Comment,
                         }
                     }
                 }
-                if (keepFrame) {
-                    Spacer(Modifier.height(4.dp))
-                    actions()
-                }
             }
         }
     }
-    if (keepFrame) {
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            cornerRadius = CardDefaults.CornerRadius,
-        ) { body() }
-    } else {
-        body()
-    }
+    body()
 
     replyTarget?.let { target ->
         ComposerBottomSheet(
@@ -1311,7 +1298,6 @@ internal fun ReplyRow(
     onLike: () -> Unit,
     onReply: () -> Unit,
     enabled: Boolean = true,
-    keepFrame: Boolean = true,
     /** 楼中楼收起、只做预览时不渲染「回复」「点赞」两个按钮。 */
     showActions: Boolean = true,
     /** 评论详情页中的楼中楼回复传 `false`，与主评论采用完全一致的字号、头像与按钮尺寸。 */

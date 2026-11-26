@@ -73,8 +73,7 @@ import com.mibo.app.ui.pinnedHeight
 import com.mibo.app.ui.rememberExpandOrigin
 import com.mibo.app.ui.AppBarSurface
 import com.mibo.app.ui.LocalBackdrop
-import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.CardDefaults
+import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.PullToRefresh
@@ -244,12 +243,12 @@ fun NotificationsScreen(
                             state = listState,
                             modifier = Modifier.fillMaxSize().scrollEndHaptic().overScrollVertical(),
                             contentPadding = PaddingValues(
-                                start = 12.dp,
+                                start = 0.dp,
                                 top = glassBarContentTop(topBarHeight, 8.dp),
-                                end = 12.dp,
+                                end = 0.dp,
                                 bottom = 16.dp + navBottomPadding(),
                             ),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(0.dp),
                         ) {
                             val isEmpty = if (tab == NotificationTab.AtWeibo) {
                                 state.statuses.isEmpty()
@@ -436,17 +435,17 @@ private fun NotificationRow(
     val scheme = MiuixTheme.colorScheme
     val user = item.user
     val target = item.targetStatus
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        cornerRadius = CardDefaults.CornerRadius,
-        insideMargin = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
-        onClick = {
-            if (target != null) {
-                onOpenStatus(target)
-            } else if (!user?.id.isNullOrBlank()) {
-                onUser(user!!.id)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable {
+                if (target != null) {
+                    onOpenStatus(target)
+                } else if (!user?.id.isNullOrBlank()) {
+                    onUser(user!!.id)
+                }
             }
-        },
+            .padding(horizontal = 16.dp, vertical = 12.dp),
     ) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
             Avatar(
@@ -504,7 +503,7 @@ private fun NotificationRow(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(10.dp))
-                            .background(pageContainerColor())
+                            .background(scheme.surfaceContainer)
                             .padding(horizontal = 10.dp, vertical = 8.dp),
                     ) {
                         val prefix = if (item.replyUserName.isNotBlank()) {
@@ -532,7 +531,7 @@ private fun NotificationRow(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(10.dp))
-                            .background(pageContainerColor())
+                            .background(scheme.surfaceContainer)
                             .clickable { onOpenStatus(target) }
                             .padding(horizontal = 10.dp, vertical = 8.dp),
                     ) {
@@ -580,5 +579,9 @@ private fun NotificationRow(
                 }
             }
         }
+        HorizontalDivider(
+            color = scheme.dividerLine.copy(alpha = 0.6f),
+            thickness = 0.6.dp,
+        )
     }
 }

@@ -63,6 +63,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
@@ -79,6 +80,8 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -685,10 +688,44 @@ fun MainShell(nav: NavState) {
 
     val feedPanelCovering = tab == 0 && panelMounted
 
+    // 滑动隐藏顶/底栏（设置开关）：嵌套滚动只观察不消费——向下滚过阈值收起两栏，
+    // 向上滚一点就恢复；切标签页、搜索面板盖住时强制恢复显示。
+    var barsHidden by remember { mutableStateOf(false) }
+    val panelCoveringNow = rememberUpdatedState(feedPanelCovering)
+    LaunchedEffect(App.settings.hideBarsOnScroll, feedPanelCovering, tab) {
+        if (!App.settings.hideBarsOnScroll || feedPanelCovering) barsHidden = false
+    }
+    LaunchedEffect(tab) { barsHidden = false }
+    val hideBarsConnection = remember {
+        object : NestedScrollConnection {
+            var downAcc = 0f
+            var upAcc = 0f
+            override fun onPreScroll(available: Offset, source: androidx.compose.ui.input.nestedscroll.NestedScrollSource): Offset {
+                if (!App.settings.hideBarsOnScroll || panelCoveringNow.value) return Offset.Zero
+                val y = available.y
+                if (y < 0f) {
+                    downAcc += -y; upAcc = 0f
+                } else if (y > 0f) {
+                    upAcc += y; downAcc = 0f
+                }
+                if (downAcc > 160f) { barsHidden = true; downAcc = 0f }
+                if (upAcc > 60f) { barsHidden = false; upAcc = 0f }
+                return Offset.Zero
+            }
+        }
+    }
+    val barsHideFraction = animateFloatAsState(
+        targetValue = if (barsHidden && App.settings.hideBarsOnScroll) 1f else 0f,
+        animationSpec = tween(240),
+        label = "barsHideFraction",
+    )
+
     // 右下展开钮的状态：默认展开后常驻、再点展开钮收回；设置里开了自动关闭则点任意地方收回。
     var fabExpanded by remember { mutableStateOf(false) }
+    // 两栏收起时展开的三钮也一并收回（三钮本就锚在底栏上方）。
+    LaunchedEffect(barsHidden) { if (barsHidden) fabExpanded = false }
 
-    Box(Modifier.fillMaxSize()) {
+    Box(Modifier.fillMaxSize().nestedScroll(hideBarsConnection)) {
         // The bar floats over the page, so the line it ends at is reported from the bar itself and
         // read by anything that has to be placed clear of it.
         CompositionLocalProvider(LocalTopBarBounds provides topBarBounds) {
@@ -778,7 +815,11 @@ fun MainShell(nav: NavState) {
                         scope.launch { feedPager.animateScrollToPage(targetPage) }
                     },
                     onPickNearbyCity = { showNearbyCityPicker = true },
-                    modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth(),
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .fillMaxWidth()
+                        .offset { IntOffset(0, -(200.dp * barsHideFraction.value).roundToPx()) }
+                        .graphicsLayer { alpha = 1f - barsHideFraction.value },
                 )
             }
         }
@@ -838,6 +879,8 @@ fun MainShell(nav: NavState) {
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .offset(x = App.settings.barOffsetX.dp, y = App.settings.barOffsetY.dp)
+                        .offset { IntOffset(0, (140.dp * barsHideFraction.value).roundToPx()) }
+                        .graphicsLayer { alpha = 1f - barsHideFraction.value }
                         .then(if (feedPanelCovering) Modifier.clearAndSetSemantics {} else Modifier),
                 )
             }

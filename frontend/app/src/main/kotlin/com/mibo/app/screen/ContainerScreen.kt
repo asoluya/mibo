@@ -101,12 +101,12 @@ fun ContainerScreen(nav: NavState, cid: String, title: String) {
                     state = listState,
                     modifier = Modifier.fillMaxSize().scrollEndHaptic().overScrollVertical(),
                     contentPadding = PaddingValues(
-                        start = 12.dp,
+                        start = 0.dp,
                         top = topBarHeight + 8.dp,
-                        end = 12.dp,
+                        end = 0.dp,
                         bottom = 12.dp + navBottomPadding(),
                     ),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(0.dp),
                 ) {
                     if (store.items.isEmpty()) {
                         item {

@@ -232,6 +232,10 @@ class Settings(context: Context) {
     var expandAutoClose by mutableStateOf(sp.getBoolean("expand_auto_close", false))
         private set
 
+    /** 滑动时隐藏顶栏和底栏：向下滑动浏览时自动收起两栏，向上滑动恢复。默认关。 */
+    var hideBarsOnScroll by mutableStateOf(sp.getBoolean("hide_bars_on_scroll", false))
+        private set
+
     /** 使用内置浏览器打开外部网页：开启后在应用内 WebView 打开，关闭后直接跳转系统浏览器。默认开。 */
     var inAppBrowser by mutableStateOf(sp.getBoolean("in_app_browser", true))
         private set
@@ -481,6 +485,11 @@ class Settings(context: Context) {
     fun applyExpandAutoClose(value: Boolean) {
         expandAutoClose = value
         sp.edit().putBoolean("expand_auto_close", value).apply()
+    }
+
+    fun applyHideBarsOnScroll(value: Boolean) {
+        hideBarsOnScroll = value
+        sp.edit().putBoolean("hide_bars_on_scroll", value).apply()
     }
 
     fun applyInAppBrowser(value: Boolean) {

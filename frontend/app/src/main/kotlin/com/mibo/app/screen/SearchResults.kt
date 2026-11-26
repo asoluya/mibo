@@ -888,7 +888,7 @@ private fun LazyListScope.searchStatusTabItems(
     }
     itemsIndexed(items, key = { _, s -> "${tabKey}_${s.id}" }) { idx, status ->
         val origin = rememberExpandOrigin()
-        Box(Modifier.padding(horizontal = 12.dp)) {
+        Box(Modifier) {
             StatusCard(
                 status = status,
                 modifier = Modifier

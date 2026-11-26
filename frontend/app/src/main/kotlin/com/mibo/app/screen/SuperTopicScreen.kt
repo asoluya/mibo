@@ -220,16 +220,16 @@ fun SuperTopicScreen(nav: NavState, containerId: String, fallbackUrl: String) {
                             state = listState,
                             modifier = Modifier.fillMaxSize().scrollEndHaptic().overScrollVertical(),
                             contentPadding = PaddingValues(
-                                start = 12.dp,
+                                start = 0.dp,
                                 top = topBarHeight + 8.dp,
-                                end = 12.dp,
+                                end = 0.dp,
                                 bottom = 12.dp + navBottomPadding(),
                             ),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(0.dp),
                         ) {
                             if (pageIndex == 0) {
                                 item(key = "header") {
-                                    Column(Modifier.padding(8.dp)) {
+                                    Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
                                         (store.info ?: headerInfo)?.let { info ->
                                             Row {
                                                 Avatar(info.avatar, 56.dp)

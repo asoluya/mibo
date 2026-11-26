@@ -73,8 +73,6 @@ import com.mibo.app.ui.components.MiboRefreshSpinner
 import com.mibo.app.ui.pageContainerColor
 import com.mibo.app.ui.pinnedHeight
 import kotlinx.coroutines.CancellationException
-import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
@@ -125,7 +123,6 @@ internal fun CommentDetailOverlay(
     statusId: String,
     mid: String,
     readOnly: Boolean,
-    keepFrame: Boolean,
     onImage: (List<Pic>, Int) -> Unit,
     onRepost: (Comment) -> Unit,
     onReport: (Comment) -> Unit,
@@ -157,7 +154,6 @@ internal fun CommentDetailOverlay(
             statusId = statusId,
             mid = mid,
             readOnly = readOnly,
-            keepFrame = keepFrame,
             active = root != null,
             onImage = onImage,
             onRepost = onRepost,
@@ -175,7 +171,6 @@ private fun CommentDetailSheetContent(
     statusId: String,
     mid: String,
     readOnly: Boolean,
-    keepFrame: Boolean,
     active: Boolean,
     onImage: (List<Pic>, Int) -> Unit,
     onRepost: (Comment) -> Unit,
@@ -323,7 +318,7 @@ private fun CommentDetailSheetContent(
     val topBarHeight = pinnedHeight(TopAppBarDefaults.SmallTopAppBarCenterHeight)
     val backdrop = rememberLayerBackdrop()
     val overlayBackdrop = rememberLayerBackdrop()
-    val nestedTone = if (keepFrame) pageContainerColor() else scheme.surfaceContainer
+    val nestedTone = scheme.surfaceContainer
 
     Box(
         modifier = Modifier
@@ -351,7 +346,7 @@ private fun CommentDetailSheetContent(
                         top = topBarHeight + 8.dp,
                         bottom = navBottomPadding() + 24.dp,
                     ),
-                    verticalArrangement = Arrangement.spacedBy(if (keepFrame) 8.dp else 0.dp),
+                    verticalArrangement = Arrangement.spacedBy(0.dp),
                 ) {
                     item(key = "detail_root_comment") {
                         val rootBody: @Composable () -> Unit = {
@@ -359,7 +354,7 @@ private fun CommentDetailSheetContent(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(
-                                        horizontal = if (keepFrame) 14.dp else FlatCommentInset,
+                                        horizontal = FlatCommentInset,
                                         vertical = 12.dp,
                                     ),
                             ) {
@@ -466,20 +461,13 @@ private fun CommentDetailSheetContent(
                                 }
                             }
                         }
-                        if (keepFrame) {
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                cornerRadius = CardDefaults.CornerRadius,
-                            ) { rootBody() }
-                        } else {
-                            Column {
-                                rootBody()
-                                HorizontalDivider(
-                                    modifier = Modifier.padding(horizontal = FlatCommentInset),
-                                    color = scheme.dividerLine.copy(alpha = 0.6f),
-                                    thickness = 0.6.dp,
-                                )
-                            }
+                        Column {
+                            rootBody()
+                            HorizontalDivider(
+                                modifier = Modifier.padding(horizontal = FlatCommentInset),
+                                color = scheme.dividerLine.copy(alpha = 0.6f),
+                                thickness = 0.6.dp,
+                            )
                         }
                     }
 
@@ -488,8 +476,8 @@ private fun CommentDetailSheetContent(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(
-                                    start = if (keepFrame) 4.dp else FlatCommentInset,
-                                    end = if (keepFrame) 4.dp else FlatCommentInset,
+                                    start = FlatCommentInset,
+                                    end = FlatCommentInset,
                                     top = 8.dp,
                                     bottom = 4.dp,
                                 ),
@@ -537,7 +525,7 @@ private fun CommentDetailSheetContent(
                                                 else Modifier.clickable { replyTarget = reply }
                                             )
                                             .padding(
-                                                horizontal = if (keepFrame) 14.dp else FlatCommentInset,
+                                                horizontal = FlatCommentInset,
                                                 vertical = 12.dp,
                                             ),
                                     ) {
@@ -546,7 +534,6 @@ private fun CommentDetailSheetContent(
                                             onLike = { toggleSubLike(reply) },
                                             onReply = { replyTarget = reply },
                                             enabled = !readOnly,
-                                            keepFrame = keepFrame,
                                             showActions = true,
                                             compact = false,
                                             onImage = onImage,
@@ -556,22 +543,13 @@ private fun CommentDetailSheetContent(
                                         )
                                     }
                                 }
-                                if (keepFrame) {
-                                    Card(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .testTag("sub_reply_card_$index"),
-                                        cornerRadius = CardDefaults.CornerRadius,
-                                    ) { itemBlock() }
-                                } else {
-                                    Column(Modifier.testTag("sub_reply_card_$index")) {
-                                        itemBlock()
-                                        HorizontalDivider(
-                                            modifier = Modifier.padding(start = FlatCommentInset + 46.dp, end = FlatCommentInset),
-                                            color = scheme.dividerLine.copy(alpha = 0.45f),
-                                            thickness = 0.5.dp,
-                                        )
-                                    }
+                                Column(Modifier.testTag("sub_reply_card_$index")) {
+                                    itemBlock()
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(start = FlatCommentInset + 46.dp, end = FlatCommentInset),
+                                        color = scheme.dividerLine.copy(alpha = 0.45f),
+                                        thickness = 0.5.dp,
+                                    )
                                 }
                             }
                             if (loading) {

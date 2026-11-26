@@ -162,6 +162,7 @@ private class SettingsUiState(context: Context) {
     var barOffsetX by mutableFloatStateOf(App.settings.barOffsetX)
     var barOffsetY by mutableFloatStateOf(App.settings.barOffsetY)
     var expandAutoClose by mutableStateOf(App.settings.expandAutoClose)
+    var hideBarsOnScroll by mutableStateOf(App.settings.hideBarsOnScroll)
     var inAppBrowser by mutableStateOf(App.settings.inAppBrowser)
     var message by mutableStateOf("")
     var logout by mutableStateOf(false)
@@ -385,6 +386,16 @@ private fun LazyListScope.displaySettingsItems(
                 title = "展开按钮自动关闭",
                 summary = "底栏按钮展开后，点任意其他地方自动收起",
                 modifier = Modifier.testTag("settings_expand_auto_close"),
+            )
+            SwitchPreference(
+                checked = state.hideBarsOnScroll,
+                onCheckedChange = {
+                    state.hideBarsOnScroll = it
+                    App.settings.applyHideBarsOnScroll(it)
+                },
+                title = "滑动时隐藏顶栏和底栏",
+                summary = "向下滑动浏览时自动收起顶栏与底栏，向上滑动恢复",
+                modifier = Modifier.testTag("settings_hide_bars_on_scroll"),
             )
             SwitchPreference(
                 checked = state.inAppBrowser,
