@@ -3507,18 +3507,28 @@ class Repo(private val context: Context, private val store: Store) {
      * 再把 `fids` 交给 `api/chat/send`（`media_type=1`，`content` 留空）。
      * 群聊的发送接口是 `api/groupchat/send`，参数换成 `gid`。
      */
-    suspend fun sendChatImage(uid: String, fids: String, gid: String = ""): ChatMessage? =
+    suspend fun sendChatImage(uid: String, fids: String, gid: String = ""): ChatMessage? {
+        val url: String
+        val form: Map<String, String>
         if (gid.isNotBlank()) {
-            sendChatForm(
-                "https://m.weibo.cn/api/groupchat/send",
-                mapOf("gid" to gid, "content" to "", "media_type" to "1", "fids" to fids),
-            )
+            url = "https://m.weibo.cn/api/groupchat/send"
+            form = mapOf("gid" to gid, "content" to "", "media_type" to "1", "fids" to fids)
         } else {
-            sendChatForm(
-                "https://m.weibo.cn/api/chat/send",
-                mapOf("uid" to uid, "content" to "", "media_type" to "1", "fids" to fids),
-            )
+            url = "https://m.weibo.cn/api/chat/send"
+            form = mapOf("uid" to uid, "content" to "", "media_type" to "1", "fids" to fids)
         }
+        return try {
+            sendChatForm(url, form)
+        } catch (e: ApiException) {
+            // 同 uploadChatImage：服务端明确拒绝（ok != 1）才走到这里，客户端登录先续签
+            // 换新网页 Cookie 再重试一次是安全的，不会重复发送。
+            if (isClientLogin() && refreshClientSession(force = true)) {
+                sendChatForm(url, form)
+            } else {
+                throw e
+            }
+        }
+    }
 
     private suspend fun sendChatForm(url: String, form: Map<String, String>): ChatMessage? {
         val root = postJson(url, form)
@@ -3536,21 +3546,49 @@ class Repo(private val context: Context, private val store: Store) {
 
     /** 上传私信图片，返回 `fids`。群聊传 [gid]，上传字段换成 `tochatid`。 */
     suspend fun uploadChatImage(uid: String, uri: Uri, gid: String = ""): String {
-        val cookie = loginCookie()
         val resolver = context.contentResolver
         val bytes = resolver.openInputStream(uri)?.use { it.readBytes() }
             ?: throw ApiException("无法读取图片")
         val mime = resolver.getType(uri) ?: "image/jpeg"
         val name = "chat." + (mime.substringAfterLast('/', "jpg"))
+        var root = uploadChatAttempt(uid, gid, bytes, name, mime)
+        if (root.optInt("ok", 0) != 1 && isClientLogin() && refreshClientSession(force = true)) {
+            // 私信发图只有 H5 一条路（m.weibo.cn + 网页 Cookie），而客户端登录的网页 Cookie
+            // 会先于 gsid 过期：文字走容器通道照常能发，图片却会被拒。续签换新 Cookie 后重试。
+            root = uploadChatAttempt(uid, gid, bytes, name, mime)
+        }
+        val fids = root.optJSONObject("data")?.str("fids").orEmpty()
+        if (fids.isBlank()) {
+            val msg = root.str("msg")
+            val errno = root.str("errno")
+            throw ApiException(
+                when {
+                    msg.isNotBlank() -> msg
+                    errno.isNotBlank() -> "图片上传失败（$errno）"
+                    else -> "图片上传失败"
+                },
+                errno,
+            )
+        }
+        return fids
+    }
+
+    /** 一次上传尝试：现取登录 Cookie 与 st，CSRF 拒绝时换新 st 再试一次。 */
+    private suspend fun uploadChatAttempt(
+        uid: String,
+        gid: String,
+        bytes: ByteArray,
+        name: String,
+        mime: String,
+    ): JSONObject {
+        val cookie = loginCookie()
         var st = st()
         var root = uploadChat(uid, gid, bytes, name, mime, cookie, st)
         if (root.optInt("ok", 0) != 1 && isCsrfBody(root)) {
             st = config(force = true).st
             root = uploadChat(uid, gid, bytes, name, mime, cookie, st)
         }
-        val fids = root.optJSONObject("data")?.str("fids").orEmpty()
-        if (fids.isBlank()) throw ApiException(root.str("msg", "图片上传失败"), root.str("errno"))
-        return fids
+        return root
     }
 
     private suspend fun uploadChat(
