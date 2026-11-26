@@ -3223,6 +3223,18 @@ class Repo(private val context: Context, private val store: Store) {
     }
 
     /**
+     * 删除与某用户的全部私信对话（消息页长按删除会话用）。
+     *
+     * 只有客户端通道有官方接口 `direct_messages/destroy_batch`（按对方 uid 删整段对话）；
+     * 其他登录通道没有可用接口，返回 false 让界面提示，本地列表也不动。
+     */
+    suspend fun deleteConversation(uid: String): Boolean {
+        if (uid.isBlank() || !isClientChannel()) return false
+        containerPost("direct_messages/destroy_batch", mapOf("uid" to uid))
+        return true
+    }
+
+    /**
      * 聊天记录。接口给的是**最新在前**，[ChatPage.messages] 保持这个顺序，
      * 界面用 `reverseLayout = true` 铺，index 0 落在屏幕最下面。
      *

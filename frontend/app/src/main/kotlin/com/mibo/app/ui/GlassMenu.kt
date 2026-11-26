@@ -36,7 +36,7 @@ fun GlassMenuHost() {
     if (request != null) last = request
     val shown = request ?: last ?: return
     val backdrop = LocalBackdrop.current
-    val glassActive = App.settings.blurEffects && backdrop != null
+    val glassActive = blurEffectsEnabled() && backdrop != null
     var drilled by remember(shown.id) { mutableStateOf<App.GlassMenuItem?>(null) }
     val container = LocalWindowInfo.current.containerSize
     val anchor = if (shown.anchorBounds == Rect.Zero) {

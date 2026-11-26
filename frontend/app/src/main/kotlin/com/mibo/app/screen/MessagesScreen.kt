@@ -2,6 +2,7 @@ package com.mibo.app.screen
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -44,11 +45,14 @@ import com.mibo.app.data.formatWeiboTime
 import com.mibo.app.ui.NavState
 import com.mibo.app.ui.pageContainerColor
 import com.mibo.app.ui.Route
+import com.mibo.app.ui.MiboIcons
 import com.mibo.app.ui.components.Avatar
+import com.mibo.app.ui.components.ConfirmDialog
 import com.mibo.app.ui.components.EmptyState
 import com.mibo.app.ui.components.ErrorState
 import com.mibo.app.ui.components.LoadingState
 import com.mibo.app.ui.components.navBottomPadding
+import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.PullToRefresh
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.rememberPullToRefreshState
@@ -113,6 +117,7 @@ fun MessagesScreen(
     val items = state.items
     val listState = state.listState
     val pullState = rememberPullToRefreshState()
+    var pendingDelete by remember { mutableStateOf<MessageItem?>(null) }
 
     // 首次进入消息页静默取最新数据：只换内容，不播放下拉动画；切回时保留已读位置。
     LaunchedEffect(state) {
@@ -142,6 +147,11 @@ fun MessagesScreen(
             ),
             verticalArrangement = Arrangement.spacedBy(1.dp),
         ) {
+            if (!App.repo.guest) {
+                item {
+                    NotificationEntryRow { nav.push(Route.Notifications()) }
+                }
+            }
             if (items.isEmpty()) {
                 item {
                     when {
@@ -162,6 +172,12 @@ fun MessagesScreen(
                     // 服务端没有已读接口，只能拿「上次点进去时这条会话的预览文字」比：文字变了就是新消息。
                     seen = App.store.chatSeen(chatKey) == item.text,
                     modifier = Modifier.testTag("message_row_$index"),
+                    // 长按删除整段会话（群聊没有删除接口，不触发）。
+                    onLongClick = if (item.gid.isBlank() && uid.isNotBlank()) {
+                        { pendingDelete = item }
+                    } else {
+                        null
+                    },
                 ) {
                     App.store.markChatSeen(chatKey, item.text)
                     nav.push(
@@ -186,6 +202,60 @@ fun MessagesScreen(
             }
         }
     }
+
+    pendingDelete?.let { target ->
+        ConfirmDialog(
+            title = "删除私信会话",
+            message = "将删除与「${target.user?.name.orEmpty()}」的全部私信记录，删除后不可恢复。",
+            confirmText = "删除",
+            onDismiss = { pendingDelete = null },
+            onConfirm = {
+                pendingDelete = null
+                scope.launch {
+                    runCatching { App.repo.deleteConversation(target.user?.id.orEmpty()) }
+                        .onSuccess { deleted ->
+                            if (deleted) {
+                                state.items.remove(target)
+                                App.toast("已删除会话")
+                            } else {
+                                App.toast("当前登录方式不支持删除会话")
+                            }
+                        }
+                        .onFailure { App.toast(it.message ?: "删除失败") }
+                }
+            },
+        )
+    }
+}
+
+/** 消息页顶部固定的「通知」入口行（原底栏「消息」弹窗里的通知项移到这里）。 */
+@Composable
+private fun NotificationEntryRow(onClick: () -> Unit) {
+    val scheme = MiuixTheme.colorScheme
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(pageContainerColor())
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 12.dp)
+            .testTag("messages_notifications_entry"),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier
+                .size(46.dp)
+                .background(scheme.surfaceContainer, CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(MiboIcons.Bell, "通知", Modifier.size(24.dp), tint = scheme.primary)
+        }
+        Spacer(Modifier.width(12.dp))
+        Text(
+            "通知",
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Medium,
+        )
+    }
 }
 
 @Composable
@@ -193,6 +263,7 @@ private fun MessageRow(
     item: MessageItem,
     seen: Boolean,
     modifier: Modifier = Modifier,
+    onLongClick: (() -> Unit)? = null,
     onClick: () -> Unit,
 ) {
     val scheme = MiuixTheme.colorScheme
@@ -200,7 +271,7 @@ private fun MessageRow(
         modifier = modifier
             .fillMaxWidth()
             .background(pageContainerColor())
-            .clickable(onClick = onClick)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

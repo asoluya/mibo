@@ -864,7 +864,6 @@ fun MainShell(nav: NavState) {
                 FloatingBottomBar(
                     tab = tab,
                     guest = guest,
-                    onNotifications = { if (!feedPanelCovering) nav.push(Route.Notifications()) },
                     onSearch = {
                         if (!feedPanelCovering) {
                             nav.setTab(0)
@@ -969,7 +968,7 @@ fun MainShell(nav: NavState) {
                                         onAccountRelated = { nav.push(Route.AccountRelated) },
                                     )
                             },
-                            glassActive = App.settings.blurEffects && LocalBackdrop.current != null,
+                            glassActive = blurEffectsEnabled() && LocalBackdrop.current != null,
                             backdrop = LocalBackdrop.current,
                             isDark = MiuixTheme.colorScheme.background.luminance() < 0.5f,
                             modifier = Modifier.testTag("bottom_tab_profile"),
@@ -1529,7 +1528,7 @@ private fun MainTitleRow(
                 onTitleClick = onFeedTitleClick,
             )
 
-            // 「通知」入口已按用户要求从标题行去掉，改到底栏「消息」Tab 的点击菜单（消息 / 通知二选一）。
+            // 「通知」入口在消息页顶部，底栏「消息」Tab 单击直接切页。
             1 -> PageTitleBar()
 
             // 「我」页内已有设置分组入口与资料页菜单（设置 / 编辑资料），标题栏右上角不再重复放。
@@ -1863,7 +1862,7 @@ private fun SegmentedTabRow(
                 } else {
                     Modifier.background(
                         scheme.surfaceContainer.copy(
-                            alpha = if (App.settings.blurEffects) App.settings.barGlassAlpha else 1f,
+                            alpha = App.settings.barGlassAlpha,
                         ),
                         shape,
                     )
@@ -2218,7 +2217,6 @@ private fun DropdownItem.toGlassMenuItem(): App.GlassMenuItem = App.GlassMenuIte
 fun FloatingBottomBar(
     tab: Int,
     guest: Boolean,
-    onNotifications: () -> Unit,
     onSearch: () -> Unit,
     onTab: (Int) -> Unit,
 
@@ -2228,9 +2226,7 @@ fun FloatingBottomBar(
     modifier: Modifier = Modifier,
 ) {
     // 「微博」单击只切 tab：回顶刷新改由右下悬浮刷新按钮承担，长按发布也已取消。
-    // 「消息」Tab 点击菜单（消息 / 通知二选一）；游客没有通知入口，点按直接切页。
-    var messagesMenuExpanded by remember { mutableStateOf(false) }
-    var messagesAnchorBounds by remember { mutableStateOf(Rect.Zero) }
+    // 「消息」Tab 单击直接切页：通知入口已移到消息页顶部，不再弹二选一菜单。
     BoxWithConstraints(
         modifier
             .fillMaxWidth()
@@ -2245,7 +2241,7 @@ fun FloatingBottomBar(
         // OS4 柔光玻璃开着时：组件底色改透明，胶囊面改由 glassPanel 采样页面 backdrop 绘制
         // （组件链里调用方 modifier 位于 squircleBackground 之后、内容之前，正好盖住底色层）。
         val backdrop = LocalBackdrop.current
-        val glassActive = App.settings.blurEffects && backdrop != null
+        val glassActive = blurEffectsEnabled() && backdrop != null
         val isDark = MiuixTheme.colorScheme.background.luminance() < 0.5f
         // 大小缩放只套在胶囊与展开钮本体上，定位锚点仍按钉住密度；但内容变宽后
         // 固定边距排不下（276dp 内容 × 比例 + 12dp 间隔 + 两边边距要装进屏宽），
@@ -2273,7 +2269,7 @@ fun FloatingBottomBar(
                 Color.Transparent
             } else {
                 MiuixTheme.colorScheme.surfaceContainer.copy(
-                    alpha = if (App.settings.blurEffects) App.settings.barGlassAlpha else 1f,
+                    alpha = App.settings.barGlassAlpha,
                 )
             },
             horizontalAlignment = Alignment.Start,
@@ -2285,41 +2281,14 @@ fun FloatingBottomBar(
             ) {
                 // 位置按用户要求交换：左「消息」、中「微博」、右「我」。tab 值仍沿用
                 // 0=微博 / 1=消息 / 2=我，只换视觉顺序，避免影响 nav.mainTab 的持久化语义。
-                Box(
-                    Modifier.onGloballyPositioned { coordinates ->
-                    val pos = coordinates.positionInWindow()
-                    messagesAnchorBounds = Rect(
-                        pos.x,
-                        pos.y,
-                        pos.x + coordinates.size.width.toFloat(),
-                        pos.y + coordinates.size.height.toFloat(),
-                    )
-                },
-                ) {
-                    FloatingTabItem(
-                        selected = tab == 1,
-                        onClick = { if (guest) onTab(1) else messagesMenuExpanded = true },
-                        icon = MiboIcons.MessagesOutline,
-                        selectedIcon = MiboIcons.MessagesFilled,
-                        label = "消息",
-                        modifier = Modifier.testTag("bottom_tab_messages"),
-                    )
-                    if (!guest) {
-                        // 菜单本体由根节点的全局玻璃菜单宿主渲染（整块柔光玻璃），这里只做触发。
-                        LaunchedEffect(messagesMenuExpanded) {
-                            if (messagesMenuExpanded) {
-                                App.showGlassMenu(
-                                    messagesAnchorBounds,
-                                    listOf(
-                                        App.GlassMenuItem(text = "消息", onClick = { onTab(1) }),
-                                        App.GlassMenuItem(text = "通知", onClick = onNotifications),
-                                    ),
-                                )
-                                messagesMenuExpanded = false
-                            }
-                        }
-                    }
-                }
+                FloatingTabItem(
+                    selected = tab == 1,
+                    onClick = { onTab(1) },
+                    icon = MiboIcons.MessagesOutline,
+                    selectedIcon = MiboIcons.MessagesFilled,
+                    label = "消息",
+                    modifier = Modifier.testTag("bottom_tab_messages"),
+                )
                 FloatingTabItem(
                     selected = tab == 0,
                     onClick = { onTab(0) },
@@ -2450,7 +2419,7 @@ private fun ProfileCircleButton(
     } else {
         Modifier.background(
             colorScheme.surfaceContainer.copy(
-                alpha = if (App.settings.blurEffects) App.settings.barGlassAlpha else 1f,
+                alpha = App.settings.barGlassAlpha,
             ),
             CircleShape,
         )
@@ -2537,7 +2506,7 @@ private fun ExpandCircleButton(
     } else {
         Modifier.background(
             colorScheme.surfaceContainer.copy(
-                alpha = if (App.settings.blurEffects) App.settings.barGlassAlpha else 1f,
+                alpha = App.settings.barGlassAlpha,
             ),
             CircleShape,
         )
@@ -2645,7 +2614,7 @@ private fun GlassCircleButton(
 ) {
     val backdrop = LocalBackdrop.current
     val colorScheme = MiuixTheme.colorScheme
-    val glassActive = App.settings.blurEffects && backdrop != null
+    val glassActive = blurEffectsEnabled() && backdrop != null
     val isDark = colorScheme.background.luminance() < 0.5f
     val background = if (glassActive && backdrop != null) {
         Modifier.glassPanel(
@@ -2661,7 +2630,7 @@ private fun GlassCircleButton(
     } else {
         Modifier.background(
             colorScheme.surfaceContainer.copy(
-                alpha = if (App.settings.blurEffects) App.settings.barGlassAlpha else 1f,
+                alpha = App.settings.barGlassAlpha,
             ),
             CircleShape,
         )

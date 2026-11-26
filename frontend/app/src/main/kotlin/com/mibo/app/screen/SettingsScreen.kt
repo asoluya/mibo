@@ -813,7 +813,6 @@ fun BarPositionScreen(nav: NavState) {
                 FloatingBottomBar(
                     tab = 0,
                     guest = true,
-                    onNotifications = {},
                     onSearch = {},
                     onTab = {},
                     modifier = Modifier
