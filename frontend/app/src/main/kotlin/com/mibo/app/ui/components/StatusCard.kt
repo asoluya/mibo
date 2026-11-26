@@ -773,8 +773,10 @@ fun ImageGrid(
     val origins = LocalImageOrigins.current
     if (pics.size == 1) {
         val pic = pics.first()
+        // 单图限高：格子比例不低于 1:1（竖图也只显示到正方形，顶部对齐裁切），
+        // 宽度也收窄，避免一张图占大半屏；点开看图仍是原图原比例。
         val ratio = if (pic.width > 0 && pic.height > 0) {
-            (pic.width.toFloat() / pic.height.toFloat()).coerceIn(0.62f, 1.9f)
+            (pic.width.toFloat() / pic.height.toFloat()).coerceIn(1.0f, 1.9f)
         } else {
             1.45f
         }
@@ -785,7 +787,7 @@ fun ImageGrid(
         val isLong = !pic.isVideo && isLongImageAspect(aspect)
             Box(
             modifier = Modifier
-                .fillMaxWidth(if (compact) 0.72f else 0.86f)
+                .fillMaxWidth(if (compact) 0.65f else 0.75f)
                 .aspectRatio(ratio)
                 .imageOrigin(urls[0], 10.dp, aspect = aspect, model = pic.large)
                 .clip(RoundedCornerShape(10.dp))
@@ -842,7 +844,8 @@ fun ImageGrid(
         return
     }
 
-    val columns = if (pics.size <= 4) 2 else 3
+    // 多图统一三列小方格：2 张图也只占一列高，不再用两列大方格撑高整条微博。
+    val columns = 3
     val rows = (pics.size + columns - 1) / columns
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         for (row in 0 until rows) {
