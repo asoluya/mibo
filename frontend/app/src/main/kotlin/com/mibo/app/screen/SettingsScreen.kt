@@ -1,6 +1,22 @@
 package com.mibo.app.screen
 
 import android.content.Context
+import android.Manifest
+import androidx.compose.runtime.DisposableEffect
+import android.content.ComponentName
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.PowerManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.mibo.app.notify.NotifyPollService
 import android.graphics.Color as AndroidColor
 import android.webkit.CookieManager
 import androidx.compose.animation.AnimatedVisibility
@@ -1546,6 +1562,202 @@ private fun DialogButtons(
                 text = positiveText,
                 onClick = onPositive,
                 colors = ButtonDefaults.textButtonColorsPrimary(),
+            )
+        }
+    }
+}
+
+/** 通知设置：后台通知总开关 + 轮询间隔（填数字，离框保存）+ 自启动 / 忽略电池优化快捷入口。 */
+@Composable
+fun NotifySettingsScreen(nav: NavState) {
+    val context = LocalContext.current
+    var enabled by remember { mutableStateOf(App.settings.notifyEnabled) }
+    var intervalText by remember { mutableStateOf(App.settings.notifyIntervalMinutes.toString()) }
+    var batteryIgnored by remember { mutableStateOf(isIgnoringBatteryOptimizations(context)) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                batteryIgnored = isIgnoringBatteryOptimizations(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    fun applyEnabled(value: Boolean) {
+        enabled = value
+        App.settings.applyNotifyEnabled(value)
+        NotifyPollService.sync(context)
+    }
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) {
+            applyEnabled(true)
+        } else {
+            App.toast("没有通知权限，系统通知弹不出来")
+        }
+    }
+    val blurEffects = blurEffectsEnabled()
+    val pageColor = pageContainerColor()
+    val backdrop = rememberLayerBackdrop()
+    val topBarHeight = pinnedHeight(TopAppBarDefaults.SmallTopAppBarCenterHeight)
+    val listState = rememberLazyListState()
+
+    Box(Modifier.fillMaxSize().background(pageColor)) {
+        Box(Modifier.fillMaxSize().layerBackdropIf(blurEffects, backdrop).background(pageColor)) {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize().scrollEndHaptic(),
+                contentPadding = PaddingValues(
+                    start = 12.dp,
+                    top = glassBarContentTop(topBarHeight, 10.dp),
+                    end = 12.dp,
+                    bottom = 24.dp + navBottomPadding(),
+                ),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        cornerRadius = CardDefaults.CornerRadius,
+                        insideMargin = PaddingValues(0.dp),
+                    ) {
+                        SwitchPreference(
+                            checked = enabled,
+                            onCheckedChange = { want ->
+                                if (!want) {
+                                    applyEnabled(false)
+                                } else if (context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) ==
+                                    PackageManager.PERMISSION_GRANTED
+                                ) {
+                                    applyEnabled(true)
+                                } else {
+                                    permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                }
+                            },
+                            title = "后台通知",
+                            summary = "应用不在前台时，定时检查新的赞、评论和 @，有新的就发系统通知",
+                            modifier = Modifier.testTag("notify_enabled"),
+                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 16.dp, end = 16.dp, top = 2.dp, bottom = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text("轮询间隔")
+                                Text(
+                                    "单位分钟，时间越短越耗电",
+                                    fontSize = 13.sp,
+                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                )
+                            }
+                            TextField(
+                                value = intervalText,
+                                onValueChange = { input ->
+                                    intervalText = input.filter { it.isDigit() }.take(3)
+                                },
+                                modifier = Modifier
+                                    .width(96.dp)
+                                    .onFocusChanged { focus ->
+                                        if (!focus.isFocused) {
+                                            intervalText.trim().toIntOrNull()?.let {
+                                                App.settings.applyNotifyIntervalMinutes(it)
+                                            }
+                                            intervalText = App.settings.notifyIntervalMinutes.toString()
+                                        }
+                                    }
+                                    .testTag("notify_interval"),
+                                label = "分钟",
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                maxLines = 1,
+                                minLines = 1,
+                            )
+                        }
+                    }
+                }
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        cornerRadius = CardDefaults.CornerRadius,
+                        insideMargin = PaddingValues(0.dp),
+                    ) {
+                        ArrowPreference(
+                            title = "自启动",
+                            summary = "去系统里允许 Mibo 自启动，重启手机后通知监测才能自己恢复",
+                            onClick = { openAutostartSettings(context) },
+                            modifier = Modifier.testTag("notify_autostart"),
+                        )
+                        ArrowPreference(
+                            title = "忽略电池优化",
+                            summary = if (batteryIgnored) {
+                                "已忽略电池优化，后台轮询不会被系统冻结"
+                            } else {
+                                "还没忽略，系统可能冻结后台轮询，点此去设置"
+                            },
+                            onClick = { if (!batteryIgnored) requestIgnoreBatteryOptimizations(context) },
+                            modifier = Modifier.testTag("notify_battery"),
+                        )
+                    }
+                }
+            }
+        }
+
+        CompositionLocalProvider(
+            LocalBackdrop provides if (blurEffects) backdrop else null,
+        ) {
+            PinnedBarDensity {
+                AppBarSurface(
+                    modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth(),
+                    containerColor = pageColor,
+                    scrollFraction = rememberListScrollFraction(listState),
+                ) {
+                    SmallTopAppBar(
+                        title = "通知设置",
+                        color = Color.Transparent,
+                        navigationIcon = { BackIconButton { nav.pop() } },
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun isIgnoringBatteryOptimizations(context: Context): Boolean {
+    val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager ?: return false
+    return powerManager.isIgnoringBatteryOptimizations(context.packageName)
+}
+
+private fun requestIgnoreBatteryOptimizations(context: Context) {
+    val intent = Intent(
+        android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+        Uri.parse("package:" + context.packageName),
+    )
+    runCatching { context.startActivity(intent) }.onFailure {
+        runCatching {
+            context.startActivity(Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+        }
+    }
+}
+
+/** 小米的自启动管理页在安全中心里；打不开就退到应用详情页。 */
+private fun openAutostartSettings(context: Context) {
+    val miuiIntent = Intent().setComponent(
+        ComponentName(
+            "com.miui.securitycenter",
+            "com.miui.permcenter.autostart.AutoStartManagementActivity",
+        ),
+    )
+    val opened = runCatching { context.startActivity(miuiIntent); true }.getOrDefault(false)
+    if (!opened) {
+        runCatching {
+            context.startActivity(
+                Intent(
+                    android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    Uri.parse("package:" + context.packageName),
+                ),
             )
         }
     }

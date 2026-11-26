@@ -1143,6 +1143,12 @@ fun ProfileHubContent(
                             onClick = { nav.push(Route.SettingsDetail(group)) },
                         )
                     }
+                    ArrowPreference(
+                        title = "通知设置",
+                        startAction = { HubRowIcon(MiboIcons.Bell) },
+                        modifier = Modifier.testTag("hub_settings_notify"),
+                        onClick = { nav.push(Route.NotifySettings) },
+                    )
                 }
             }
         }
@@ -1184,7 +1190,6 @@ fun ProfileHubContent(
     }
 }
 
-@Composable
 /** 「我」页四宫格单元格：图标在上、标题在下，整格可点。 */
 @Composable
 private fun HubGridCell(
@@ -1205,6 +1210,7 @@ private fun HubGridCell(
     }
 }
 
+@Composable
 private fun HubRowIcon(imageVector: ImageVector) {
     Icon(
         imageVector = imageVector,

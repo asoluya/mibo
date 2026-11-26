@@ -248,6 +248,14 @@ class Settings(context: Context) {
     var monitorNewPosts by mutableStateOf(sp.getBoolean("monitor_new_posts", false))
         private set
 
+    /** 后台通知总开关：开启后前台服务定时轮询新的赞 / 评论 / @，有新的就发系统通知。默认关。 */
+    var notifyEnabled by mutableStateOf(sp.getBoolean("notify_enabled", false))
+        private set
+
+    /** 后台通知轮询间隔（分钟）：越短越及时也越耗电。默认 5 分钟，范围 1..120。 */
+    var notifyIntervalMinutes by mutableStateOf(sp.getInt("notify_interval_minutes", 5))
+        private set
+
     /** 上次检查更新的时间戳。 */
     var updateCheckedAt by mutableLongStateOf(sp.getLong("update_checked_at", 0L))
         private set
@@ -498,6 +506,17 @@ class Settings(context: Context) {
     fun applyMonitorNewPosts(value: Boolean) {
         monitorNewPosts = value
         sp.edit().putBoolean("monitor_new_posts", value).apply()
+    }
+
+    fun applyNotifyEnabled(value: Boolean) {
+        notifyEnabled = value
+        sp.edit().putBoolean("notify_enabled", value).apply()
+    }
+
+    fun applyNotifyIntervalMinutes(value: Int) {
+        val coerced = value.coerceIn(1, 120)
+        notifyIntervalMinutes = coerced
+        sp.edit().putInt("notify_interval_minutes", coerced).apply()
     }
 
 

@@ -111,6 +111,32 @@ object MiboIcons {
         }.build()
     }
 
+    /** 铃铛（通知设置入口）：描边风格与 Feather / AdminShield 一致。 */
+    val Bell: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "Bell",
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = 24f,
+            viewportHeight = 24f,
+        ).apply {
+            path(
+                stroke = SolidColor(Color.Black),
+                strokeLineWidth = 1.9f,
+                strokeLineCap = StrokeCap.Round,
+                strokeLineJoin = StrokeJoin.Round,
+            ) {
+                moveTo(18f, 8f)
+                arcTo(6f, 6f, 0f, false, false, 6f, 8f)
+                cubicTo(6f, 15f, 3f, 17f, 3f, 17f)
+                lineTo(21f, 17f)
+                cubicTo(21f, 17f, 18f, 15f, 18f, 8f)
+                moveTo(13.73f, 21f)
+                arcTo(2f, 2f, 0f, false, true, 10.27f, 21f)
+            }
+        }.build()
+    }
+
     val HeartFill: ImageVector by lazy {
         ImageVector.Builder(
             name = "HeartFill",

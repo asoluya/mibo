@@ -18,6 +18,10 @@ import com.mibo.app.ui.isDarkTheme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         App.init(this)
+        // 通知开关开着的话，打开 App 时顺手把轮询服务拉起来（进程被杀后靠这个恢复）。
+        if (App.settings.notifyEnabled) {
+            runCatching { com.mibo.app.notify.NotifyPollService.start(this) }
+        }
         App.startRoute = intent?.getStringExtra("mibo.route")
         handleDeepLinkIntent(intent)
         super.onCreate(savedInstanceState)
