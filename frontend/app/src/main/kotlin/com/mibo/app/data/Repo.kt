@@ -1797,62 +1797,30 @@ class Repo(private val context: Context, private val store: Store) {
         val id = superTopicId(containerId) ?: throw ApiException("无效的超话地址")
         if (!hasSession()) throw ApiException("超话签到需要登录", "-100")
         val cookie = desktopCookieOrNull()
-        // 诊断（2026-11-27）：真机上完整参数版一直回 382001 参数错误，原因未定。
-        // 一次点击依次试三种请求形态并把请求/响应全量记进 ProbeLog（设置「实验数据」导出）：
-        // full=对齐网页真实按钮，minimal=仅 api+id，direct=直连 huati 端点。
-        val cookieKeys = cookie.orEmpty().split(';')
-            .map { it.substringBefore('=').trim() }.filter { it.isNotBlank() }
-        ProbeLog.appendText(
-            "super_checkin_begin",
-            "id=$id loginType=${session?.loginType} cookieKeys=$cookieKeys",
-        )
-        val topicReferer = "https://weibo.com/p/$id/super_index"
-        val fullUrl = Api.url(
-            "https://weibo.com/p/aj/general/button",
-            linkedMapOf(
-                "ajwvr" to "6",
-                "api" to "http://i.huati.weibo.com/aj/super/checkin",
-                "texta" to "签到",
-                "textb" to "已签到",
-                "status" to "0",
-                "id" to id,
-                "location" to "page_100808_super_index",
-                "timezone" to "GMT 0800",
-                "lang" to "zh-cn",
-                "plat" to "MacIntel",
-                "ua" to Api.DESKTOP_UA,
-                "screen" to "1920*1080",
-                "__rnd" to System.currentTimeMillis().toString(),
-            ),
-        )
-        val minimalUrl = Api.url(
-            "https://weibo.com/p/aj/general/button",
-            linkedMapOf(
-                "api" to "http://i.huati.weibo.com/aj/super/checkin",
-                "id" to id,
-            ),
-        )
-        val directUrl = Api.url(
-            "https://i.huati.weibo.com/aj/super/checkin",
-            linkedMapOf("id" to id),
-        )
-        var first: SuperTopicCheckinResult? = null
-        for ((label, attemptUrl) in listOf("full" to fullUrl, "minimal" to minimalUrl, "direct" to directUrl)) {
-            val root = try {
-                Api.getDesktop(attemptUrl, cookie, referer = topicReferer)
-            } catch (e: Throwable) {
-                ProbeLog.appendText("super_checkin_$label", "url=$attemptUrl\nerror=${e.message}")
-                continue
-            }
-            ProbeLog.appendText("super_checkin_$label", "url=$attemptUrl\nresp=$root")
-            val result = parseSuperTopicCheckin(root)
-            if (first == null) first = result
-            if (result.success || result.alreadyChecked) {
-                App.settings.markSuperTopicCheckin(id)
-                return result
-            }
+        // 关键：URL 必须整串拼接、api 参数保持明文。经 Api.url/addQueryParameter 编码后
+        // api 变成 http%3A%2F%2F…，general/button 分发器匹配不到路由，真机实测恒回
+        // 382001 参数错误（诊断日志 2026-11-27，构建 #134；可用实现均为整串 URL）。
+        // 另：i.huati.weibo.com 是内网端点，公网直连会挂起，不要直连重试。
+        val url = "https://weibo.com/p/aj/general/button?ajwvr=6" +
+            "&api=http://i.huati.weibo.com/aj/super/checkin" +
+            "&texta=%E7%AD%BE%E5%88%B0&textb=%E5%B7%B2%E7%AD%BE%E5%88%B0" +
+            "&status=0&id=$id&location=page_100808_super_index" +
+            "&timezone=GMT+0800&lang=zh-cn&plat=MacIntel" +
+            "&ua=" + Api.DESKTOP_UA +
+            "&screen=1920*1080&__rnd=" + System.currentTimeMillis()
+        ProbeLog.appendText("super_checkin_literal", "url=$url")
+        val root = try {
+            Api.getDesktop(url, cookie, referer = "https://weibo.com/p/$id/super_index")
+        } catch (e: ApiHttpException) {
+            ProbeLog.appendText("super_checkin_literal", "error=${e.message}")
+            throw ApiException("签到失败（HTTP ${e.code}）")
         }
-        return first ?: throw ApiException("签到失败")
+        ProbeLog.appendText("super_checkin_literal", "resp=$root")
+        val result = parseSuperTopicCheckin(root)
+        if (result.success || result.alreadyChecked) {
+            App.settings.markSuperTopicCheckin(id)
+        }
+        return result
     }
 
     /**
