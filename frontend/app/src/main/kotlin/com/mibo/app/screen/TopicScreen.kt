@@ -1,6 +1,7 @@
 package com.mibo.app.screen
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -167,7 +168,9 @@ private fun Modifier.softGlassCapsule(radius: Dp): Modifier {
             shading = false,
         ).clip(shape)
     } else {
-        this.clip(shape).background(MiuixTheme.colorScheme.surfaceContainerHigh)
+        this.clip(shape)
+            .background(MiuixTheme.colorScheme.surfaceContainerHigh)
+            .border(1.dp, MiuixTheme.colorScheme.onSurface.copy(alpha = 0.08f), shape)
     }
 }
 
@@ -253,23 +256,35 @@ fun TopicScreen(nav: NavState, initial: String = "") {
                     item {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text("浏览过的超话", fontSize = 14.sp, modifier = Modifier.weight(1f))
-                            TextButton(
-                                text = "清空",
-                                onClick = {
-                                    App.settings.clearRecentSuperTopics()
-                                    recents = emptyList()
-                                },
-                            )
+                            Box(
+                                modifier = Modifier
+                                    .softGlassCapsule(50)
+                                    .clickable {
+                                        App.settings.clearRecentSuperTopics()
+                                        recents = emptyList()
+                                    }
+                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text("清空", fontSize = 13.sp)
+                            }
                         }
                     }
-                    items(recents, key = { "recent_" + it.containerId }) { topic ->
-                        TopicRow(
-                            title = topic.title,
-                            description = "",
-                            onClick = {
-                                openTopic(TopicItem(topic.title, scheme = topic.containerId, containerId = topic.containerId))
-                            },
-                        )
+                    items(recents.chunked(2), key = { "recent_row_" + it.first().containerId }) { pair ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            for (topic in pair) {
+                                Box(Modifier.weight(1f)) {
+                                    TopicRow(
+                                        title = topic.title,
+                                        description = "",
+                                        onClick = {
+                                            openTopic(TopicItem(topic.title, scheme = topic.containerId, containerId = topic.containerId))
+                                        },
+                                    )
+                                }
+                            }
+                            if (pair.size == 1) Spacer(Modifier.weight(1f))
+                        }
                     }
                 }
                 when {
