@@ -217,6 +217,7 @@ import com.mibo.app.ui.components.SaveImagesMenu
 import com.mibo.app.ui.components.downloadMediaToFile
 import com.mibo.app.ui.components.extractIntentFallbackUrl
 import com.mibo.app.ui.components.liveMediaCacheFile
+import com.mibo.app.ui.components.noWatermarkSize
 import com.mibo.app.ui.components.originalSize
 import com.mibo.app.ui.components.rememberImageSaveState
 import top.yukonga.miuix.kmp.basic.DropdownEntry
@@ -1082,7 +1083,15 @@ private fun ZoomableImage(
     // that went under the resting size.
     val glide = remember { mutableStateOf<Job?>(null) }
     val remote = url.startsWith("http://") || url.startsWith("https://")
-    val targetUrl = if (original && !preserveUrl) originalSize(url) else url
+    // 默认看无水印档（oslarge），加载失败逐级回退原图档、原始地址；「查看原图」仍给原图档。
+    var urlStage by remember(url) { mutableIntStateOf(0) }
+    val targetUrl = when {
+        preserveUrl -> url
+        original -> originalSize(url)
+        urlStage == 0 -> noWatermarkSize(url)
+        urlStage == 1 -> originalSize(url)
+        else -> url
+    }
     var loaded by remember(url) { mutableStateOf(false) }
     // 保留上一张已解码的 Painter 与缓存键，切原图或重解码时垫在下面，不出现空白闪烁。
     var settledPainter by remember(url) { mutableStateOf<Painter?>(null) }
@@ -1733,6 +1742,9 @@ private fun ZoomableImage(
                             if (picture.width > 0f && picture.height > 0f && url !in frame.aspects) {
                                 frame.aspects[url] = picture.width / picture.height
                             }
+                        },
+                        onError = {
+                            if (!original && !preserveUrl && urlStage < 2) urlStage++
                         },
                     )
                     val file = localImageFile

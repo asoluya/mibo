@@ -94,6 +94,26 @@ fun originalSize(url: String): String {
     return SinaSizeSegment.replace(url) { "${it.groupValues[1]}/large${it.groupValues[2]}" }
 }
 
+/**
+ * 无水印档：把尺寸段改写为 `oslarge`。微博的水印是生成各展示档时烧进图片的，
+ * 实测（2026-11-27）`large` / `original` 原图档仍带水印，只有 `oslarge` 档无水印，
+ * 代价是宽度封顶 690。签名地址与 [originalSize] 一样原样返回。
+ */
+fun noWatermarkSize(url: String): String {
+    if (url.contains("ssig=", ignoreCase = true) ||
+        url.contains("KID=", ignoreCase = true) ||
+        url.contains("Expires=", ignoreCase = true) ||
+        url.contains("Signature=", ignoreCase = true)
+    ) {
+        return url
+    }
+    return SinaSizeSegment.replace(url) { "${it.groupValues[1]}/oslarge${it.groupValues[2]}" }
+}
+
+/** 保存候选地址链：无水印档优先，其次原图档，最后原始地址（去重保序）。 */
+fun imageSaveCandidates(url: String, preserveUrl: Boolean): List<String> =
+    if (preserveUrl) listOf(url) else listOf(noWatermarkSize(url), originalSize(url), url).distinct()
+
 private val ImageClient by lazy { OkHttpClient.Builder().followRedirects(true).build() }
 
 internal fun liveMediaCacheDir(context: Context): File =
@@ -269,11 +289,10 @@ suspend fun saveLivePhotoToGallery(context: Context, item: SaveImageItem): Boole
         val workDir = File(context.cacheDir, "livephoto-export-${System.nanoTime()}")
         workDir.mkdirs()
         try {
-            val targetUrl = if (item.preserveUrl) item.url else originalSize(item.url)
-            val stillFile = resolveImageFile(context, targetUrl)
-                ?: if (targetUrl != item.url) resolveImageFile(context, item.url) else null
+            val stillFile = imageSaveCandidates(item.url, item.preserveUrl)
+                .firstNotNullOfOrNull { resolveImageFile(context, it) }
             if (stillFile == null) {
-                Log.w(LiveSaveTag, "实况静图下载失败: $targetUrl")
+                Log.w(LiveSaveTag, "实况静图下载失败: ${item.url}")
                 return@withContext false
             }
 
@@ -423,20 +442,25 @@ class ImageSaveState internal constructor(
     }
 
     private suspend fun saveStillItem(item: SaveImageItem): Boolean {
-        val target = if (item.preserveUrl) item.url else originalSize(item.url)
-        val cachedOrDownloaded = resolveImageFile(context, target)
-            ?: if (target != item.url) resolveImageFile(context, item.url) else null
-        if (cachedOrDownloaded != null) {
+        val candidates = imageSaveCandidates(item.url, item.preserveUrl)
+        for (target in candidates) {
+            val cachedOrDownloaded = resolveImageFile(context, target) ?: continue
             val ext = extensionFor(target)
-            return saveFileToGallery(
-                context = context,
-                file = cachedOrDownloaded,
-                displayName = uniqueSaveName("mibo", ext),
-                mimeType = mimeFor(ext),
-            )
+            if (saveFileToGallery(
+                    context = context,
+                    file = cachedOrDownloaded,
+                    displayName = uniqueSaveName("mibo", ext),
+                    mimeType = mimeFor(ext),
+                )
+            ) {
+                return true
+            }
         }
-        val bytes = downloadImage(target) ?: if (target != item.url) downloadImage(item.url) else null
-        return bytes != null && saveToGallery(context, bytes, target)
+        for (target in candidates) {
+            val bytes = downloadImage(target) ?: continue
+            if (saveToGallery(context, bytes, target)) return true
+        }
+        return false
     }
 }
 

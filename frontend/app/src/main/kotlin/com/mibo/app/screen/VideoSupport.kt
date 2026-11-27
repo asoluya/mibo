@@ -493,18 +493,49 @@ private fun normalizeResolvedStream(
 
 private fun firstPlayInfoPlaybackUrl(playInfo: JSONObject): String {
     val arr = playInfo.optJSONArray("playback_list") ?: return ""
-    var fallback = ""
+    var firstAny = ""
+    var firstMp4 = ""
+    var bestUrl = ""
+    var bestScore = Long.MIN_VALUE
     for (i in 0 until arr.length()) {
-        val play = arr.optJSONObject(i)?.optJSONObject("play_info") ?: continue
+        val item = arr.optJSONObject(i) ?: continue
+        val play = item.optJSONObject("play_info") ?: continue
         val url = play.optString("url").trim()
         if (url.isBlank()) continue
-        if (fallback.isBlank()) fallback = url
+        if (firstAny.isBlank()) firstAny = url
         val mime = play.optString("mime")
-        if (mime.contains("mp4", ignoreCase = true) || url.contains(".mp4", ignoreCase = true)) {
-            return url
+        val isMp4 = mime.contains("mp4", ignoreCase = true) || url.contains(".mp4", ignoreCase = true)
+        if (isMp4 && firstMp4.isBlank()) firstMp4 = url
+        // 画质打分：标签（原画 > 超清 > 高清 > 标清 > 流畅）优先，其次像素面积，再次码率。
+        // 字段在不同接口里位置不一，条目、meta、play_info 三层都找；全无信号时同分不替换，
+        // 保持原来的「第一条 mp4」行为。优先原画也是为尽量拿到无平台水印的流。
+        val meta = item.optJSONObject("meta")
+        fun strField(key: String): String =
+            item.optString(key).ifBlank { meta?.optString(key).orEmpty() }.ifBlank { play.optString(key) }
+        fun intField(key: String): Int =
+            item.optInt(key).takeIf { it > 0 }
+                ?: meta?.optInt(key)?.takeIf { it > 0 }
+                ?: play.optInt(key).takeIf { it > 0 }
+                ?: 0
+        val label = listOf("label", "quality_label", "quality", "name")
+            .firstNotNullOfOrNull { strField(it).takeIf { s -> s.isNotBlank() } }.orEmpty()
+        val labelScore = when {
+            label.contains("原画") -> 500L
+            label.contains("超清") || label.contains("1080") -> 400L
+            label.contains("高清") || label.contains("720") -> 300L
+            label.contains("标清") || label.contains("480") -> 200L
+            label.contains("流畅") || label.contains("360") -> 100L
+            else -> 0L
+        }
+        val area = intField("width").toLong() * intField("height").toLong()
+        val bitrate = maxOf(intField("bitrate"), intField("br"), intField("bps")).toLong()
+        val score = labelScore * 1_000_000_000_000L + area * 1_000L + bitrate
+        if (isMp4 && score > bestScore) {
+            bestScore = score
+            bestUrl = url
         }
     }
-    return fallback
+    return bestUrl.ifBlank { firstMp4 }.ifBlank { firstAny }
 }
 
 private fun resolveWeiboVideoByFid(fid: String, cacheDir: File? = null): ResolvedVideo? {
@@ -608,7 +639,7 @@ private fun resolveWeiboVideoByFid(fid: String, cacheDir: File? = null): Resolve
 
 private fun pickBestQualityUrl(urls: JSONObject?): String? {
     if (urls == null) return null
-    val preferred = listOf("超清 1080P", "高清 720P", "标清 480P", "流畅 360P")
+    val preferred = listOf("原画", "超清 1080P", "高清 720P", "标清 480P", "流畅 360P")
     for (label in preferred) {
         val u = urls.optString(label)
         if (u.isNotBlank()) return u
