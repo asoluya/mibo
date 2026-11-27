@@ -41,6 +41,54 @@ data class SuperTopicPage(
     val tabs: List<SuperTopicTab> = emptyList(),
 )
 
+/** 浏览过的超话（本地记录，见 Settings.recordSuperTopicVisit）。 */
+data class RecentSuperTopic(
+    val containerId: String,
+    val title: String,
+    val avatar: String = "",
+)
+
+/**
+ * 解析「我关注的超话」容器（100803_-_followsuper）的 cardlist 响应：
+ * card_type=11 的卡里 card_group 中 card_type=8 的是超话条目（title_sub=名称、
+ * scheme 里带 pageid、desc1 是等级文案、pic 是头像）。返回条目与下一页游标。
+ */
+fun parseFollowedSuperTopics(root: JSONObject): Pair<List<TopicItem>, String> {
+    val data = root.optJSONObject("data") ?: root
+    val sinceId = data.optJSONObject("cardlistInfo")?.optString("since_id")?.trim().orEmpty()
+    val cards = data.optJSONArray("cards") ?: return emptyList<TopicItem>() to sinceId
+    val seen = HashSet<String>()
+    val out = ArrayList<TopicItem>()
+
+    fun addItem(item: JSONObject) {
+        if (item.optInt("card_type") != 8) return
+        val scheme = item.optString("scheme")
+        val id = superTopicId(scheme)
+            ?: superTopicContainer.find(scheme)?.value?.lowercase()
+            ?: return
+        val title = item.optString("title_sub").trim()
+        if (title.isBlank() || !seen.add(id)) return
+        out += TopicItem(
+            title = title,
+            desc1 = item.optString("desc1").trim(),
+            scheme = scheme,
+            containerId = id,
+            pic = item.optString("pic").trim(),
+        )
+    }
+
+    for (i in 0 until cards.length()) {
+        val card = cards.optJSONObject(i) ?: continue
+        addItem(card)
+        val group = card.optJSONArray("card_group") ?: continue
+        for (j in 0 until group.length()) {
+            val item = group.optJSONObject(j) ?: continue
+            addItem(item)
+        }
+    }
+    return out to sinceId
+}
+
 data class SuperTopicCheckinResult(
     val success: Boolean,
     val alreadyChecked: Boolean,

@@ -1,52 +1,84 @@
 package com.mibo.app.screen
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mibo.app.App
 import com.mibo.app.data.ApiException
 import com.mibo.app.data.TopicItem
 import com.mibo.app.data.superTopicId
+import com.mibo.app.ui.AppBarSurface
+import com.mibo.app.ui.LocalBackdrop
 import com.mibo.app.ui.NavState
 import com.mibo.app.ui.PinnedBarDensity
 import com.mibo.app.ui.Route
+import com.mibo.app.ui.blurEffectsEnabled
+import com.mibo.app.ui.glassBarContentTop
+import com.mibo.app.ui.layerBackdropIf
 import com.mibo.app.ui.pageContainerColor
+import com.mibo.app.ui.pinnedHeight
+import com.mibo.app.ui.rememberListScrollFraction
 import com.mibo.app.ui.resolveWeiboLink
 import com.mibo.app.ui.components.BackIconButton
 import com.mibo.app.ui.components.EmptyState
 import com.mibo.app.ui.components.ErrorState
 import com.mibo.app.ui.components.LoadingState
 import com.mibo.app.ui.components.navBottomPadding
-import top.yukonga.miuix.kmp.basic.Button
-import top.yukonga.miuix.kmp.basic.Scaffold
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.SearchClearButton
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.basic.TextField
+import top.yukonga.miuix.kmp.basic.TopAppBarDefaults
+import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
+import top.yukonga.miuix.kmp.glass.glassPanel
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Search
+import top.yukonga.miuix.kmp.material.GlassDefaults
+import top.yukonga.miuix.kmp.material.GlassEdgeStrokes
+import top.yukonga.miuix.kmp.material.GlassMaterials
+import top.yukonga.miuix.kmp.material.GlassShape
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.launch
-import java.net.URLEncoder
 
 class SuperTopicSearchStore(
     private val loader: suspend (String) -> List<TopicItem> = { query ->
@@ -105,7 +137,7 @@ class SuperTopicSearchStore(
         } catch (e: Exception) {
             if (request == generation) {
                 loginRequired = e is ApiException && (e.errno == "-100" || e.errno == "432")
-                error = if (loginRequired) "请先登录，再搜索超话" else "超话搜索失败，请重试或使用网页搜索"
+                error = if (loginRequired) "请先登录再搜索超话" else "超话搜索失败，请重试"
             }
         } finally {
             if (request == generation) loading = false
@@ -117,12 +149,62 @@ class SuperTopicSearchStore(
 private fun normalizedTopicName(name: String): String =
     name.trim().trim('#').trim().removeSuffix("[超话]").removeSuffix("超话").trim().lowercase()
 
+/** 柔光玻璃胶囊：有采样层时用整块玻璃（与返回钮、播放器胶囊同一套材质），否则回退实色填充。 */
+@Composable
+private fun Modifier.softGlassCapsule(radius: Dp): Modifier {
+    val isDark = MiuixTheme.colorScheme.background.luminance() < 0.5f
+    val backdrop = LocalBackdrop.current
+    val shape = RoundedCornerShape(radius)
+    return if (blurEffectsEnabled() && backdrop != null) {
+        this.glassPanel(
+            backdrop = backdrop,
+            shape = GlassShape(radius),
+            style = GlassDefaults.style(isDark),
+            alpha = App.settings.barGlassAlpha,
+            material = GlassMaterials.puredThinGlass(isDark),
+            stroke = GlassEdgeStrokes.forTheme(isDark),
+            shadow = null,
+            shading = false,
+        ).clip(shape)
+    } else {
+        this.clip(shape).background(MiuixTheme.colorScheme.surfaceContainerHigh)
+    }
+}
+
+@Composable
+private fun TopicRow(title: String, description: String, onClick: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .softGlassCapsule(18.dp)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 18.dp, vertical = 13.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(title, fontSize = 15.sp, maxLines = 1)
+        if (description.isNotBlank()) {
+            Text(
+                description,
+                fontSize = 12.sp,
+                color = MiuixTheme.colorScheme.onSurfaceSecondary,
+                maxLines = 1,
+            )
+        }
+    }
+}
+
 @Composable
 fun TopicScreen(nav: NavState, initial: String = "") {
     var query by remember { mutableStateOf(initial) }
     val store = remember { SuperTopicSearchStore() }
+    var recents by remember { mutableStateOf(App.settings.recentSuperTopics()) }
     val scope = rememberCoroutineScope()
     var searchJob by remember { mutableStateOf<Job?>(null) }
+    val listState = rememberLazyListState()
+    val backdrop = rememberLayerBackdrop()
+    val blur = blurEffectsEnabled()
+    val topBarHeight = pinnedHeight(TopAppBarDefaults.SmallTopAppBarCenterHeight)
+    val searchRowHeight = 52.dp
 
     fun openTopic(topic: TopicItem) {
         val id = topic.containerId ?: return
@@ -140,7 +222,8 @@ fun TopicScreen(nav: NavState, initial: String = "") {
             return
         }
         if (name.startsWith("https://") || name.startsWith("http://") ||
-            name.startsWith("sinaweibo://") || name.startsWith("intent://")) {
+            name.startsWith("sinaweibo://") || name.startsWith("intent://")
+        ) {
             resolveWeiboLink(name)?.let { nav.push(Route.Web(it, "网页")) }
             return
         }
@@ -152,58 +235,141 @@ fun TopicScreen(nav: NavState, initial: String = "") {
         }
     }
 
-    fun openWebSearch() {
-        val name = query.trim()
-        if (name.isBlank()) return
-        val cid = "100103type=1&q=$name"
-        val url = "https://m.weibo.cn/search?containerid=" + URLEncoder.encode(cid, "UTF-8")
-        nav.push(Route.Web(url, name))
-    }
-
-    Scaffold(
-        containerColor = pageContainerColor(),
-        topBar = {
-            PinnedBarDensity {
-                SmallTopAppBar(
-                    color = pageContainerColor(),
-                    title = "话题 / 超话",
-                    navigationIcon = {
-                        BackIconButton {
-                            searchJob?.cancel()
-                            store.reset()
-                            nav.pop()
+    Box(Modifier.fillMaxSize().background(pageContainerColor())) {
+        Box(Modifier.fillMaxSize().layerBackdropIf(blur, backdrop)) {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize().scrollEndHaptic(),
+                contentPadding = PaddingValues(
+                    start = 12.dp,
+                    end = 12.dp,
+                    top = glassBarContentTop(topBarHeight + searchRowHeight + 16.dp, 8.dp),
+                    bottom = 12.dp + navBottomPadding(),
+                ),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                val showSections = !store.loading && store.error == null && !store.completed && store.results.isEmpty()
+                if (showSections && recents.isNotEmpty()) {
+                    item {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("浏览过的超话", fontSize = 14.sp, modifier = Modifier.weight(1f))
+                            TextButton(
+                                text = "清空",
+                                onClick = {
+                                    App.settings.clearRecentSuperTopics()
+                                    recents = emptyList()
+                                },
+                            )
                         }
-                    },
-                )
+                    }
+                    items(recents, key = { "recent_" + it.containerId }) { topic ->
+                        TopicRow(
+                            title = topic.title,
+                            description = "",
+                            onClick = {
+                                openTopic(TopicItem(topic.title, scheme = topic.containerId, containerId = topic.containerId))
+                            },
+                        )
+                    }
+                }
+                when {
+                    store.loading -> item { LoadingState() }
+                    store.error != null -> item {
+                        Column {
+                            ErrorState(store.error!!, onRetry = ::submit)
+                            if (store.loginRequired) {
+                                TextButton(text = "前往登录", onClick = { nav.push(Route.SmsLogin()) })
+                            }
+                        }
+                    }
+                    store.completed && store.results.isEmpty() -> item {
+                        EmptyState("未找到对应超话，可以换个名称重试")
+                    }
+                    store.results.isNotEmpty() -> {
+                        item { Text("请选择超话", fontSize = 14.sp) }
+                        items(store.results, key = { it.containerId!! }) { topic ->
+                            TopicRow(
+                                title = topic.title,
+                                description = listOf(topic.desc1, topic.desc2).filter { it.isNotBlank() }.joinToString(" · "),
+                                onClick = { openTopic(topic) },
+                            )
+                        }
+                    }
+                }
             }
-        },
-    ) { padding ->
-        val listState = rememberLazyListState()
-        LazyColumn(
-            state = listState,
-            modifier = Modifier.fillMaxSize().scrollEndHaptic().padding(padding),
-            contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 12.dp + navBottomPadding()),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+        }
+
+        CompositionLocalProvider(
+            LocalBackdrop provides if (blur) backdrop else null,
         ) {
-            item {
-                Text(
-                    "输入超话名称，唯一同名结果会直接打开。也可以粘贴超话链接或 ID。",
-                    fontSize = 13.sp,
-                    color = MiuixTheme.colorScheme.onSurfaceSecondary,
-                )
-                Spacer(Modifier.height(14.dp))
-                TextField(
-                    value = query,
-                    onValueChange = {
-                        query = it
-                        searchJob?.cancel()
-                        store.reset()
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = "超话名称",
-                    singleLine = true,
-                    trailingIcon = if (query.isNotEmpty()) {
-                        {
+            Column(Modifier.align(Alignment.TopCenter).fillMaxWidth()) {
+                PinnedBarDensity {
+                    AppBarSurface(
+                        modifier = Modifier.fillMaxWidth(),
+                        containerColor = pageContainerColor(),
+                        scrollFraction = rememberListScrollFraction(listState),
+                    ) {
+                        SmallTopAppBar(
+                            title = "话题 / 超话",
+                            color = Color.Transparent,
+                            navigationIcon = {
+                                BackIconButton {
+                                    searchJob?.cancel()
+                                    store.reset()
+                                    nav.pop()
+                                }
+                            },
+                        )
+                    }
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(searchRowHeight)
+                            .softGlassCapsule(26.dp)
+                            .padding(horizontal = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            MiuixIcons.Search,
+                            null,
+                            Modifier.size(20.dp),
+                            tint = MiuixTheme.colorScheme.onSurfaceSecondary,
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Box(Modifier.weight(1f)) {
+                            if (query.isEmpty()) {
+                                Text(
+                                    "搜索超话，或粘贴链接 / ID",
+                                    fontSize = 15.sp,
+                                    color = MiuixTheme.colorScheme.onSurfaceSecondary,
+                                    maxLines = 1,
+                                )
+                            }
+                            BasicTextField(
+                                value = query,
+                                onValueChange = {
+                                    query = it
+                                    searchJob?.cancel()
+                                    store.reset()
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true,
+                                textStyle = TextStyle(
+                                    color = MiuixTheme.colorScheme.onSurface,
+                                    fontSize = 15.sp,
+                                ),
+                                cursorBrush = SolidColor(MiuixTheme.colorScheme.primary),
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                                keyboardActions = KeyboardActions(onSearch = { submit() }),
+                            )
+                        }
+                        if (query.isNotEmpty()) {
                             SearchClearButton(
                                 onClick = {
                                     query = ""
@@ -213,43 +379,26 @@ fun TopicScreen(nav: NavState, initial: String = "") {
                                 contentDescription = "清空",
                             )
                         }
-                    } else {
-                        null
-                    },
-                )
-                Spacer(Modifier.height(16.dp))
-                Button(
-                    onClick = ::submit,
-                    enabled = query.isNotBlank() && !store.loading,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text(if (superTopicId(query.trim()) != null) "打开超话" else "搜索超话")
-                }
-                TextButton(text = "网页搜索", onClick = ::openWebSearch)
-            }
-            when {
-                store.loading -> item { LoadingState() }
-                store.error != null -> item {
-                    Column {
-                        ErrorState(store.error!!, onRetry = ::submit)
-                        if (store.loginRequired) {
-                            TextButton(text = "前往登录", onClick = { nav.push(Route.SmsLogin()) })
-                        }
                     }
-                }
-                store.completed && store.results.isEmpty() -> item {
-                    EmptyState("未找到对应超话，可以换个名称重试或使用网页搜索")
-                }
-                store.results.isNotEmpty() -> {
-                    item { Text("请选择超话", fontSize = 14.sp) }
-                    items(store.results, key = { it.containerId!! }) { topic ->
-                        Column {
-                            TextButton(text = topic.title, onClick = { openTopic(topic) }, modifier = Modifier.fillMaxWidth())
-                            val description = listOf(topic.desc1, topic.desc2).filter { it.isNotBlank() }.joinToString(" · ")
-                            if (description.isNotBlank()) {
-                                Text(description, fontSize = 12.sp, color = MiuixTheme.colorScheme.onSurfaceSecondary)
-                            }
-                        }
+                    val direct = superTopicId(query.trim()) != null
+                    val canSubmit = query.isNotBlank() && !store.loading
+                    Box(
+                        modifier = Modifier
+                            .height(searchRowHeight)
+                            .softGlassCapsule(26.dp)
+                            .clickable(enabled = canSubmit) { submit() }
+                            .padding(horizontal = 20.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            if (direct) "打开" else "搜索",
+                            fontSize = 15.sp,
+                            color = if (canSubmit) {
+                                MiuixTheme.colorScheme.onSurface
+                            } else {
+                                MiuixTheme.colorScheme.onSurfaceSecondary
+                            },
+                        )
                     }
                 }
             }

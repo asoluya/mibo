@@ -1782,6 +1782,36 @@ class Repo(private val context: Context, private val store: Store) {
         }
     }
 
+    /**
+     * 我关注的超话：客户端 cardlist 容器 100803_-_followsuper（官方 App 同一数据源），
+     * cardlistInfo.since_id 是不透明游标，逐页取回直到为空（上限 6 页防失控）。
+     * 第一页原始响应记进实验日志，便于接口形状变化时对照。
+     */
+    suspend fun followedSuperTopics(): List<TopicItem> {
+        if (!hasSession()) return emptyList()
+        val out = ArrayList<TopicItem>()
+        val seen = HashSet<String>()
+        var cursor: String? = null
+        repeat(6) {
+            val params = buildMap {
+                put("containerid", "100803_-_followsuper")
+                if (!cursor.isNullOrBlank()) put("since_id", cursor)
+            }
+            val root = containerGet("cardlist", params)
+            if (cursor == null) {
+                ProbeLog.appendText("followed_super_topics", root.toString().take(3000))
+            }
+            val (page, next) = parseFollowedSuperTopics(root)
+            page.forEach { item ->
+                val id = item.containerId ?: return@forEach
+                if (seen.add(id)) out += item
+            }
+            if (next.isBlank() || next == cursor) return out
+            cursor = next
+        }
+        return out
+    }
+
     /** 本机记录里这个超话今天是否已签到（签到接口本身无状态查询，靠本地日期记录）。 */
     fun superTopicCheckedInToday(containerId: String): Boolean {
         val id = superTopicId(containerId) ?: return false

@@ -178,6 +178,14 @@ fun SuperTopicScreen(nav: NavState, containerId: String, fallbackUrl: String) {
     val headerInfo = defaultStore.info ?: stores.values.firstNotNullOfOrNull { it.info }
     val title = headerInfo?.title ?: "超话"
 
+    // 浏览记录：超话信息加载出来后记一笔，供话题页「浏览过的超话」展示。
+    LaunchedEffect(headerInfo?.containerId, headerInfo?.title) {
+        val info = headerInfo ?: return@LaunchedEffect
+        if (info.title.isNotBlank()) {
+            App.settings.recordSuperTopicVisit(info.containerId, info.title, info.avatar)
+        }
+    }
+
     Box(Modifier.fillMaxSize().background(pageContainerColor()).testTag("supertopic_page")) {
         Box(
             Modifier

@@ -533,6 +533,48 @@ class Settings(context: Context) {
         return superTopicCheckinDay(containerId) == today
     }
 
+    /** 浏览过的超话：打开超话页时记录（id/名称/头像），最近在前，最多 24 条。 */
+    fun recentSuperTopics(): List<RecentSuperTopic> {
+        val raw = sp.getString("recent_super_topics", "").orEmpty()
+        if (raw.isBlank()) return emptyList()
+        return try {
+            val arr = org.json.JSONArray(raw)
+            (0 until arr.length()).mapNotNull { i ->
+                val o = arr.optJSONObject(i) ?: return@mapNotNull null
+                val id = o.optString("id").trim()
+                val title = o.optString("title").trim()
+                if (id.isBlank() || title.isBlank()) {
+                    null
+                } else {
+                    RecentSuperTopic(id, title, o.optString("avatar"))
+                }
+            }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    fun recordSuperTopicVisit(containerId: String, title: String, avatar: String) {
+        if (containerId.isBlank() || title.isBlank()) return
+        val rest = recentSuperTopics().filter { !it.containerId.equals(containerId, ignoreCase = true) }
+        val merged = (listOf(RecentSuperTopic(containerId, title, avatar)) + rest).take(24)
+        val arr = org.json.JSONArray()
+        merged.forEach { t ->
+            arr.put(
+                org.json.JSONObject().apply {
+                    put("id", t.containerId)
+                    put("title", t.title)
+                    put("avatar", t.avatar)
+                },
+            )
+        }
+        sp.edit().putString("recent_super_topics", arr.toString()).apply()
+    }
+
+    fun clearRecentSuperTopics() {
+        sp.edit().remove("recent_super_topics").apply()
+    }
+
     fun applyDarkMode(value: Int) {
         darkMode = value
         sp.edit().putInt("dark_mode", value).apply()
