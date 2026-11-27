@@ -21,20 +21,27 @@ import top.yukonga.miuix.kmp.icon.extended.VolumeUp
 
 object MiboIcons {
 
-    /** 转发：圆头弯箭头，描边风格与 Heart/Star 一致（原 Miuix Forward 与手绘组不搭）。 */
+    /** 转发：推特同款双箭头循环（上箭头向右、末端向下弯；下箭头向左、末端向上弯），描边手绘。 */
     val Repost: ImageVector by lazy {
         outline("Repost") {
-            moveTo(5f, 19.5f)
-            lineTo(5f, 14f)
-            curveTo(5f, 9.5f, 8.8f, 6.5f, 13.5f, 6.5f)
-            lineTo(17.5f, 6.5f)
-            moveTo(13.8f, 2.8f)
-            lineTo(17.8f, 6.5f)
-            lineTo(13.8f, 10.2f)
+            moveTo(9.5f, 7f)
+            lineTo(14.5f, 7f)
+            arcTo(2.5f, 2.5f, 0f, false, true, 17f, 9.5f)
+            lineTo(17f, 13f)
+            moveTo(13.6f, 3.9f)
+            lineTo(16.9f, 7f)
+            lineTo(13.6f, 10.1f)
+            moveTo(14.5f, 17f)
+            lineTo(9.5f, 17f)
+            arcTo(2.5f, 2.5f, 0f, false, true, 7f, 14.5f)
+            lineTo(7f, 11f)
+            moveTo(10.4f, 13.9f)
+            lineTo(7.1f, 17f)
+            lineTo(10.4f, 20.1f)
         }
     }
 
-    /** 评论：字线气泡（圆角气泡 + 两行字线），描边风格与 Heart/Star 一致（原 Miuix Answer 像听筒）。 */
+    /** 评论：推特同款素气泡（圆角气泡 + 左下小尾巴，不带字线），描边风格与 Heart/Star 一致。 */
     val Comment: ImageVector by lazy {
         outline("Comment") {
             moveTo(7.5f, 4.5f)
@@ -50,10 +57,6 @@ object MiboIcons {
             lineTo(4f, 8f)
             arcTo(3.5f, 3.5f, 0f, false, true, 7.5f, 4.5f)
             close()
-            moveTo(8f, 9.2f)
-            lineTo(16f, 9.2f)
-            moveTo(8f, 12.8f)
-            lineTo(13f, 12.8f)
         }
     }
 
