@@ -295,6 +295,15 @@ class NavEntry(
     /** True while a back gesture is pulling this entry away, before it is actually popped. */
     var previewing by mutableStateOf(false)
 
+    /**
+     * The card rect the exit animation aims at, frozen the moment the exit starts. The live
+     * [ExpandOrigin.bounds] keeps tracking the card's layout while the page shrinks — the list
+     * settling, the snapshot re-recording, an image finishing loading — and every small update
+     * re-aims the frame mid-flight, which reads on screen as the whole page shaking. Aiming at
+     * one frozen rect for the whole exit removes that class of jitter entirely.
+     */
+    var exitBounds by mutableStateOf<Rect?>(null)
+
     /** Bumped on each predictive-back attempt so an interrupted cancel ease-back won't clear a newer gesture. */
     var previewGeneration = 0
 
@@ -458,6 +467,9 @@ class NavState {
             // A row that ended up under the bar while the page was open still has to be clear of it
             // before the frame starts shrinking, or the card would come back drawn over the bar.
             alignCardBelowBar(entry.origin)
+            // Freeze the landing rect now that the row is aligned: from here on the frame aims at
+            // this one rect, however much the live bounds keep twitching underneath it.
+            entry.exitBounds = entry.origin?.bounds
             val expand = entry.expand
             val baseMillis = when {
                 expand -> ExpandExitMillis

@@ -543,6 +543,7 @@ fun MiboPredictiveBackHandler(nav: NavState) {
                 if (entry.previewGeneration == token && !entry.exiting) {
                     entry.previewing = false
                     entry.followFlingActive = false
+                    entry.exitBounds = null
                 }
             }
             throw cancelled
@@ -647,15 +648,18 @@ private fun ExpandLayer(
     content: @Composable () -> Unit,
 ) {
     val origin = entry.origin ?: return
-    val bounds = origin.bounds ?: return
+    // A gesture pulling the page away is an exit too: the frame has to hand back to the card
+    // under the finger instead of waiting for the pop.
+    val exiting = entry.exiting || entry.previewing
+    // On the way out the frame aims at the rect frozen when the exit started, not the live
+    // bounds: the card's layout keeps reporting small movements while the list settles, and
+    // chasing them frame by frame is what made the returning page shake.
+    val bounds = (if (exiting) entry.exitBounds else null) ?: origin.bounds ?: return
     val density = LocalDensity.current
     val statusBarTop = with(density) {
         WindowInsets.statusBars.asPaddingValues().calculateTopPadding().toPx()
     }
     val surface = pageContainerColor()
-    // A gesture pulling the page away is an exit too: the frame has to hand back to the card
-    // under the finger instead of waiting for the pop.
-    val exiting = entry.exiting || entry.previewing
     // On the way out the frame lands on the card this early in the gesture, so a finger held
     // near the end of a back swipe already shows the page exactly as the release will leave it.
     fun frameProgress(p: Float): Float =
