@@ -548,7 +548,8 @@ fun ImageViewerScreen(
     val transitionOffset: () -> Offset = remember(transition) { transition?.offset ?: { Offset.Zero } }
 
     var chrome by remember { mutableStateOf(true) }
-    // 浏览图片固定加载原图，不再提供画质切换。
+    // 解码固定按原图规格（全尺寸解码、长图切片），不再提供画质切换；
+    // 加载地址默认走无水印档，与解码规格无关（见 ZoomableImage 的 targetUrl）。
     val original = true
     var menu by remember { mutableStateOf(false) }
     var avatarMoreOpen by remember { mutableStateOf(false) }
@@ -1083,11 +1084,11 @@ private fun ZoomableImage(
     // that went under the resting size.
     val glide = remember { mutableStateOf<Job?>(null) }
     val remote = url.startsWith("http://") || url.startsWith("https://")
-    // 默认看无水印档（oslarge），加载失败逐级回退原图档、原始地址；「查看原图」仍给原图档。
+    // 默认看无水印档（oslarge），加载失败逐级回退原图档、原始地址。
+    // 宿主固定传 original=true 只管解码规格，URL 选择不要按 original 分流（上一版踩过这个坑）。
     var urlStage by remember(url) { mutableIntStateOf(0) }
     val targetUrl = when {
         preserveUrl -> url
-        original -> originalSize(url)
         urlStage == 0 -> noWatermarkSize(url)
         urlStage == 1 -> originalSize(url)
         else -> url
@@ -1744,7 +1745,7 @@ private fun ZoomableImage(
                             }
                         },
                         onError = {
-                            if (!original && !preserveUrl && urlStage < 2) urlStage++
+                            if (!preserveUrl && urlStage < 2) urlStage++
                         },
                     )
                     val file = localImageFile
