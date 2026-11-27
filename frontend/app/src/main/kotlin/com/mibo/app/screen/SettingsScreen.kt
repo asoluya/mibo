@@ -527,7 +527,7 @@ private fun LazyListScope.otherSettingsItems(
                 onClick = { openExternalUrl(context, "https://t.me/MiboWeibo") },
             )
             ArrowPreference(
-                title = "实况图实验数据",
+                title = "实验数据",
                 summary = "复制上传探测日志（multidiscovery / init）",
                 onClick = {
                     val probeText = ProbeLog.read()

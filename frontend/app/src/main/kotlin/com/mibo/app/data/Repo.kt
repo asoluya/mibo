@@ -1796,7 +1796,18 @@ class Repo(private val context: Context, private val store: Store) {
     suspend fun superTopicCheckin(containerId: String): SuperTopicCheckinResult {
         val id = superTopicId(containerId) ?: throw ApiException("无效的超话地址")
         if (!hasSession()) throw ApiException("超话签到需要登录", "-100")
-        val url = Api.url(
+        val cookie = desktopCookieOrNull()
+        // 诊断（2026-11-27）：真机上完整参数版一直回 382001 参数错误，原因未定。
+        // 一次点击依次试三种请求形态并把请求/响应全量记进 ProbeLog（设置「实验数据」导出）：
+        // full=对齐网页真实按钮，minimal=仅 api+id，direct=直连 huati 端点。
+        val cookieKeys = cookie.orEmpty().split(';')
+            .map { it.substringBefore('=').trim() }.filter { it.isNotBlank() }
+        ProbeLog.appendText(
+            "super_checkin_begin",
+            "id=$id loginType=${session?.loginType} cookieKeys=$cookieKeys",
+        )
+        val topicReferer = "https://weibo.com/p/$id/super_index"
+        val fullUrl = Api.url(
             "https://weibo.com/p/aj/general/button",
             linkedMapOf(
                 "ajwvr" to "6",
@@ -1814,16 +1825,34 @@ class Repo(private val context: Context, private val store: Store) {
                 "__rnd" to System.currentTimeMillis().toString(),
             ),
         )
-        val root = try {
-            Api.getDesktop(url, desktopCookieOrNull(), referer = "https://weibo.com/p/$id/super_index")
-        } catch (e: ApiHttpException) {
-            throw ApiException("签到失败（HTTP ${e.code}）")
+        val minimalUrl = Api.url(
+            "https://weibo.com/p/aj/general/button",
+            linkedMapOf(
+                "api" to "http://i.huati.weibo.com/aj/super/checkin",
+                "id" to id,
+            ),
+        )
+        val directUrl = Api.url(
+            "https://i.huati.weibo.com/aj/super/checkin",
+            linkedMapOf("id" to id),
+        )
+        var first: SuperTopicCheckinResult? = null
+        for ((label, attemptUrl) in listOf("full" to fullUrl, "minimal" to minimalUrl, "direct" to directUrl)) {
+            val root = try {
+                Api.getDesktop(attemptUrl, cookie, referer = topicReferer)
+            } catch (e: Throwable) {
+                ProbeLog.appendText("super_checkin_$label", "url=$attemptUrl\nerror=${e.message}")
+                continue
+            }
+            ProbeLog.appendText("super_checkin_$label", "url=$attemptUrl\nresp=$root")
+            val result = parseSuperTopicCheckin(root)
+            if (first == null) first = result
+            if (result.success || result.alreadyChecked) {
+                App.settings.markSuperTopicCheckin(id)
+                return result
+            }
         }
-        val result = parseSuperTopicCheckin(root)
-        if (result.success || result.alreadyChecked) {
-            App.settings.markSuperTopicCheckin(id)
-        }
-        return result
+        return first ?: throw ApiException("签到失败")
     }
 
     /**
