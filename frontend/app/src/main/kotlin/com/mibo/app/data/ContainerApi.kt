@@ -543,7 +543,7 @@ object ContainerApi {
         val totalChunks = (bytes.size + plan.chunkBytes - 1) / plan.chunkBytes
         var legacyFid = ""
         var rawFid = ""
-        var lastChunkJson: JSONObject? = null""
+        var lastChunkJson: JSONObject? = null
         for (index in 0 until totalChunks) {
             val start = index * plan.chunkBytes
             val end = minOf(bytes.size, start + plan.chunkBytes)
