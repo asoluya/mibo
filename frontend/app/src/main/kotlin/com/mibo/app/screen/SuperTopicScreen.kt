@@ -1,23 +1,31 @@
 package com.mibo.app.screen
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -31,6 +39,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.onSizeChanged
@@ -79,7 +88,6 @@ import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.ListPopupDefaults
 import top.yukonga.miuix.kmp.basic.PopupPositionProvider
 import top.yukonga.miuix.kmp.basic.PullToRefresh
-import top.yukonga.miuix.kmp.basic.TabRow
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.rememberPullToRefreshState
@@ -365,7 +373,7 @@ fun SuperTopicScreen(nav: NavState, containerId: String, fallbackUrl: String) {
                 val currentTab = tabs[pagerState.currentPage.coerceIn(0, (tabs.size - 1).coerceAtLeast(0))]
                 val selectedIdx = pagerState.currentPage.coerceIn(0, (tabs.size - 1).coerceAtLeast(0))
                 // Miuix 没有 SearchFilterTopAppBar：双行栏改为 AppBarSurface 里手排两行，
-                // 第二行 = 分类菜单按钮（锚点）+ Miuix TabRow（原胶囊标签去掉图标，菜单里仍带图标）。
+                // 第二行 = 分类菜单按钮（锚点）+ 药丸 chips 标签行（菜单里仍带图标）。
                 AppBarSurface(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
@@ -378,6 +386,9 @@ fun SuperTopicScreen(nav: NavState, containerId: String, fallbackUrl: String) {
                     },
                 ) {
                     Column {
+                        // 手排双行栏没有 SmallTopAppBar 的自动避让，自己补状态栏高度，
+                        // 否则第一行会压在时钟/电量上（Shell 的双行栏同款处理）。
+                        Spacer(Modifier.height(WindowInsets.statusBars.asPaddingValues().calculateTopPadding()))
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -442,14 +453,56 @@ fun SuperTopicScreen(nav: NavState, containerId: String, fallbackUrl: String) {
                                     modifier = Modifier.matchParentSize(),
                                 )
                             }
-                            TabRow(
-                                tabs = tabs.map { it.label },
-                                selectedTabIndex = selectedIdx,
-                                onTabSelected = { idx ->
-                                    scope.launch { pagerState.animateScrollToPage(idx) }
-                                },
+                            // 分类标签：药丸 chips（选中填充主题色淡底+同色字与边，未选深底浅边），
+                            // 横向可滚，选中项自动滚进视野。不再用 Miuix TabRow 的分段胶囊。
+                            val tabRowState = rememberLazyListState()
+                            LaunchedEffect(selectedIdx) {
+                                if (tabs.isNotEmpty()) tabRowState.animateScrollToItem(selectedIdx)
+                            }
+                            LazyRow(
+                                state = tabRowState,
                                 modifier = Modifier.weight(1f).padding(start = 8.dp),
-                            )
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                itemsIndexed(tabs, key = { _, tab -> tab.containerId }) { idx, tab ->
+                                    val selected = idx == selectedIdx
+                                    val scheme = MiuixTheme.colorScheme
+                                    Box(
+                                        modifier = Modifier
+                                            .height(34.dp)
+                                            .clip(RoundedCornerShape(50))
+                                            .background(
+                                                if (selected) {
+                                                    scheme.primary.copy(alpha = 0.25f)
+                                                } else {
+                                                    scheme.surfaceContainerHigh
+                                                },
+                                            )
+                                            .border(
+                                                1.dp,
+                                                if (selected) {
+                                                    scheme.primary.copy(alpha = 0.5f)
+                                                } else {
+                                                    scheme.onSurface.copy(alpha = 0.22f)
+                                                },
+                                                RoundedCornerShape(50),
+                                            )
+                                            .clickable {
+                                                scope.launch { pagerState.animateScrollToPage(idx) }
+                                            }
+                                            .padding(horizontal = 16.dp),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        Text(
+                                            tab.label,
+                                            fontSize = 14.sp,
+                                            maxLines = 1,
+                                            color = if (selected) scheme.primary else scheme.onSurface,
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }
