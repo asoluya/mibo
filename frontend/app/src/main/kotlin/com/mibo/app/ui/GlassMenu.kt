@@ -1,6 +1,7 @@
 package com.mibo.app.ui
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -59,20 +60,26 @@ fun GlassMenuHost() {
             onDismissRequest = { App.dismissGlassMenu() },
             anchorBounds = anchor,
             backdrop = if (glassActive) backdrop else null,
-            // 默认上限 416dp 装不下「关注」菜单（实测行高下 640dp 也会截掉第 9 行
-            // 「超话」），放宽到 800dp 让常用菜单一屏放完；面板高度仍受窗口高度约束。
-            sizing = GlassPopupSizing(maxHeight = 800.dp),
+            // 默认上限 416dp 只装得下约 8 行，640dp 给足常用菜单的高度；
+            // 行数超过 8 行的封顶问题在内容侧包一层 Column 解决（见下方注释）。
+            sizing = GlassPopupSizing(maxHeight = 640.dp),
             visuals = GlassPopupDefaults.visuals(alpha = App.settings.barGlassAlpha),
         ) {
-            val current = drilled
-            if (current == null) {
-                shown.items.forEach { item ->
-                    GlassMenuRow(item = item, onDrill = { drilled = it })
-                }
-            } else {
-                GlassPopupItem(text = "返回", onClick = { drilled = null })
-                current.children.orEmpty().forEach { child ->
-                    GlassMenuRow(item = child, onDrill = { drilled = it })
+            // 必须把所有行包进单个 Column 再交给弹窗：miuix-glass 的 GlassPopupColumn
+            // 量固有高度时最多只采样前 8 个子项（POPUP_PROBE_COUNT=8），行数超过 8 时
+            // 面板高度按 8 行封顶、其余行被压进滚动区看不见。包成一个子项后，固有
+            // 高度由内层 Column 按全部行求和，面板一次放完。
+            Column {
+                val current = drilled
+                if (current == null) {
+                    shown.items.forEach { item ->
+                        GlassMenuRow(item = item, onDrill = { drilled = it })
+                    }
+                } else {
+                    GlassPopupItem(text = "返回", onClick = { drilled = null })
+                    current.children.orEmpty().forEach { child ->
+                        GlassMenuRow(item = child, onDrill = { drilled = it })
+                    }
                 }
             }
         }
