@@ -125,7 +125,7 @@ fun AppBarSurface(
                     backdrop = backdrop,
                     shape = GlassShape(cornerRadius),
                     style = GlassDefaults.style(isDark),
-                    alpha = glassAlpha * scrollFraction().coerceIn(0f, 1f),
+                    alpha = glassAlpha,
                     material = GlassMaterials.puredThinGlass(isDark),
                     // 不描边：整幅顶栏的边缘高光会被看成分割线（分段行上下各一道）。
                     stroke = null,

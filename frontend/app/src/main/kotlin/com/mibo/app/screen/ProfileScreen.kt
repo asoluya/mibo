@@ -352,7 +352,7 @@ fun ProfileScreen(nav: NavState, uid: String?) {
     )
     val titleColor = if (coverContrast.useWhiteContent) Color.White else MiuixTheme.colorScheme.onSurface
     Box(Modifier.fillMaxSize().background(pageContainerColor())) {
-        // 内容铺到顶栏底下，滚动后顶栏的渐变玻璃才渐入；未滑动时完全透明不模糊封面。
+        // 内容铺到顶栏底下；顶栏不带磨砂带，只浮着玻璃圆钮与标题（与首页同一套观感）。
         Box(Modifier.fillMaxSize().layerBackdropIf(blurEffectsEnabled(), backdrop)) {
             CompositionLocalProvider(LocalBackdrop provides if (blurEffectsEnabled()) backdrop else null) {
                 ProfileContent(
@@ -372,8 +372,7 @@ fun ProfileScreen(nav: NavState, uid: String?) {
             PinnedBarDensity {
                 AppBarSurface(
                     modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth(),
-                    containerColor = pageContainerColor(),
-                    scrollFraction = scrollAlpha,
+                    transparent = true,
                 ) {
                     SmallTopAppBar(
                         title = "主页",
