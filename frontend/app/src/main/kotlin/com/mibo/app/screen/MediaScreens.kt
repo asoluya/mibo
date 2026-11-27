@@ -226,9 +226,15 @@ import top.yukonga.miuix.kmp.basic.ListPopupColumn
 import top.yukonga.miuix.kmp.basic.ListPopupDefaults
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Slider
+import top.yukonga.miuix.kmp.basic.SliderDefaults
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
+import top.yukonga.miuix.kmp.glass.glassPanel
+import top.yukonga.miuix.kmp.material.GlassDefaults
+import top.yukonga.miuix.kmp.material.GlassEdgeStrokes
+import top.yukonga.miuix.kmp.material.GlassMaterials
+import top.yukonga.miuix.kmp.material.GlassShape
 import top.yukonga.miuix.kmp.icon.extended.Lock
 import top.yukonga.miuix.kmp.overlay.OverlayCascadingListPopup
 import top.yukonga.miuix.kmp.overlay.OverlayListPopup
@@ -385,10 +391,10 @@ private fun ViewerSystemBars(visible: Boolean) {
 }
 
 /**
- * 与视频页 [MediaIconButton] 共用同一套材质的胶囊控件：半透明填充、按压缩放与提亮、
- * 亮色模式下的一层柔和投影，用于图片页与视频页的胶囊按钮及提示。
- * 原 COUI 实现里的 MetaBall 流体、聚光与边缘高光在 Miuix 没有对应件，已去掉；
- * 原实现给 MetaBallSurface 传的 backdrop 本就是 null（不采样背景），换成普通半透明填充不改变观感结构。
+ * 与视频页 [MediaIconButton] 共用同一套材质的胶囊控件，用于图片页与视频页的胶囊按钮及提示。
+ * 材质：有 backdrop 且模糊开启时用与底栏同一套 OS4 柔光玻璃（glassPanel + 薄玻璃 +
+ * 边缘柔光描边，浓度跟随「顶栏与底栏透明度」），否则退回半透明填充；
+ * 按压缩放与提亮两种材质下都保留，亮色模式下填充材质另有一层柔和投影。
  */
 @Composable
 private fun MediaMaterialPill(
@@ -434,6 +440,23 @@ private fun MediaMaterialPill(
         }
     }
 
+    val backdrop = LocalBackdrop.current
+    val glassActive = blurEffectsEnabled() && backdrop != null
+    val materialModifier = if (blurEffectsEnabled() && backdrop != null) {
+        Modifier.glassPanel(
+            backdrop = backdrop,
+            shape = GlassShape(50.dp),
+            style = GlassDefaults.style(isDark),
+            alpha = App.settings.barGlassAlpha,
+            material = GlassMaterials.puredThinGlass(isDark),
+            stroke = GlassEdgeStrokes.forTheme(isDark),
+            shadow = null,
+            shading = false,
+        )
+    } else {
+        Modifier.clip(pillShape).background(fillColor)
+    }
+
     CompositionLocalProvider(LocalContentColor provides contentColor) {
         Box(
             modifier = modifier
@@ -443,7 +466,7 @@ private fun MediaMaterialPill(
                     scaleY = scale
                 }
                 .then(
-                    if (!isDark) {
+                    if (!isDark && !glassActive) {
                         Modifier.dropShadow(
                             shape = pillShape,
                             shadow = Shadow(radius = 12.dp, color = Color.Black, alpha = 0.18f),
@@ -452,8 +475,7 @@ private fun MediaMaterialPill(
                         Modifier
                     },
                 )
-                .clip(pillShape)
-                .background(fillColor)
+                .then(materialModifier)
                 .then(clickableModifier),
             contentAlignment = Alignment.Center,
         ) {
@@ -3087,14 +3109,6 @@ fun VideoScreen(nav: NavState, url: String, title: String, isLive: Boolean = fal
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f).padding(end = 8.dp),
                     )
-                    if (browserFallbackUrl.startsWith("http://", true) || browserFallbackUrl.startsWith("https://", true)) {
-                        MediaIconButton(
-                            onClick = { openExternalUrl(context, browserFallbackUrl) },
-                            size = VideoTopBarButtonHeight,
-                        ) {
-                            Icon(MiboIcons.Globe, "用浏览器打开", Modifier.size(18.dp))
-                        }
-                    }
                 }
             }
         }
@@ -3144,14 +3158,6 @@ fun VideoScreen(nav: NavState, url: String, title: String, isLive: Boolean = fal
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f).padding(end = 8.dp),
                     )
-                    if (externalTarget != null) {
-                        MediaIconButton(
-                            onClick = { openExternalUrl(context, externalTarget) },
-                            size = VideoTopBarButtonHeight,
-                        ) {
-                            Icon(MiboIcons.Globe, "用浏览器打开", Modifier.size(18.dp))
-                        }
-                    }
                 }
             }
         }
@@ -3159,10 +3165,6 @@ fun VideoScreen(nav: NavState, url: String, title: String, isLive: Boolean = fal
         is ResolvedVideo.DirectStream -> {
             val effectiveTitle = current.title?.takeIf { it.isNotBlank() }
                 ?: title.ifBlank { if (current.isLive || liveRequested) "直播" else "" }
-            val externalTarget = when {
-                browserFallbackUrl.startsWith("http://", true) || browserFallbackUrl.startsWith("https://", true) -> browserFallbackUrl
-                else -> current.url
-            }
             DirectVideoPlayer(
                 nav = nav,
                 streamUrl = current.url,
@@ -3173,7 +3175,6 @@ fun VideoScreen(nav: NavState, url: String, title: String, isLive: Boolean = fal
                 hud = hud,
                 flash = ::flash,
                 onDownload = { startVideoDownload(current.url, current.referer) },
-                onOpenInBrowser = { openExternalUrl(context, externalTarget) },
             )
         }
 
@@ -3186,7 +3187,6 @@ fun VideoScreen(nav: NavState, url: String, title: String, isLive: Boolean = fal
                 hud = hud,
                 flash = ::flash,
                 onDownload = { detectedUrl -> startVideoDownload(detectedUrl, current.url) },
-                onOpenInBrowser = { targetUrl -> openExternalUrl(context, targetUrl) },
             )
         }
     }
@@ -3203,7 +3203,6 @@ private fun DirectVideoPlayer(
     hud: String,
     flash: (String) -> Unit,
     onDownload: () -> Unit,
-    onOpenInBrowser: () -> Unit,
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
@@ -3670,9 +3669,6 @@ private fun DirectVideoPlayer(
                     }
                     Spacer(Modifier.width(6.dp))
                 }
-                MediaIconButton(onClick = onOpenInBrowser, size = VideoTopBarButtonHeight) {
-                    Icon(MiboIcons.Globe, "用浏览器打开", Modifier.size(18.dp))
-                }
             }
         }
 
@@ -3754,6 +3750,7 @@ private fun DirectVideoPlayer(
                         modifier = Modifier.widthIn(min = 44.dp),
                     )
                     // 原 COUI IntentSlider 的播放状态/锥光/缓冲副进度在 Miuix Slider 没有对应，拖动求进度行为不变。
+                    // 进度色不用主题强调色，改白色玻璃调，与柔光玻璃按钮统一。
                     Slider(
                         value = displayPos.coerceIn(0L, effectiveDur).toFloat(),
                         onValueChange = { next ->
@@ -3767,6 +3764,14 @@ private fun DirectVideoPlayer(
                         },
                         valueRange = 0f..effectiveDur.toFloat(),
                         enabled = durationMs > 0L,
+                        colors = SliderDefaults.sliderColors(
+                            foregroundColor = Color.White,
+                            disabledForegroundColor = Color.White.copy(alpha = 0.5f),
+                            backgroundColor = Color.White.copy(alpha = 0.28f),
+                            disabledBackgroundColor = Color.White.copy(alpha = 0.18f),
+                            thumbColor = Color.White,
+                            disabledThumbColor = Color.White.copy(alpha = 0.6f),
+                        ),
                         modifier = Modifier.weight(1f).padding(horizontal = 4.dp),
                     )
                     Text(
@@ -3877,7 +3882,6 @@ private fun WebVideoPlayer(
     hud: String,
     flash: (String) -> Unit,
     onDownload: (String) -> Unit,
-    onOpenInBrowser: (String) -> Unit,
 ) {
     var sniffedMp4 by remember(pageUrl) { mutableStateOf<String?>(null) }
     var sniffedM3u8 by remember(pageUrl) { mutableStateOf<String?>(null) }
@@ -3952,18 +3956,6 @@ private fun WebVideoPlayer(
                     },
                 ) {
                     Icon(MiuixIcons.Download, "下载视频", Modifier.size(18.dp))
-                }
-                Spacer(Modifier.width(6.dp))
-                MediaIconButton(
-                    size = VideoTopBarButtonHeight,
-                    onClick = {
-                        val liveUrl = webView?.url?.takeIf {
-                            it.startsWith("http://", true) || it.startsWith("https://", true)
-                        } ?: pageUrl
-                        onOpenInBrowser(liveUrl)
-                    },
-                ) {
-                    Icon(MiboIcons.Globe, "用浏览器打开", Modifier.size(18.dp))
                 }
             }
 
