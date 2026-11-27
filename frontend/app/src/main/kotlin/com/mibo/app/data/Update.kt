@@ -32,12 +32,15 @@ import kotlin.coroutines.coroutineContext
 const val UpdateCheckInterval = 12 * 60 * 60 * 1000L
 
 /**
- * 下载用的加速镜像前缀。GitHub 的 release 资产在部分网络上只有几十 KB/s，套一层代理能快一到
- * 两个数量级；正式下载前会并发探测，哪条快用哪条，全不通就退回直连。
+ * GitHub 加速镜像前缀（公开数据专用，不带任何凭据）。GitHub 在部分网络上连不上、被限流，
+ * release 资产更是只有几十 KB/s，套一层代理能快一到两个数量级。两处共用这一份名单：
+ * 检查更新时直连失败就按名单顺序逐个兜底拉列表；正式下载前并发探测，哪条快用哪条，
+ * 全不通就退回直连。哪个站停服了，只改这一处。
  */
 private val DownloadMirrors = listOf(
     "https://gh-proxy.com/",
     "https://ghfast.top/",
+    "https://ghproxy.net/",
 )
 
 /** 并发分块数：跨境单连接会被限速，拆几路能叠加带宽，再多就开始互相抢。 */
@@ -139,10 +142,34 @@ object Updater {
             }
         } catch (e: Exception) {
             if (e is CancellationException) throw e
+            // 直连失败（断网、连不上、被限流）：按加速名单逐个兜底拉同一份公开列表，
+            // 拿到就当最新数据用并更新缓存。代理回来的响应不带可用的 ETag，把本地 ETag
+            // 清掉，下次直连会全量拉一次对齐。
+            for (prefix in DownloadMirrors) {
+                val body = fetchListVia(prefix) ?: continue
+                sp?.edit()
+                    ?.putString(CacheBodyKey, body)
+                    ?.remove(CacheEtagKey)
+                    ?.apply()
+                return Fetched(body, stale = false)
+            }
             cached?.let { return Fetched(it, stale = true) }
             throw e
         }
     }
+
+    /** 用加速前缀拉 release 列表（公开接口，无凭据）；失败或形状不对返回 null，让上层换下一条。 */
+    private fun fetchListVia(prefix: String): String? = runCatching {
+        val request = Request.Builder()
+            .url(prefix + ReleasesUrl)
+            .header("Accept", "application/vnd.github+json")
+            .header("User-Agent", "Mibo-Android")
+            .build()
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) return@runCatching null
+            response.body?.string()?.takeIf { it.trim().startsWith("[") }
+        }
+    }.getOrNull()
 
     /** 限流时把恢复时间算给用户看，比一句「HTTP 403」有用。 */
     internal fun failureMessage(response: Response): String {
