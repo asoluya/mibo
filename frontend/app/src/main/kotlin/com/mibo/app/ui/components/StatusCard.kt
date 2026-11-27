@@ -123,7 +123,7 @@ fun StatusCard(
     onUser: (User) -> Unit,
     onImage: (List<Pic>, Int) -> Unit,
     onVideo: (VideoInfo) -> Unit,
-    onLike: () -> Unit,
+    onLike: (Rect) -> Unit,
     modifier: Modifier = Modifier,
     compact: Boolean = false,
     showActions: Boolean = true,
@@ -273,6 +273,7 @@ fun StatusCard(
                 } else {
                     Spacer(Modifier.weight(1f))
                 }
+                var likeAnchor by remember { mutableStateOf(Rect.Zero) }
                 if (showActions) {
                     Spacer(Modifier.width(8.dp))
                     ActionIcon(
@@ -287,13 +288,15 @@ fun StatusCard(
                         onClick = onComment,
                         enabled = actionsEnabled,
                     )
-                    ActionIcon(
-                        icon = if (status.liked) MiboIcons.HeartFill else MiboIcons.Heart,
-                        text = fmtCount(status.attitudes),
-                        onClick = onLike,
-                        tint = if (status.liked) scheme.primary else scheme.onSurfaceSecondary,
-                        enabled = actionsEnabled,
-                    )
+                    Box(Modifier.onGloballyPositioned { likeAnchor = it.boundsInWindow() }) {
+                        ActionIcon(
+                            icon = if (status.liked) MiboIcons.HeartFill else MiboIcons.Heart,
+                            text = fmtCount(status.attitudes),
+                            onClick = { onLike(likeAnchor) },
+                            tint = if (status.liked) scheme.primary else scheme.onSurfaceSecondary,
+                            enabled = actionsEnabled,
+                        )
+                    }
                     ActionIcon(
                         icon = if (cloudFavorited) MiboIcons.StarFill else MiboIcons.Star,
                         text = "",

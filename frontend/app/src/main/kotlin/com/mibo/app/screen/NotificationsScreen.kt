@@ -21,6 +21,7 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -127,9 +128,9 @@ private class NotificationTabState(private val tab: NotificationTab) {
         load(reset = false, showRefresh = false, cursor = cursor)
     }
 
-    suspend fun toggleStatusLike(index: Int) {
+    suspend fun toggleStatusLike(index: Int, anchor: Rect? = null) {
         val current = statuses.getOrNull(index) ?: return
-        val updated = App.toggleStatusLike(current) ?: return
+        val updated = App.toggleStatusLike(current, anchor) ?: return
         val realIdx = statuses.indexOfFirst { it.id == current.id }
         if (realIdx >= 0) {
             statuses[realIdx] = updated
@@ -279,7 +280,7 @@ fun NotificationsScreen(
                                         onUser = { if (it.id.isNotBlank()) nav.push(Route.Profile(it.id)) },
                                         onImage = { pics, idx -> nav.push(Route.Images(pics, idx)) },
                                         onVideo = { nav.push(Route.Video(it.url, it.title, it.isLive)) },
-                                        onLike = { scope.launch { state.toggleStatusLike(index) } },
+                                        onLike = { anchor -> scope.launch { state.toggleStatusLike(index, anchor) } },
                                         onRepost = { nav.push(Route.Detail(status.id, status.mid), origin) },
                                         onComment = { nav.push(Route.Detail(status.id, status.mid), origin) },
                                     )

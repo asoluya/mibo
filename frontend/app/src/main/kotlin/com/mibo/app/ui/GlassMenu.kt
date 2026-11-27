@@ -100,35 +100,59 @@ private fun GlassMenuRow(item: App.GlassMenuItem, onDrill: (App.GlassMenuItem) -
     )
 }
 
-/** 点赞前确认宿主：整块柔光玻璃对话框（miuix-glass 的 GlassDialog），确认才真正发出点赞。 */
+/** 点赞前确认宿主：有锚点时在点赞按钮旁弹整块柔光玻璃小弹窗（与保存图片菜单同款
+ * GlassDropdownPopup，单条「点赞」即确认按钮）；没有锚点时退回居中玻璃对话框。 */
 @Composable
 fun LikeConfirmHost() {
     val request = App.likeConfirm
-    val status = request?.status
-    GlassDialog(
-        show = request != null,
-        onDismissRequest = { App.resolveLikeConfirm(false) },
-        backdrop = LocalBackdrop.current,
-        title = "确认点赞？",
-        summary = status?.let { s ->
-            val name = s.user?.name?.takeIf { it.isNotBlank() } ?: "该微博"
-            val text = s.plainText.replace('\n', ' ').take(60)
-            if (text.isBlank()) "@$name" else "@$name：$text"
-        },
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+    var last by remember { mutableStateOf<App.LikeConfirmRequest?>(null) }
+    if (request != null) last = request
+    val shown = request ?: last ?: return
+    val status = shown.status
+    val backdrop = LocalBackdrop.current
+    val glassActive = blurEffectsEnabled() && backdrop != null
+    val name = status.user?.name?.takeIf { it.isNotBlank() } ?: "该微博"
+    val text = status.plainText.replace('\n', ' ').take(60)
+    val summary = if (text.isBlank()) "@$name" else "@$name：$text"
+    val anchor = shown.anchor
+    if (anchor != null && anchor != Rect.Zero) {
+        Box(Modifier.fillMaxSize()) {
+            GlassDropdownPopup(
+                show = request != null,
+                onDismissRequest = { App.resolveLikeConfirm(false) },
+                anchorBounds = anchor,
+                backdrop = if (glassActive) backdrop else null,
+                visuals = GlassPopupDefaults.visuals(alpha = App.settings.barGlassAlpha),
+            ) {
+                GlassPopupItem(
+                    text = "点赞",
+                    summary = summary,
+                    onClick = { App.resolveLikeConfirm(true) },
+                )
+            }
+        }
+    } else {
+        GlassDialog(
+            show = request != null,
+            onDismissRequest = { App.resolveLikeConfirm(false) },
+            backdrop = backdrop,
+            title = "确认点赞？",
+            summary = summary,
         ) {
-            GlassDialogButton(
-                onClick = { App.resolveLikeConfirm(false) },
-                modifier = Modifier.weight(1f),
-            ) { Text("取消") }
-            GlassDialogButton(
-                onClick = { App.resolveLikeConfirm(true) },
-                modifier = Modifier.weight(1f),
-                role = GlassDialogButtonRole.Primary,
-            ) { Text("点赞") }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                GlassDialogButton(
+                    onClick = { App.resolveLikeConfirm(false) },
+                    modifier = Modifier.weight(1f),
+                ) { Text("取消") }
+                GlassDialogButton(
+                    onClick = { App.resolveLikeConfirm(true) },
+                    modifier = Modifier.weight(1f),
+                    role = GlassDialogButtonRole.Primary,
+                ) { Text("点赞") }
+            }
         }
     }
 }

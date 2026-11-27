@@ -286,7 +286,7 @@ fun SuperTopicScreen(nav: NavState, containerId: String, fallbackUrl: String) {
                                     onUser = { if (it.id.isNotBlank()) nav.push(Route.Profile(it.id)) },
                                     onImage = { pics, idx -> nav.push(Route.Images(pics, idx)) },
                                     onVideo = { nav.push(Route.Video(it.url, it.title, it.isLive)) },
-                                    onLike = { scope.launch { feed.like(index) } },
+                                    onLike = { anchor -> scope.launch { feed.like(index, anchor) } },
                                     onRepost = { nav.push(Route.Detail(status.id, status.mid, feed.readOnly), origin) },
                                     onComment = { nav.push(Route.Detail(status.id, status.mid, feed.readOnly), origin) },
                                 )

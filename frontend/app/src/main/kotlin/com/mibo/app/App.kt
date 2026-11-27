@@ -250,6 +250,7 @@ object App {
     class LikeConfirmRequest(
         val status: Status,
         val deferred: CompletableDeferred<Boolean>,
+        val anchor: Rect? = null,
     )
 
     var likeConfirm by mutableStateOf<LikeConfirmRequest?>(null)
@@ -264,14 +265,14 @@ object App {
     /**
      * 统一执行微博点赞/取消赞：防重复点击、成功后同步所有列表状态，失败弹出可读提示。
      */
-    suspend fun toggleStatusLike(status: Status): Status? {
+    suspend fun toggleStatusLike(status: Status, anchor: Rect? = null): Status? {
         if (status.id.isBlank() || repo.isLikeInFlight(status.id)) return null
         if (repo.isLikeInFlight(status.id)) return null
         if (!status.liked && settings.likeConfirm && !repo.guest) {
             // 点赞前先弹柔光玻璃确认（取消赞不确认）；已有确认在等时忽略重复点击。
             if (likeConfirm != null) return null
             val deferred = CompletableDeferred<Boolean>()
-            likeConfirm = LikeConfirmRequest(status, deferred)
+            likeConfirm = LikeConfirmRequest(status, deferred, anchor)
             try {
                 if (!deferred.await()) return null
             } catch (c: CancellationException) {

@@ -866,9 +866,9 @@ fun ProfileContent(
                     onUser = { nav.push(Route.Profile(it.id)) },
                     onImage = { pics, i -> nav.push(Route.Images(pics, i)) },
                     onVideo = { nav.push(Route.Video(it.url, it.title, it.isLive)) },
-                    onLike = {
+                    onLike = { anchor ->
                         scope.launch {
-                            val updated = App.toggleStatusLike(status) ?: return@launch
+                            val updated = App.toggleStatusLike(status, anchor) ?: return@launch
                             val currentIdx = tabState.items.indexOfFirst { it.id == status.id }
                             if (currentIdx >= 0) tabState.items[currentIdx] = updated
                         }

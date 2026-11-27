@@ -57,7 +57,9 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
@@ -369,10 +371,10 @@ fun DetailScreen(nav: NavState, id: String, mid: String, readOnly: Boolean = fal
                             onUser = { nav.push(Route.Profile(it.id)) },
                             onImage = { pics, i -> nav.push(Route.Images(pics, i)) },
                             onVideo = { nav.push(Route.Video(it.url, it.title, it.isLive)) },
-                            onLike = {
+                            onLike = { anchor ->
                                 val s = status ?: return@StatusCard
                                 scope.launch {
-                                    App.toggleStatusLike(s)?.let { status = it }
+                                    App.toggleStatusLike(s, anchor)?.let { status = it }
                                 }
                             },
                             showActions = false,
@@ -609,6 +611,7 @@ fun DetailScreen(nav: NavState, id: String, mid: String, readOnly: Boolean = fal
                         active = currentFavorited,
                         enabled = current != null,
                     )
+                    var detailLikeAnchor by remember { mutableStateOf(Rect.Zero) }
                     DetailFloatingToolbarItem(
                         icon = if (current?.liked == true) MiboIcons.HeartFill else MiboIcons.Heart,
                         count = fmtCount(current?.attitudes ?: 0),
@@ -616,10 +619,11 @@ fun DetailScreen(nav: NavState, id: String, mid: String, readOnly: Boolean = fal
                         onClick = {
                             val s = status ?: return@DetailFloatingToolbarItem
                             scope.launch {
-                                App.toggleStatusLike(s)?.let { status = it }
+                                App.toggleStatusLike(s, detailLikeAnchor)?.let { status = it }
                             }
                         },
-                        modifier = Modifier.testTag("detail_like"),
+                        modifier = Modifier.testTag("detail_like")
+                            .onGloballyPositioned { detailLikeAnchor = it.boundsInWindow() },
                         active = current?.liked == true,
                         enabled = !readOnly,
                     )

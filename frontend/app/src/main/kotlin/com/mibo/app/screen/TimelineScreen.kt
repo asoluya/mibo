@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
@@ -453,10 +454,10 @@ class FeedStore(
         }
     }
 
-    suspend fun like(index: Int) {
+    suspend fun like(index: Int, anchor: Rect? = null) {
         if (readOnly) return
         val status = items.getOrNull(index) ?: return
-        val updated = App.toggleStatusLike(status) ?: return
+        val updated = App.toggleStatusLike(status, anchor) ?: return
         val currentIdx = items.indexOfFirst { it.id == status.id }
         if (currentIdx >= 0) {
             items[currentIdx] = updated
@@ -931,7 +932,7 @@ private fun TimelinePage(
                             onUser = { nav.push(Route.Profile(it.id)) },
                             onImage = { pics, i -> nav.push(Route.Images(pics, i)) },
                             onVideo = { nav.push(Route.Video(it.url, it.title, it.isLive)) },
-                            onLike = { scope.launch { store.like(index) } },
+                            onLike = { anchor -> scope.launch { store.like(index, anchor) } },
                             onRepost = { nav.push(Route.Detail(status.id, status.mid, store.readOnly), origin) },
                             onComment = { nav.push(Route.Detail(status.id, status.mid, store.readOnly), origin) },
                             actionsEnabled = !store.readOnly,

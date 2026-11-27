@@ -612,6 +612,7 @@ object ContainerApi {
                 is PicUploadInit.Legacy -> {
                     val picId = resp.json.str("pic_id").ifBlank { resp.json.str("fid") }
                         .ifBlank { resp.json.str("media_id") }.ifBlank { resp.json.str("file_id") }
+                        .ifBlank { resp.json.str("usid") }
                     if (picId.isNotBlank()) legacyFid = picId
                     lastChunkJson = resp.json
                 }

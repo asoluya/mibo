@@ -874,7 +874,7 @@ fun MainShell(nav: NavState) {
                     onTab = { target ->
                         if (!feedPanelCovering) {
                             // 已在「微博」主页时再点主页键 = 回顶刷新（与悬浮刷新钮同一通道）。
-                            if (target == 1 && nav.mainTab == 1) {
+                            if (target == 0 && nav.mainTab == 0) {
                                 App.requestFeedTop(scrollToTop = true)
                             } else {
                                 nav.setTab(target)

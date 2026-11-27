@@ -49,7 +49,22 @@ import kotlinx.coroutines.launch
 import java.net.URLEncoder
 
 class SuperTopicSearchStore(
-    private val loader: suspend (String) -> List<TopicItem> = { App.repo.searchSuperTopics(it) },
+    private val loader: suspend (String) -> List<TopicItem> = { query ->
+        val primary = try {
+            App.repo.searchSuperTopics(query)
+        } catch (e: ApiException) {
+            if (e.errno == "-100" || e.errno == "432") throw e
+            emptyList()
+        }
+        if (primary.isNotEmpty()) {
+            primary
+        } else {
+            // 综合搜索里没扒到超话卡时，再走专门的超话分类（type=98）。
+            runCatching { App.repo.searchSuperTopicCards(query) }
+                .getOrDefault(emptyList())
+                .filter { it.containerId != null }
+        }
+    },
 ) {
     var results by mutableStateOf(emptyList<TopicItem>())
         private set
