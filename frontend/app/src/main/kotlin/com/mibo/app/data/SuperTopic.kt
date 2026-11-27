@@ -50,36 +50,45 @@ data class SuperTopicCheckinResult(
 )
 
 /**
- * 解析桌面端超话签到（`weibo.com/p/aj/general/button` 转发 huati `aj/super/checkin`）的响应。
- * `100000` 成功，`data.alert_title`/`alert_subtitle` 带名次与经验文案；
- * `382004` 是今日已签到（接口幂等，靠这个码判已签状态）；其余码把 `msg` 原样当失败原因。
+ * 解析客户端通道超话签到（`api.weibo.cn/2/page/button` 转发 huati
+ * `mobile/super/active_checkin`）的响应：`result=1` 成功；`382004` 今日已签到
+ * （网关以 result 或 error_msg 透传）；`result=402004` 需要极验验证；
+ * 其余把 `error_msg`/`msg` 原样当失败原因。
  */
 fun parseSuperTopicCheckin(root: JSONObject): SuperTopicCheckinResult {
-    val code = root.str("code").trim()
+    val resultCode = root.optInt("result", -1)
+    val errorMsg = root.str("error_msg").ifBlank { root.str("error") }.trim()
     val msg = root.str("msg").trim()
+        .takeIf { it.any { c -> c in '一'..'鿿' } }.orEmpty()
     val data = root.optJSONObject("data")
     val alertTitle = data?.str("alert_title")?.trim().orEmpty()
     val alertSubtitle = data?.str("alert_subtitle")?.trim().orEmpty()
-    return when (code) {
-        "100000" -> SuperTopicCheckinResult(
+    return when {
+        resultCode == 1 -> SuperTopicCheckinResult(
             success = true,
             alreadyChecked = false,
             message = listOf(alertTitle, alertSubtitle)
                 .filter { it.isNotBlank() }
                 .joinToString("，")
-                .ifBlank { "签到成功" },
+                .ifBlank { msg.ifBlank { "签到成功" } },
             alertTitle = alertTitle,
             alertSubtitle = alertSubtitle,
         )
-        "382004" -> SuperTopicCheckinResult(
+        resultCode == 382004 || errorMsg.contains("382004") || errorMsg.contains("已签到") ->
+            SuperTopicCheckinResult(
+                success = false,
+                alreadyChecked = true,
+                message = "今日已签到",
+            )
+        resultCode == 402004 -> SuperTopicCheckinResult(
             success = false,
-            alreadyChecked = true,
-            message = "今日已签到",
+            alreadyChecked = false,
+            message = "该超话签到需要验证，请先在官方 App 里完成一次验证",
         )
         else -> SuperTopicCheckinResult(
             success = false,
             alreadyChecked = false,
-            message = msg.ifBlank { "签到失败" },
+            message = errorMsg.ifBlank { msg.ifBlank { "签到失败" } },
         )
     }
 }

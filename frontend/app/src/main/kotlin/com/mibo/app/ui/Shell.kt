@@ -885,13 +885,12 @@ fun MainShell(nav: NavState) {
                     onExpandToggle = { if (!feedPanelCovering) fabExpanded = !fabExpanded },
                     onExpandLongPress = {
                         if (!feedPanelCovering) {
-                            val next = !App.settings.hideBottomBar
-                            App.settings.applyHideBottomBar(next)
-                            App.toast(if (next) "底栏已隐藏，长按展开钮恢复" else "底栏已显示")
+                            val next = !App.settings.expandAutoClose
+                            App.settings.applyExpandAutoClose(next)
+                            App.toast(if (next) "展开按钮自动关闭已开启" else "展开按钮自动关闭已关闭")
                         }
                     },
                     expandGlow = hasNewFollow,
-                    barHidden = App.settings.hideBottomBar,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .offset(x = App.settings.barOffsetX.dp, y = App.settings.barOffsetY.dp)
@@ -2258,7 +2257,6 @@ fun FloatingBottomBar(
     onExpandToggle: () -> Unit = {},
     onExpandLongPress: () -> Unit = {},
     expandGlow: Boolean = false,
-    barHidden: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     // 「微博」单击切 tab；已在本页时再点 = 回顶刷新（MainShell 的 onTab 接线），长按发布已取消。
@@ -2284,9 +2282,6 @@ fun FloatingBottomBar(
         // 所以放大时左右边距按 barSideMarginDp 让出空间，间隔恒 12dp、永不重叠。
         val barScale = App.settings.barScale
         val sideMargin = barSideMarginDp(maxWidth.value, barScale)
-        // 隐藏底栏（长按展开钮开关）：只藏胶囊标签栏，展开钮保留——它是恢复入口，
-        // 且展开三钮（刷新/发布/我的）不依赖胶囊，隐藏时照常可用。
-        if (!barHidden) {
         ScaledBarDensity(barScale) {
         FloatingNavigationBar(
             horizontalOutSidePadding = (sideMargin / barScale).dp,
@@ -2346,7 +2341,6 @@ fun FloatingBottomBar(
                     modifier = Modifier.testTag("bottom_tab_search"),
                 )
             }
-        }
         }
         }
         // 展开钮：占据原「我的」圆钮的位置（同尺寸、同玻璃材质），

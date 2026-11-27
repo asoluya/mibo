@@ -1796,27 +1796,42 @@ class Repo(private val context: Context, private val store: Store) {
     suspend fun superTopicCheckin(containerId: String): SuperTopicCheckinResult {
         val id = superTopicId(containerId) ?: throw ApiException("无效的超话地址")
         if (!hasSession()) throw ApiException("超话签到需要登录", "-100")
-        val cookie = desktopCookieOrNull()
-        // 关键：URL 必须整串拼接、api 参数保持明文。经 Api.url/addQueryParameter 编码后
-        // api 变成 http%3A%2F%2F…，general/button 分发器匹配不到路由，真机实测恒回
-        // 382001 参数错误（诊断日志 2026-11-27，构建 #134；可用实现均为整串 URL）。
-        // 另：i.huati.weibo.com 是内网端点，公网直连会挂起，不要直连重试。
-        val url = "https://weibo.com/p/aj/general/button?ajwvr=6" +
-            "&api=http://i.huati.weibo.com/aj/super/checkin" +
-            "&texta=%E7%AD%BE%E5%88%B0&textb=%E5%B7%B2%E7%AD%BE%E5%88%B0" +
-            "&status=0&id=$id&location=page_100808_super_index" +
-            "&timezone=GMT+0800&lang=zh-cn&plat=MacIntel" +
-            "&ua=" + Api.DESKTOP_UA +
-            "&screen=1920*1080&__rnd=" + System.currentTimeMillis()
-        ProbeLog.appendText("super_checkin_literal", "url=$url")
-        val root = try {
-            Api.getDesktop(url, cookie, referer = "https://weibo.com/p/$id/super_index")
-        } catch (e: ApiHttpException) {
-            ProbeLog.appendText("super_checkin_literal", "error=${e.message}")
-            throw ApiException("签到失败（HTTP ${e.code}）")
+        // 官方 App 同款通道：api.weibo.cn/2/page/button 网关转发 huati 的移动端签到
+        // mobile/super/active_checkin，用客户端会话（gsid 体系）鉴权。网页通道
+        // （p/aj/general/button + aj/super/checkin）已证伪：客户端登录拼出的组合 Cookie
+        // 不是完整网页 SSO 会话，huati 恒回 382001（见 supertopic-checkin-research.md）。
+        val requestUrl = "http://i.huati.weibo.com/mobile/super/active_checkin?pageid=$id"
+        var root: JSONObject? = null
+        // errno=402003 是网关的「重试」信号，最多试 2 次。
+        for (attempt in 1..2) {
+            val text = try {
+                containerGetRaw(
+                    "page/button",
+                    mapOf(
+                        "request_url" to requestUrl,
+                        "ul_ctime" to System.currentTimeMillis().toString(),
+                    ),
+                )
+            } catch (e: ApiHttpException) {
+                ProbeLog.appendText("super_checkin_client", "id=$id http=${e.code}")
+                throw ApiException(
+                    when (e.code) {
+                        418 -> "签到太频繁，请稍后再试"
+                        511 -> "签到需要身份验证，请先在官方 App 完成"
+                        else -> "签到失败（HTTP ${e.code}）"
+                    },
+                )
+            }
+            ProbeLog.appendText("super_checkin_client", "id=$id resp=$text")
+            root = try {
+                JSONObject(text)
+            } catch (e: Throwable) {
+                null
+            }
+            if (root == null || root.optInt("errno", -1) != 402003) break
         }
-        ProbeLog.appendText("super_checkin_literal", "resp=$root")
-        val result = parseSuperTopicCheckin(root)
+        val json = root ?: throw ApiException("签到失败")
+        val result = parseSuperTopicCheckin(json)
         if (result.success || result.alreadyChecked) {
             App.settings.markSuperTopicCheckin(id)
         }
