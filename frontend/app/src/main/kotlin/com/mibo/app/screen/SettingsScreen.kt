@@ -191,7 +191,7 @@ fun SettingsScreen(nav: NavState) {
         state = state,
     ) {
         displaySettingsItems(nav = nav, state = state, showHeader = true)
-        feedSettingsItems(state = state, showHeader = true)
+        feedSettingsItems(nav = nav, state = state, showHeader = true)
         otherSettingsItems(nav = nav, state = state, context = context, scope = scope, showHeader = true)
 
         item {
@@ -222,7 +222,7 @@ fun SettingsGroupScreen(nav: NavState, group: SettingsGroup) {
     ) {
         when (group) {
             SettingsGroup.Display -> displaySettingsItems(nav = nav, state = state, showHeader = false)
-            SettingsGroup.Feed -> feedSettingsItems(state = state, showHeader = false)
+            SettingsGroup.Feed -> feedSettingsItems(nav = nav, state = state, showHeader = false)
             SettingsGroup.Other -> otherSettingsItems(nav = nav, state = state, context = context, scope = scope, showHeader = false)
         }
     }
@@ -370,6 +370,7 @@ private fun LazyListScope.displaySettingsItems(
 }
 
 private fun LazyListScope.feedSettingsItems(
+    nav: NavState,
     state: SettingsUiState,
     showHeader: Boolean,
 ) {
@@ -421,6 +422,11 @@ private fun LazyListScope.feedSettingsItems(
                 title = "点赞前确认",
                 summary = "点赞时先弹柔光玻璃确认框，防误触",
                 modifier = Modifier.testTag("settings_like_confirm"),
+            )
+            ArrowPreference(
+                title = "屏蔽的博主",
+                summary = if (App.blockedAuthors.isEmpty()) "在微博菜单里点「屏蔽博主」添加" else "已屏蔽 ${App.blockedAuthors.size} 位",
+                onClick = { nav.push(Route.BlockedAuthors) },
             )
         }
     }
@@ -507,11 +513,6 @@ private fun LazyListScope.otherSettingsItems(
                     App.cache.clear()
                     state.message = "已清理图片与内容缓存"
                 },
-            )
-            ArrowPreference(
-                title = "屏蔽的博主",
-                summary = if (App.blockedAuthors.isEmpty()) "在微博菜单里点「屏蔽博主」添加" else "已屏蔽 ${App.blockedAuthors.size} 位",
-                onClick = { nav.push(Route.BlockedAuthors) },
             )
             ArrowPreference(
                 title = "关于",
