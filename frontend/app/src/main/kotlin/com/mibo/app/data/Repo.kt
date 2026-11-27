@@ -2913,7 +2913,10 @@ class Repo(private val context: Context, private val store: Store) {
                 uploadedContainerMedia.remove(fid) ?: ContainerApi.UploadedMedia(fid = fid)
             }
             val parts = ContainerApi.buildPublishParts(text, visible, mediaList)
-            containerPostMultipart("statuses/send", parts = parts)
+            val sendResp = containerPostMultipart("statuses/send", parts = parts)
+            if (mediaList.any { it.type == "livephoto" }) {
+                ProbeLog.append("publish_send_response", sendResp)
+            }
             true
         } else {
             val form = LinkedHashMap<String, String>()

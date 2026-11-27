@@ -323,7 +323,11 @@ object ContainerApi {
             if (item.md5.isNotBlank()) obj.put("pic_raw_md5", item.md5)
             arr.put(obj)
         }
-        return arr.toString()
+        val json = arr.toString()
+        if (media.any { it.type == "livephoto" }) {
+            ProbeLog.appendText("publish_media", json)
+        }
+        return json
     }
 
     internal fun buildPublishParts(

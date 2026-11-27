@@ -59,9 +59,9 @@ fun GlassMenuHost() {
             onDismissRequest = { App.dismissGlassMenu() },
             anchorBounds = anchor,
             backdrop = if (glassActive) backdrop else null,
-            // 默认上限 416dp 只装得下 8 行，「全部」菜单的「附近」和关注分组会被截在
-            // 可滚动区域之外、看起来像不存在；放宽到 640dp 让常用菜单一屏放完。
-            sizing = GlassPopupSizing(maxHeight = 640.dp),
+            // 默认上限 416dp 装不下「关注」菜单（实测行高下 640dp 也会截掉第 9 行
+            // 「超话」），放宽到 800dp 让常用菜单一屏放完；面板高度仍受窗口高度约束。
+            sizing = GlassPopupSizing(maxHeight = 800.dp),
             visuals = GlassPopupDefaults.visuals(alpha = App.settings.barGlassAlpha),
         ) {
             val current = drilled
