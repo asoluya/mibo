@@ -16,8 +16,8 @@ android {
         applicationId = "com.mibo.app"
         minSdk = 33
         targetSdk = 37
-        versionCode = 54
-        versionName = "1.64"
+        versionCode = 55
+        versionName = "1.65"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -43,7 +43,7 @@ android {
 
 dependencies {
     val miuix = "top.yukonga.miuix.kmp"
-    val miuixVersion = "0.9.5-beta04"
+    val miuixVersion = "0.9.5-rc02"
 
     implementation("$miuix:miuix-ui:$miuixVersion")
     implementation("$miuix:miuix-preference:$miuixVersion")
