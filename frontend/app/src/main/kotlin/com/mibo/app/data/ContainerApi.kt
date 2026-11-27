@@ -59,10 +59,15 @@ object ContainerApi {
         ) : PicUploadInit
     }
 
+    private data class DiscoverySet(
+        val pic: PicDiscovery,
+        val livephoto: PicDiscovery?,
+    )
+
     private data class PicDiscoveryCache(
         val uid: String,
         val fetchedAtMs: Long,
-        val info: PicDiscovery,
+        val info: DiscoverySet,
     )
 
     @Volatile
@@ -390,6 +395,18 @@ object ContainerApi {
         return PicDiscovery(initUrl = initUrl, uploadUrl = uploadUrl, bypass = bypass)
     }
 
+    /** The multidiscovery livephoto branch (uniupload endpoints, bypass unistore.video); null when absent. */
+    internal fun parseLivephotoDiscovery(root: JSONObject): PicDiscovery? {
+        val lp = root.optJSONObject("livephoto") ?: return null
+        val initUrl = lp.str("init_url").orEmpty()
+        if (initUrl.isBlank()) return null
+        return PicDiscovery(
+            initUrl = initUrl,
+            uploadUrl = lp.str("upload_url").orEmpty(),
+            bypass = lp.str("bypass").orEmpty().ifBlank { "unistore.video" },
+        )
+    }
+
     internal fun parseUploadInit(root: JSONObject, fallbackUploadUrl: String): PicUploadInit {
         checkSuccess(root)
         val auth = root.str("auth")
@@ -429,7 +446,7 @@ object ContainerApi {
         )
     }
 
-    private suspend fun discoverUploadEndpoints(uid: String, gsid: String, aid: String): PicDiscovery {
+    private suspend fun discoverUploadEndpoints(uid: String, gsid: String, aid: String): DiscoverySet {
         val now = System.currentTimeMillis()
         val cached = picDiscoveryCache
         if (cached != null && cached.uid == uid && now - cached.fetchedAtMs < PIC_DISCOVERY_TTL_MS) {
@@ -448,7 +465,7 @@ object ContainerApi {
             ),
         )
         ProbeLog.append("multidiscovery", root)
-        val info = parsePicDiscovery(root)
+        val info = DiscoverySet(pic = parsePicDiscovery(root), livephoto = parseLivephotoDiscovery(root))
         picDiscoveryCache = PicDiscoveryCache(uid = uid, fetchedAtMs = now, info = info)
         return info
     }
@@ -495,7 +512,15 @@ object ContainerApi {
     ): UploadedMedia {
         if (bytes.isEmpty()) throw ApiException("图片内容为空")
         val resolvedAid = aid.ifBlank { ClientLogin.ensureAid() }
-        val discovery = discoverUploadEndpoints(uid, gsid, resolvedAid)
+        val discoverySet = discoverUploadEndpoints(uid, gsid, resolvedAid)
+        // A livephoto upload must go to the discovery livephoto branch (uniupload +
+        // bypass unistore.video); the pic branch accepts the init but the stored media
+        // is then unresolvable (trial A, 2026-11-27: post had no image at all).
+        val discovery = if (mediaType == "livephoto" && discoverySet.livephoto != null) {
+            discoverySet.livephoto
+        } else {
+            discoverySet.pic
+        }
         val initProps = JSONObject().put("ori", "0").toString()
         val initQuery = buildUploadQueryBase(
             uid = uid,
