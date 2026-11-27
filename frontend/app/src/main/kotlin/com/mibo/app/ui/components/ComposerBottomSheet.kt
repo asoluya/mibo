@@ -1247,3 +1247,34 @@ private val trimmedLineHeight: TextStyle = TextStyle(
         trim = LineHeightStyle.Trim.Both,
     ),
 )
+
+/**
+ * 全局转发框宿主：信息流（首页/超话/搜索等）点转发时由 [App.requestRepost] 唤起，
+ * 参数与详情页的转发框一致。挂在 Root 的全局弹层里，采样根背板。
+ */
+@Composable
+fun RepostComposerHost() {
+    val target = App.repostTarget ?: return
+    ComposerBottomSheet(
+        title = "转发",
+        hint = "说点什么",
+        submitText = "转发",
+        allowEmpty = true,
+        showVisibility = true,
+        maxImages = 1,
+        onDismiss = { App.dismissRepost() },
+        onSubmit = { text, images, visibility ->
+            try {
+                val picIds = images.map { App.repo.uploadImage(it) }
+                App.repo.repost(target.id, target.mid, text, visibility.code, picIds)
+                App.toast("已转发")
+                true
+            } catch (e: CancellationException) {
+                throw e
+            } catch (t: Throwable) {
+                App.toast(t.message ?: "转发失败")
+                false
+            }
+        },
+    )
+}

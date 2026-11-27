@@ -311,7 +311,7 @@ fun SuperTopicScreen(nav: NavState, containerId: String, fallbackUrl: String) {
                                     onImage = { pics, idx -> nav.push(Route.Images(pics, idx)) },
                                     onVideo = { nav.push(Route.Video(it.url, it.title, it.isLive)) },
                                     onLike = { anchor -> scope.launch { feed.like(index, anchor) } },
-                                    onRepost = { nav.push(Route.Detail(status.id, status.mid, feed.readOnly), origin) },
+                                    onRepost = { App.requestRepost(status) },
                                     onComment = { nav.push(Route.Detail(status.id, status.mid, feed.readOnly), origin) },
                                 )
                             }

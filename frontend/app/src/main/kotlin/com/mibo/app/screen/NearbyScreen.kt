@@ -222,7 +222,7 @@ fun NearbyScreen(nav: NavState) {
                             onImage = { pics, i -> nav.push(Route.Images(pics, i)) },
                             onVideo = { nav.push(Route.Video(it.url, it.title, it.isLive)) },
                             onLike = { anchor -> scope.launch { feed.like(index, anchor) } },
-                            onRepost = { nav.push(Route.Detail(status.id, status.mid), origin) },
+                            onRepost = { App.requestRepost(status) },
                             onComment = { nav.push(Route.Detail(status.id, status.mid), origin) },
                         )
                     }

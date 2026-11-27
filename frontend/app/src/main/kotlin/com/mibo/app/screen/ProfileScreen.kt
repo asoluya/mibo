@@ -872,7 +872,7 @@ fun ProfileContent(
                             if (currentIdx >= 0) tabState.items[currentIdx] = updated
                         }
                     },
-                    onRepost = { nav.push(Route.Detail(status.id, status.mid), origin) },
+                    onRepost = { App.requestRepost(status) },
                     onComment = { nav.push(Route.Detail(status.id, status.mid), origin) },
                     onOpenQuoted = { quoted, quotedOrigin ->
                         quotedOrigin.attachToRow(listState, status.id, topBar)

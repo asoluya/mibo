@@ -528,7 +528,7 @@ private fun StatusFeedList(
                         val rawIdx = store.items.indexOfFirst { it.id == status.id }
                         if (rawIdx >= 0) scope.launch { store.like(rawIdx, anchor) }
                     },
-                    onRepost = { nav.push(Route.Detail(status.id, status.mid, store.readOnly), origin) },
+                    onRepost = { App.requestRepost(status) },
                     onComment = { nav.push(Route.Detail(status.id, status.mid, store.readOnly), origin) },
                     actionsEnabled = !store.readOnly,
                     onOpenQuoted = { quoted, quotedOrigin ->

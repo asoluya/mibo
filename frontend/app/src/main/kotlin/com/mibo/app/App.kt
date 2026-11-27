@@ -247,6 +247,22 @@ object App {
         current.onDismissed()
     }
 
+    /** 信息流里点转发：全局转发框的目标微博，宿主在 Root 渲染（详情页有自己的转发框，不走这里）。 */
+    var repostTarget by mutableStateOf<Status?>(null)
+        private set
+
+    fun requestRepost(status: Status) {
+        if (repo.guest) {
+            toast("请先登录")
+            return
+        }
+        repostTarget = status
+    }
+
+    fun dismissRepost() {
+        repostTarget = null
+    }
+
     /** 本地屏蔽的博主：列表给设置页管理，uid 集合给信息流过滤。 */
     var blockedAuthors by mutableStateOf<List<BlockedAuthor>>(emptyList())
         private set

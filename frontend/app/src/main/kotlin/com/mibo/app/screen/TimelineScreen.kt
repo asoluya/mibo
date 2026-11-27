@@ -977,7 +977,7 @@ private fun TimelinePage(
                             onImage = { pics, i -> nav.push(Route.Images(pics, i)) },
                             onVideo = { nav.push(Route.Video(it.url, it.title, it.isLive)) },
                             onLike = { anchor -> scope.launch { store.like(index, anchor) } },
-                            onRepost = { nav.push(Route.Detail(status.id, status.mid, store.readOnly), origin) },
+                            onRepost = { App.requestRepost(status) },
                             onComment = { nav.push(Route.Detail(status.id, status.mid, store.readOnly), origin) },
                             actionsEnabled = !store.readOnly,
                             onOpenQuoted = { quoted, quotedOrigin ->

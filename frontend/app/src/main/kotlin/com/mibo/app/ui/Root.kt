@@ -104,6 +104,7 @@ import com.mibo.app.ui.components.LocalImageSaver
 import com.mibo.app.ui.components.SaveHud
 import com.mibo.app.ui.components.SaveImageItem
 import com.mibo.app.ui.components.SaveImagesMenu
+import com.mibo.app.ui.components.RepostComposerHost
 import com.mibo.app.ui.components.UpdateDialog
 import com.mibo.app.ui.components.rememberImageSaveState
 import top.yukonga.miuix.kmp.basic.Scaffold
@@ -415,6 +416,7 @@ fun MiboRoot() {
                     AppToastHost()
                     GlassMenuHost()
                     LikeConfirmHost()
+                    RepostComposerHost()
                     SaveImagesMenu(
                         items = saveTargets,
                         index = saveIndex,

@@ -281,7 +281,7 @@ fun NotificationsScreen(
                                         onImage = { pics, idx -> nav.push(Route.Images(pics, idx)) },
                                         onVideo = { nav.push(Route.Video(it.url, it.title, it.isLive)) },
                                         onLike = { anchor -> scope.launch { state.toggleStatusLike(index, anchor) } },
-                                        onRepost = { nav.push(Route.Detail(status.id, status.mid), origin) },
+                                        onRepost = { App.requestRepost(status) },
                                         onComment = { nav.push(Route.Detail(status.id, status.mid), origin) },
                                     )
                                 }

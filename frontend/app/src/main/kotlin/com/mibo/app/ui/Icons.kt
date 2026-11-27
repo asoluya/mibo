@@ -24,20 +24,20 @@ object MiboIcons {
     /** 转发：推特同款双箭头循环（上箭头向右、末端向下弯；下箭头向左、末端向上弯），描边手绘。 */
     val Repost: ImageVector by lazy {
         outline("Repost") {
-            moveTo(9.5f, 7f)
-            lineTo(14.5f, 7f)
-            arcTo(2.5f, 2.5f, 0f, false, true, 17f, 9.5f)
-            lineTo(17f, 13f)
-            moveTo(13.6f, 3.9f)
-            lineTo(16.9f, 7f)
-            lineTo(13.6f, 10.1f)
-            moveTo(14.5f, 17f)
-            lineTo(9.5f, 17f)
-            arcTo(2.5f, 2.5f, 0f, false, true, 7f, 14.5f)
-            lineTo(7f, 11f)
-            moveTo(10.4f, 13.9f)
-            lineTo(7.1f, 17f)
-            lineTo(10.4f, 20.1f)
+            moveTo(8.5f, 6.5f)
+            lineTo(15.5f, 6.5f)
+            arcTo(2.5f, 2.5f, 0f, false, true, 18f, 9f)
+            lineTo(18f, 13.5f)
+            moveTo(15.2f, 3.8f)
+            lineTo(18.1f, 6.5f)
+            lineTo(15.2f, 9.2f)
+            moveTo(15.5f, 17.5f)
+            lineTo(8.5f, 17.5f)
+            arcTo(2.5f, 2.5f, 0f, false, true, 6f, 15f)
+            lineTo(6f, 10.5f)
+            moveTo(8.8f, 14.8f)
+            lineTo(5.9f, 17.5f)
+            lineTo(8.8f, 20.2f)
         }
     }
 

@@ -911,7 +911,7 @@ private fun LazyListScope.searchStatusTabItems(
                         }
                     }
                 },
-                onRepost = { nav.push(Route.Detail(status.id, status.mid), origin) },
+                onRepost = { App.requestRepost(status) },
                 onComment = { nav.push(Route.Detail(status.id, status.mid), origin) },
             )
         }
