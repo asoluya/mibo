@@ -515,6 +515,22 @@ class Settings(context: Context) {
         sp.edit().putString("skipped_update", value).apply()
     }
 
+    /** 超话签到没有状态查询接口，签成功/已签后把当地日期记下来，当天再进超话页直接显示已签到。 */
+    fun superTopicCheckinDay(containerId: String): String =
+        sp.getString("st_checkin_$containerId", "").orEmpty()
+
+    fun markSuperTopicCheckin(containerId: String) {
+        val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+            .format(java.util.Date())
+        sp.edit().putString("st_checkin_$containerId", today).apply()
+    }
+
+    fun isSuperTopicCheckedInToday(containerId: String): Boolean {
+        val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+            .format(java.util.Date())
+        return superTopicCheckinDay(containerId) == today
+    }
+
     fun applyDarkMode(value: Int) {
         darkMode = value
         sp.edit().putInt("dark_mode", value).apply()

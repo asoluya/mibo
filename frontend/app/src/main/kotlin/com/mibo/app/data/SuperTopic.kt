@@ -41,6 +41,49 @@ data class SuperTopicPage(
     val tabs: List<SuperTopicTab> = emptyList(),
 )
 
+data class SuperTopicCheckinResult(
+    val success: Boolean,
+    val alreadyChecked: Boolean,
+    val message: String,
+    val alertTitle: String = "",
+    val alertSubtitle: String = "",
+)
+
+/**
+ * 解析桌面端超话签到（`weibo.com/p/aj/general/button` 转发 huati `aj/super/checkin`）的响应。
+ * `100000` 成功，`data.alert_title`/`alert_subtitle` 带名次与经验文案；
+ * `382004` 是今日已签到（接口幂等，靠这个码判已签状态）；其余码把 `msg` 原样当失败原因。
+ */
+fun parseSuperTopicCheckin(root: JSONObject): SuperTopicCheckinResult {
+    val code = root.str("code").trim()
+    val msg = root.str("msg").trim()
+    val data = root.optJSONObject("data")
+    val alertTitle = data?.str("alert_title")?.trim().orEmpty()
+    val alertSubtitle = data?.str("alert_subtitle")?.trim().orEmpty()
+    return when (code) {
+        "100000" -> SuperTopicCheckinResult(
+            success = true,
+            alreadyChecked = false,
+            message = listOf(alertTitle, alertSubtitle)
+                .filter { it.isNotBlank() }
+                .joinToString("，")
+                .ifBlank { "签到成功" },
+            alertTitle = alertTitle,
+            alertSubtitle = alertSubtitle,
+        )
+        "382004" -> SuperTopicCheckinResult(
+            success = false,
+            alreadyChecked = true,
+            message = "今日已签到",
+        )
+        else -> SuperTopicCheckinResult(
+            success = false,
+            alreadyChecked = false,
+            message = msg.ifBlank { "签到失败" },
+        )
+    }
+}
+
 private val superTopicContainer = Regex("100808[0-9a-fA-F]{32}")
 private val superTopicCount = Regex("(阅读|帖子|粉丝)([0-9]+(?:\\.[0-9]+)?[万亿千]?\\+?)(?=阅读|帖子|粉丝|$)")
 private val superTopicVideoMid = Regex("(?:mid=|status/)([0-9]+)")

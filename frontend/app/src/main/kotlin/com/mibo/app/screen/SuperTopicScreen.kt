@@ -100,6 +100,7 @@ import top.yukonga.miuix.kmp.overlay.OverlayCascadingListPopup
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import java.net.URLEncoder
 
@@ -155,6 +156,10 @@ fun SuperTopicScreen(nav: NavState, containerId: String, fallbackUrl: String) {
     val density = LocalDensity.current
     val horizontalPadding = searchHorizontalPadding()
     var filterMenuOpen by remember { mutableStateOf(false) }
+    var checkinBusy by remember(baseId) { mutableStateOf(false) }
+    var checkedInToday by remember(baseId) {
+        mutableStateOf(App.repo.superTopicCheckedInToday(baseId))
+    }
 
     val fallbackTopHeight = pinnedHeight(TwoRowFirstRowHeight, TwoRowSecondRowHeight)
     var barHeightPx by remember { mutableIntStateOf(0) }
@@ -243,6 +248,36 @@ fun SuperTopicScreen(nav: NavState, containerId: String, fallbackUrl: String) {
                                                         info.fanCount.takeIf { it.isNotBlank() }?.let { "粉丝 $it" },
                                                     ).filterNotNull().joinToString(" · ")
                                                     if (counts.isNotBlank()) Text(counts, fontSize = 12.sp)
+                                                }
+                                                if (!App.repo.guest) {
+                                                    Spacer(Modifier.weight(1f))
+                                                    TextButton(
+                                                        text = when {
+                                                            checkinBusy -> "签到中…"
+                                                            checkedInToday -> "已签到"
+                                                            else -> "签到"
+                                                        },
+                                                        enabled = !checkinBusy && !checkedInToday,
+                                                        onClick = {
+                                                            checkinBusy = true
+                                                            scope.launch {
+                                                                try {
+                                                                    val result = App.repo.superTopicCheckin(baseId)
+                                                                    if (result.success || result.alreadyChecked) {
+                                                                        checkedInToday = true
+                                                                    }
+                                                                    App.toast(result.message)
+                                                                } catch (e: CancellationException) {
+                                                                    throw e
+                                                                } catch (e: Exception) {
+                                                                    App.toast(e.message ?: "签到失败")
+                                                                } finally {
+                                                                    checkinBusy = false
+                                                                }
+                                                            }
+                                                        },
+                                                        modifier = Modifier.testTag("supertopic_checkin"),
+                                                    )
                                                 }
                                             }
                                             if (info.description.isNotBlank()) {

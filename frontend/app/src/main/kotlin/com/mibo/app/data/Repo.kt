@@ -1782,6 +1782,47 @@ class Repo(private val context: Context, private val store: Store) {
         }
     }
 
+    /** 本机记录里这个超话今天是否已签到（签到接口本身无状态查询，靠本地日期记录）。 */
+    fun superTopicCheckedInToday(containerId: String): Boolean {
+        val id = superTopicId(containerId) ?: return false
+        return App.settings.isSuperTopicCheckedInToday(id)
+    }
+
+    /**
+     * 超话签到：走桌面端 `p/aj/general/button` 转发 huati 的 `aj/super/checkin`，
+     * 与 [desktopSuperTopicTab] 同一条桌面 cookie 通道，网页/客户端登录都能用。
+     * 成功与「今日已签到」都会把当天日期记进设置，按钮状态当天内保持已签到。
+     */
+    suspend fun superTopicCheckin(containerId: String): SuperTopicCheckinResult {
+        val id = superTopicId(containerId) ?: throw ApiException("无效的超话地址")
+        if (!hasSession()) throw ApiException("超话签到需要登录", "-100")
+        val url = Api.url(
+            "https://weibo.com/p/aj/general/button",
+            linkedMapOf(
+                "ajwvr" to "6",
+                "api" to "http://i.huati.weibo.com/aj/super/checkin",
+                "texta" to "签到",
+                "textb" to "已签到",
+                "status" to "0",
+                "id" to id,
+                "location" to "page_100808_super_index",
+                "timezone" to "GMT 0800",
+                "lang" to "zh-cn",
+                "__rnd" to System.currentTimeMillis().toString(),
+            ),
+        )
+        val root = try {
+            Api.getDesktop(url, desktopCookieOrNull())
+        } catch (e: ApiHttpException) {
+            throw ApiException("签到失败（HTTP ${e.code}）")
+        }
+        val result = parseSuperTopicCheckin(root)
+        if (result.success || result.alreadyChecked) {
+            App.settings.markSuperTopicCheckin(id)
+        }
+        return result
+    }
+
     /**
      * 超话「视频」流（`_-_video`）的 `card_type=52` 仅带精简标题、封面与 `mid`，
      * 缺少博主头像和可播放的视频流地址；按 `mid` 并发通过 `statuses/show` 补全完整微博。
