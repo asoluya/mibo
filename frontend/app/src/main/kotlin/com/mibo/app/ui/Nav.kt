@@ -46,7 +46,7 @@ import kotlin.math.roundToInt
 
 val ExpandEasing = CubicBezierEasing(0.3f, 0f, 0.1f, 1f)
 const val ExpandEnterMillis = 420
-const val ExpandExitMillis = 220
+const val ExpandExitMillis = 280
 const val RouteSlideMillis = 320
 const val RouteParallaxDivisor = 4f
 
@@ -414,7 +414,7 @@ class NavState {
                     launch {
                         entry.fade.animateTo(
                             targetValue = 1f,
-                            animationSpec = tween(ExpandEnterMillis, easing = LinearEasing),
+                            animationSpec = tween(ExpandEnterMillis, easing = ExpandEasing),
                         )
                     }
                 }
@@ -478,7 +478,7 @@ class NavState {
                         targetValue = 0f,
                         animationSpec = tween(
                             millis,
-                            easing = if (expand) LinearEasing else ExpandEasing,
+                            easing = if (expand) FastOutSlowInEasing else ExpandEasing,
                         ),
                     )
                 }
