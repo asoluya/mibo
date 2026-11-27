@@ -21,23 +21,23 @@ import top.yukonga.miuix.kmp.icon.extended.VolumeUp
 
 object MiboIcons {
 
-    /** 转发：推特同款双箭头循环（上箭头向右、末端向下弯；下箭头向左、末端向上弯），描边手绘。 */
+    /** 转发：推特同款双箭头循环——横轴拉满全宽，上箭头向右（左端下弯收尾），下箭头向左（右端上弯收尾）。 */
     val Repost: ImageVector by lazy {
         outline("Repost") {
-            moveTo(8.5f, 6.5f)
-            lineTo(15.5f, 6.5f)
-            arcTo(2.5f, 2.5f, 0f, false, true, 18f, 9f)
-            lineTo(18f, 13.5f)
-            moveTo(15.2f, 3.8f)
-            lineTo(18.1f, 6.5f)
-            lineTo(15.2f, 9.2f)
-            moveTo(15.5f, 17.5f)
-            lineTo(8.5f, 17.5f)
-            arcTo(2.5f, 2.5f, 0f, false, true, 6f, 15f)
-            lineTo(6f, 10.5f)
-            moveTo(8.8f, 14.8f)
-            lineTo(5.9f, 17.5f)
-            lineTo(8.8f, 20.2f)
+            moveTo(3.5f, 11f)
+            lineTo(3.5f, 9.5f)
+            arcTo(3f, 3f, 0f, false, true, 6.5f, 6.5f)
+            lineTo(20.5f, 6.5f)
+            moveTo(16.8f, 2.8f)
+            lineTo(20.5f, 6.5f)
+            lineTo(16.8f, 10.2f)
+            moveTo(20.5f, 13f)
+            lineTo(20.5f, 14.5f)
+            arcTo(3f, 3f, 0f, false, true, 17.5f, 17.5f)
+            lineTo(3.5f, 17.5f)
+            moveTo(7.2f, 13.8f)
+            lineTo(3.5f, 17.5f)
+            lineTo(7.2f, 21.2f)
         }
     }
 
