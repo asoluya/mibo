@@ -40,15 +40,11 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mibo.app.App
@@ -57,10 +53,8 @@ import com.mibo.app.data.FeedPage
 import com.mibo.app.data.SuperTopicInfo
 import com.mibo.app.data.SuperTopicPage
 import com.mibo.app.data.SuperTopicTab
-import com.mibo.app.data.SuperTopicTabKind
 import com.mibo.app.data.defaultSuperTopicTabs
 import com.mibo.app.data.superTopicId
-import com.mibo.app.ui.MiboIcons
 import com.mibo.app.ui.NavState
 import com.mibo.app.ui.PinnedBarDensity
 import com.mibo.app.ui.Route
@@ -81,36 +75,16 @@ import com.mibo.app.ui.pinnedHeight
 import com.mibo.app.ui.rememberExpandOrigin
 import com.mibo.app.ui.AppBarSurface
 import com.mibo.app.ui.LocalBackdrop
-import top.yukonga.miuix.kmp.basic.DropdownEntry
-import top.yukonga.miuix.kmp.basic.DropdownItem
-import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.IconButton
-import top.yukonga.miuix.kmp.basic.ListPopupDefaults
-import top.yukonga.miuix.kmp.basic.PopupPositionProvider
 import top.yukonga.miuix.kmp.basic.PullToRefresh
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.rememberPullToRefreshState
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
-import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.extended.All
-import top.yukonga.miuix.kmp.icon.extended.Community
-import top.yukonga.miuix.kmp.icon.extended.Favorites
-import top.yukonga.miuix.kmp.icon.extended.GridView
-import top.yukonga.miuix.kmp.icon.extended.Image
-import top.yukonga.miuix.kmp.icon.extended.Info
-import top.yukonga.miuix.kmp.icon.extended.Layers
-import top.yukonga.miuix.kmp.icon.extended.Play
-import top.yukonga.miuix.kmp.icon.extended.Promotions
-import top.yukonga.miuix.kmp.icon.extended.Recent
-import top.yukonga.miuix.kmp.icon.extended.Refresh
-import top.yukonga.miuix.kmp.overlay.OverlayCascadingListPopup
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
-import java.net.URLEncoder
 
 /** Keeps the existing feed's request serialization, refresh and duplicate filtering. */
 class SuperTopicStore(
@@ -163,7 +137,6 @@ fun SuperTopicScreen(nav: NavState, containerId: String, fallbackUrl: String) {
     val blur = blurEffectsEnabled()
     val density = LocalDensity.current
     val horizontalPadding = searchHorizontalPadding()
-    var filterMenuOpen by remember { mutableStateOf(false) }
     var checkinBusy by remember(baseId) { mutableStateOf(false) }
     var checkedInToday by remember(baseId) {
         mutableStateOf(App.repo.superTopicCheckedInToday(baseId))
@@ -370,7 +343,6 @@ fun SuperTopicScreen(nav: NavState, containerId: String, fallbackUrl: String) {
         ) {
             PinnedBarDensity {
                 val barDensity = LocalDensity.current
-                val currentTab = tabs[pagerState.currentPage.coerceIn(0, (tabs.size - 1).coerceAtLeast(0))]
                 val selectedIdx = pagerState.currentPage.coerceIn(0, (tabs.size - 1).coerceAtLeast(0))
                 // Miuix 没有 SearchFilterTopAppBar：双行栏改为 AppBarSurface 里手排两行，
                 // 第二行 = 分类菜单按钮（锚点）+ 药丸 chips 标签行（菜单里仍带图标）。
@@ -408,12 +380,6 @@ fun SuperTopicScreen(nav: NavState, containerId: String, fallbackUrl: String) {
                                 softWrap = false,
                                 modifier = Modifier.weight(1f),
                             )
-                            IconButton(
-                                onClick = { nav.push(Route.Web(fallbackUrl, title)) },
-                                modifier = Modifier.testTag("supertopic_web"),
-                            ) {
-                                Icon(MiboIcons.Globe, "网页查看", Modifier.size(24.dp))
-                            }
                         }
                         Row(
                             modifier = Modifier
@@ -422,37 +388,6 @@ fun SuperTopicScreen(nav: NavState, containerId: String, fallbackUrl: String) {
                                 .padding(horizontal = horizontalPadding),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Box {
-                                IconButton(
-                                    onClick = { filterMenuOpen = true },
-                                    modifier = Modifier.testTag("supertopic_filter_menu"),
-                                ) {
-                                    Icon(MiuixIcons.GridView, "全部分类", Modifier.size(22.dp))
-                                }
-                                SuperTopicFilterMenu(
-                                    tabs = tabs,
-                                    currentTab = currentTab,
-                                    expanded = filterMenuOpen,
-                                    onExpandedChange = { filterMenuOpen = it },
-                                    horizontalPadding = horizontalPadding,
-                                    onSelectTab = { idx ->
-                                        scope.launch { pagerState.animateScrollToPage(idx) }
-                                    },
-                                    onRefresh = {
-                                        scope.launch { storeFor(currentTab).feed.refresh() }
-                                    },
-                                    onOpenWeb = {
-                                        val url = if (currentTab.containerId == "${baseId}_-_feed") {
-                                            fallbackUrl
-                                        } else {
-                                            "https://m.weibo.cn/p/index?containerid=" +
-                                                URLEncoder.encode(currentTab.containerId, "UTF-8")
-                                        }
-                                        nav.push(Route.Web(url, title))
-                                    },
-                                    modifier = Modifier.matchParentSize(),
-                                )
-                            }
                             // 分类标签：药丸 chips（选中填充主题色淡底+同色字与边，未选深底浅边），
                             // 横向可滚，选中项自动滚进视野。不再用 Miuix TabRow 的分段胶囊。
                             val tabRowState = rememberLazyListState()
@@ -461,7 +396,7 @@ fun SuperTopicScreen(nav: NavState, containerId: String, fallbackUrl: String) {
                             }
                             LazyRow(
                                 state = tabRowState,
-                                modifier = Modifier.weight(1f).padding(start = 8.dp),
+                                modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
@@ -509,85 +444,4 @@ fun SuperTopicScreen(nav: NavState, containerId: String, fallbackUrl: String) {
             }
         }
     }
-}
-
-@Composable
-private fun SuperTopicFilterMenu(
-    tabs: List<SuperTopicTab>,
-    currentTab: SuperTopicTab,
-    expanded: Boolean,
-    onExpandedChange: (Boolean) -> Unit,
-    horizontalPadding: Dp,
-    onSelectTab: (Int) -> Unit,
-    onRefresh: () -> Unit,
-    onOpenWeb: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val hapticFeedback = LocalHapticFeedback.current
-    val iconTint = MiuixTheme.colorScheme.onSurfaceContainer
-    val selectedTint = MiuixTheme.colorScheme.primary
-    val dropdownPositionProvider = remember(horizontalPadding) {
-        ListPopupDefaults.dropdownPositionProvider(horizontalMargin = horizontalPadding)
-    }
-    val menuEntries = remember(tabs, currentTab, hapticFeedback, iconTint, selectedTint) {
-        val categoryItems = tabs.mapIndexed { index, tab ->
-            val selected = tab == currentTab
-            val tint = if (selected) selectedTint else iconTint
-            DropdownItem(
-                text = tab.label,
-                selected = selected,
-                icon = filterMenuItemIcon(tab.kind.icon(), tint),
-                onClick = {
-                    hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
-                    onSelectTab(index)
-                },
-            )
-        }
-        val actionItems = listOf(
-            DropdownItem(
-                text = "刷新当前分类",
-                icon = filterMenuItemIcon(MiuixIcons.Refresh, iconTint),
-                onClick = {
-                    hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
-                    onRefresh()
-                },
-            ),
-            DropdownItem(
-                text = "在网页中打开",
-                icon = filterMenuItemIcon(MiboIcons.Globe, iconTint),
-                onClick = {
-                    hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
-                    onOpenWeb()
-                },
-            ),
-        )
-        listOf(
-            DropdownEntry(items = categoryItems),
-            DropdownEntry(items = actionItems),
-        )
-    }
-
-    Box(modifier) {
-        OverlayCascadingListPopup(
-            show = expanded,
-            entries = menuEntries,
-            onDismissRequest = { onExpandedChange(false) },
-            popupPositionProvider = dropdownPositionProvider,
-            alignment = PopupPositionProvider.Align.Start,
-            maxHeight = 440.dp,
-            collapseOnSelection = true,
-        )
-    }
-}
-
-private fun SuperTopicTabKind.icon(): ImageVector = when (this) {
-    SuperTopicTabKind.Feed -> MiuixIcons.All
-    SuperTopicTabKind.SortTime -> MiuixIcons.Recent
-    SuperTopicTabKind.Recommend -> MiuixIcons.Promotions
-    SuperTopicTabKind.Soul -> MiuixIcons.Favorites
-    SuperTopicTabKind.Official -> MiuixIcons.Community
-    SuperTopicTabKind.Album -> MiuixIcons.Image
-    SuperTopicTabKind.Video -> MiuixIcons.Play
-    SuperTopicTabKind.Detail -> MiuixIcons.Info
-    SuperTopicTabKind.Tag -> MiuixIcons.Layers
 }
