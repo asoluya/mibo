@@ -206,6 +206,10 @@ class Settings(context: Context) {
     var hideBarsOnScroll by mutableStateOf(sp.getBoolean("hide_bars_on_scroll", true))
         private set
 
+    /** 隐藏底栏：长按展开钮开关。开启后胶囊标签栏隐藏，只保留展开钮（展开三钮照常可用）。默认关。 */
+    var hideBottomBar by mutableStateOf(sp.getBoolean("hide_bottom_bar", false))
+        private set
+
     /** 使用内置浏览器打开外部网页：开启后在应用内 WebView 打开，关闭后直接跳转系统浏览器。默认开。 */
     var inAppBrowser by mutableStateOf(sp.getBoolean("in_app_browser", true))
         private set
@@ -442,6 +446,11 @@ class Settings(context: Context) {
     fun applyHideBarsOnScroll(value: Boolean) {
         hideBarsOnScroll = value
         sp.edit().putBoolean("hide_bars_on_scroll", value).apply()
+    }
+
+    fun applyHideBottomBar(value: Boolean) {
+        hideBottomBar = value
+        sp.edit().putBoolean("hide_bottom_bar", value).apply()
     }
 
     fun applyInAppBrowser(value: Boolean) {
