@@ -9,10 +9,8 @@ import androidx.compose.ui.graphics.vector.PathBuilder
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.dp
 import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.extended.Answer
 import top.yukonga.miuix.kmp.icon.extended.ContactsCircle
 import top.yukonga.miuix.kmp.icon.extended.Create
-import top.yukonga.miuix.kmp.icon.extended.Forward
 import top.yukonga.miuix.kmp.icon.extended.Home
 import top.yukonga.miuix.kmp.icon.extended.Image
 import top.yukonga.miuix.kmp.icon.extended.Messages
@@ -23,9 +21,41 @@ import top.yukonga.miuix.kmp.icon.extended.VolumeUp
 
 object MiboIcons {
 
-    val Repost: ImageVector get() = MiuixIcons.Forward
+    /** 转发：圆头弯箭头，描边风格与 Heart/Star 一致（原 Miuix Forward 与手绘组不搭）。 */
+    val Repost: ImageVector by lazy {
+        outline("Repost") {
+            moveTo(5f, 19.5f)
+            lineTo(5f, 14f)
+            curveTo(5f, 9.5f, 8.8f, 6.5f, 13.5f, 6.5f)
+            lineTo(17.5f, 6.5f)
+            moveTo(13.8f, 2.8f)
+            lineTo(17.8f, 6.5f)
+            lineTo(13.8f, 10.2f)
+        }
+    }
 
-    val Comment: ImageVector get() = MiuixIcons.Answer
+    /** 评论：字线气泡（圆角气泡 + 两行字线），描边风格与 Heart/Star 一致（原 Miuix Answer 像听筒）。 */
+    val Comment: ImageVector by lazy {
+        outline("Comment") {
+            moveTo(7.5f, 4.5f)
+            lineTo(16.5f, 4.5f)
+            quadraticBezierTo(20f, 4.5f, 20f, 8f)
+            lineTo(20f, 13f)
+            quadraticBezierTo(20f, 16.5f, 16.5f, 16.5f)
+            lineTo(12.5f, 16.5f)
+            lineTo(7.8f, 20.4f)
+            lineTo(7.8f, 16.5f)
+            lineTo(7.5f, 16.5f)
+            quadraticBezierTo(4f, 16.5f, 4f, 13f)
+            lineTo(4f, 8f)
+            quadraticBezierTo(4f, 4.5f, 7.5f, 4.5f)
+            close()
+            moveTo(8f, 9.2f)
+            lineTo(16f, 9.2f)
+            moveTo(8f, 12.8f)
+            lineTo(13f, 12.8f)
+        }
+    }
 
     val Heart: ImageVector by lazy {
         ImageVector.Builder(
