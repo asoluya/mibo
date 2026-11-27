@@ -39,6 +39,24 @@ class Store(private val context: Context) {
         }
     }
 
+    /** 本地屏蔽的博主：这些博主的微博不再出现在信息流里（设置里可取消屏蔽）。 */
+    fun blockedAuthors(): List<BlockedAuthor> {
+        val arr = readArray("blocked_authors.json")
+        val out = ArrayList<BlockedAuthor>()
+        for (i in 0 until arr.length()) {
+            val o = arr.optJSONObject(i) ?: continue
+            val uid = o.str("uid")
+            if (uid.isNotBlank()) out.add(BlockedAuthor(uid, o.str("name")))
+        }
+        return out
+    }
+
+    fun setBlockedAuthors(list: List<BlockedAuthor>) {
+        val arr = JSONArray()
+        list.forEach { arr.put(JSONObject().put("uid", it.uid).put("name", it.name)) }
+        write("blocked_authors.json", arr)
+    }
+
     fun session(): Session? {
         val text = readText("session.json", secret = true) ?: return null
         return runCatching {
@@ -481,6 +499,8 @@ class Store(private val context: Context) {
         write("profile-rename.json", map)
     }
 }
+
+data class BlockedAuthor(val uid: String, val name: String)
 
 data class ProfileRenameRecord(
     val lastRenamedAtMs: Long = 0L,

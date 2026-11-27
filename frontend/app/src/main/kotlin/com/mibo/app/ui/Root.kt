@@ -83,6 +83,7 @@ import com.mibo.app.screen.MyLikesScreen
 import com.mibo.app.screen.NearbyScreen
 import com.mibo.app.screen.NotificationsScreen
 import com.mibo.app.screen.AccountRelatedScreen
+import com.mibo.app.screen.BlockedAuthorsScreen
 import com.mibo.app.screen.NotifySettingsScreen
 import com.mibo.app.screen.BarPositionScreen
 import com.mibo.app.screen.ProfileScreen
@@ -797,6 +798,7 @@ private fun RouteContent(route: Route, nav: NavState) {
         Route.BarPosition -> BarPositionScreen(nav)
         Route.AccountRelated -> AccountRelatedScreen(nav)
         Route.NotifySettings -> NotifySettingsScreen(nav)
+        Route.BlockedAuthors -> BlockedAuthorsScreen(nav)
         Route.About -> AboutScreen(nav)
         Route.Nearby -> NearbyScreen(nav)
         is Route.Topic -> TopicScreen(nav, route.name)

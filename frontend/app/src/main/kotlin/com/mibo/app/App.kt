@@ -20,6 +20,7 @@ import kotlinx.coroutines.launch
 import com.mibo.app.data.Repo
 import com.mibo.app.data.Settings
 import com.mibo.app.data.Status
+import com.mibo.app.data.BlockedAuthor
 import com.mibo.app.data.Store
 import com.mibo.app.data.UpdateInfo
 import com.mibo.app.data.Updater
@@ -246,6 +247,27 @@ object App {
         current.onDismissed()
     }
 
+    /** 本地屏蔽的博主：列表给设置页管理，uid 集合给信息流过滤。 */
+    var blockedAuthors by mutableStateOf<List<BlockedAuthor>>(emptyList())
+        private set
+    val blockedAuthorIds: Set<String> get() = blockedAuthors.mapTo(HashSet()) { it.uid }
+
+    /** 某博主刚被屏蔽的事件（uid）：首页信息流据此把已加载的卡片即时移除。 */
+    val authorBlockedEvents = MutableSharedFlow<String>(extraBufferCapacity = 4)
+
+    fun blockAuthor(uid: String, name: String) {
+        if (uid.isBlank() || blockedAuthors.any { it.uid == uid }) return
+        blockedAuthors = blockedAuthors + BlockedAuthor(uid, name)
+        store.setBlockedAuthors(blockedAuthors)
+        authorBlockedEvents.tryEmit(uid)
+    }
+
+    fun unblockAuthor(uid: String) {
+        if (blockedAuthors.none { it.uid == uid }) return
+        blockedAuthors = blockedAuthors.filterNot { it.uid == uid }
+        store.setBlockedAuthors(blockedAuthors)
+    }
+
     /** 点赞前确认的挂起请求：根节点的柔光玻璃对话框宿主渲染它，确认/取消后唤醒等待方。 */
     class LikeConfirmRequest(
         val status: Status,
@@ -298,6 +320,7 @@ object App {
         if (this::store.isInitialized) return
         this.context = context.applicationContext
         store = Store(this.context)
+        blockedAuthors = store.blockedAuthors()
         FollowTags.attach(store)
         cache = CacheStore(this.context)
         snapshots = FeedSnapshotStore(this.context)

@@ -266,7 +266,7 @@ class FeedStore(
         } ?: return
         if (snapshot.items.isEmpty()) return
         items.clear()
-        items.addAll(snapshot.items)
+        items.addAll(snapshot.items.filter { it.user?.id !in App.blockedAuthorIds })
         gaps.clear()
         gaps.addAll(snapshot.gaps)
         lastReadBeforeStatusId = snapshot.lastReadBeforeStatusId
@@ -345,7 +345,7 @@ class FeedStore(
             val previousHeadId = items.firstOrNull()?.id
             val page = loader(null, force)
             val known = HashSet<String>()
-            val unique = page.items.filter { !isStatusDeleted(it.id) && known.add(it.id) }
+            val unique = page.items.filter { !isStatusDeleted(it.id) && it.user?.id !in App.blockedAuthorIds && known.add(it.id) }
             gaps.clear()
             items.clear()
             items.addAll(unique)
@@ -398,7 +398,7 @@ class FeedStore(
                 val hitIdx = page.items.indexOfFirst { it.id in belowIds }
                 val slice = if (hitIdx >= 0) page.items.take(hitIdx) else page.items
                 val existingIds = items.mapTo(HashSet()) { it.id }
-                val newItems = slice.distinctBy { it.id }.filter { it.id !in existingIds }
+                val newItems = slice.distinctBy { it.id }.filter { it.id !in existingIds && it.user?.id !in App.blockedAuthorIds }
                 val nextCursor = page.sinceId?.takeIf { it.isNotBlank() }
                 val exhausted = hitIdx >= 0 || nextCursor == null || nextCursor == gap.cursor
 
@@ -440,7 +440,7 @@ class FeedStore(
             lock.withLock {
                 val page = loader(cursor, false)
                 val known = items.mapTo(HashSet()) { it.id }
-                page.items.forEach { if (known.add(it.id)) items.add(it) }
+                page.items.forEach { if (it.user?.id !in App.blockedAuthorIds && known.add(it.id)) items.add(it) }
                 sinceId = page.sinceId
                 if (page.items.isEmpty()) end = true
                 persist()
@@ -654,6 +654,11 @@ fun TimelineScreen(
     }
     LaunchedEffect(Unit) {
         App.followEvents.collect { currentFollowStore.refresh() }
+    }
+    LaunchedEffect(Unit) {
+        App.authorBlockedEvents.collect { uid ->
+            currentStores.forEach { store -> store.items.removeAll { item -> item.user?.id == uid } }
+        }
     }
     var lastFeedVersion by remember { mutableIntStateOf(App.feedVersion) }
     LaunchedEffect(App.feedVersion) {

@@ -623,7 +623,10 @@ fun DetailScreen(nav: NavState, id: String, mid: String, readOnly: Boolean = fal
                             }
                         },
                         modifier = Modifier.testTag("detail_like")
-                            .onGloballyPositioned { detailLikeAnchor = it.boundsInWindow() },
+                            .onGloballyPositioned { coordinates ->
+                                val pos = coordinates.positionInWindow()
+                                detailLikeAnchor = Rect(pos.x, pos.y, pos.x + coordinates.size.width.toFloat(), pos.y + coordinates.size.height.toFloat())
+                            },
                         active = current?.liked == true,
                         enabled = !readOnly,
                     )

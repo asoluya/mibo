@@ -93,6 +93,7 @@ import com.mibo.app.ui.FloatingBottomBar
 import com.mibo.app.ui.Route
 import com.mibo.app.ui.blurEffectsEnabled
 import com.mibo.app.ui.components.BackIconButton
+import com.mibo.app.ui.components.EmptyState
 import com.mibo.app.ui.components.ConfirmDialog
 import com.mibo.app.ui.components.SectionTitle
 import com.mibo.app.ui.components.navBottomPadding
@@ -506,6 +507,11 @@ private fun LazyListScope.otherSettingsItems(
                     App.cache.clear()
                     state.message = "已清理图片与内容缓存"
                 },
+            )
+            ArrowPreference(
+                title = "屏蔽的博主",
+                summary = if (App.blockedAuthors.isEmpty()) "在微博菜单里点「屏蔽博主」添加" else "已屏蔽 ${App.blockedAuthors.size} 位",
+                onClick = { nav.push(Route.BlockedAuthors) },
             )
             ArrowPreference(
                 title = "关于",
@@ -1275,6 +1281,86 @@ private fun openAutostartSettings(context: Context) {
                     Uri.parse("package:" + context.packageName),
                 ),
             )
+        }
+    }
+}
+
+/** 屏蔽的博主管理：列出本地屏蔽名单，逐个取消屏蔽。 */
+@Composable
+fun BlockedAuthorsScreen(nav: NavState) {
+    val blurEffects = blurEffectsEnabled()
+    val pageColor = pageContainerColor()
+    val backdrop = rememberLayerBackdrop()
+    val topBarHeight = pinnedHeight(TopAppBarDefaults.SmallTopAppBarCenterHeight)
+    val listState = rememberLazyListState()
+    val blocked = App.blockedAuthors
+
+    Box(Modifier.fillMaxSize().background(pageColor)) {
+        Box(Modifier.fillMaxSize().layerBackdropIf(blurEffects, backdrop).background(pageColor)) {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize().scrollEndHaptic(),
+                contentPadding = PaddingValues(
+                    start = 12.dp,
+                    top = glassBarContentTop(topBarHeight, 10.dp),
+                    end = 12.dp,
+                    bottom = 24.dp + navBottomPadding(),
+                ),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                if (blocked.isEmpty()) {
+                    item { EmptyState("暂无屏蔽的博主") }
+                } else {
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            cornerRadius = CardDefaults.CornerRadius,
+                            insideMargin = PaddingValues(0.dp),
+                        ) {
+                            blocked.forEach { author ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text(author.name.ifBlank { "UID ${author.uid}" })
+                                        if (author.name.isNotBlank()) {
+                                            Text(
+                                                "UID ${author.uid}",
+                                                fontSize = 12.sp,
+                                                color = MiuixTheme.colorScheme.onSurfaceSecondary,
+                                            )
+                                        }
+                                    }
+                                    TextButton(
+                                        text = "取消屏蔽",
+                                        onClick = { App.unblockAuthor(author.uid) },
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        CompositionLocalProvider(
+            LocalBackdrop provides if (blurEffects) backdrop else null,
+        ) {
+            PinnedBarDensity {
+                AppBarSurface(
+                    modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth(),
+                    containerColor = pageColor,
+                    scrollFraction = rememberListScrollFraction(listState),
+                ) {
+                    SmallTopAppBar(
+                        title = "屏蔽的博主",
+                        color = Color.Transparent,
+                        navigationIcon = { BackIconButton { nav.pop() } },
+                    )
+                }
+            }
         }
     }
 }

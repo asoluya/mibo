@@ -396,7 +396,7 @@ private fun superTopicVideoStatus(item: JSONObject): Status? {
 fun parseSuperTopicSearch(root: JSONObject?): List<TopicItem> {
     if (root?.optInt("ok", 0) == -100) throw ApiException("超话需要登录后查看", "-100")
     // 客户端通道的 searchIndex 把结果包成 {"data": ...}、没有 ok 字段，缺失不能判失败。
-    if (root != null && root.has("ok") && root.optInt("ok", 0) != 1) return emptyList()
+    if (root == null || (root.has("ok") && root.optInt("ok", 0) != 1)) return emptyList()
     val topics = LinkedHashMap<String, TopicItem>()
     collectSuperTopicSearchCards(root.optJSONObject("data")?.optJSONArray("cards"), topics)
     return topics.values.toList()

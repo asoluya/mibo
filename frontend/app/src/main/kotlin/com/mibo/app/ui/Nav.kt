@@ -267,6 +267,7 @@ sealed interface Route {
     data object BarPosition : Route
     data object AccountRelated : Route
     data object NotifySettings : Route
+    data object BlockedAuthors : Route
     data object About : Route
     data object Nearby : Route
     data class Topic(val name: String = "") : Route

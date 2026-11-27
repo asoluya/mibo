@@ -208,6 +208,17 @@ fun StatusCard(
         )
         App.toast("已复制链接")
     }
+    // 屏蔽博主：本地名单制，这个博主的微博从此不在信息流出现（设置「应用相关」可取消）。
+    val selfUid = if (App.isRepoReady()) App.repo.session?.uid else null
+    val blockTarget = status.user?.takeIf { u ->
+        u.id.isNotBlank() && u.id != selfUid && App.blockedAuthors.none { it.uid == u.id }
+    }
+    val handleBlockAuthor: (() -> Unit)? = blockTarget?.let { u ->
+        {
+            App.blockAuthor(u.id, u.name)
+            App.toast("已屏蔽 @${u.name}")
+        }
+    }
     val content: @Composable ColumnScope.() -> Unit = {
         StatusHeader(
             status = status,
@@ -220,6 +231,7 @@ fun StatusCard(
             onDelete = if (canDelete) { { if (!deleting) confirmDelete = true } } else null,
             onCopyLinks = handleCopyLinks,
             onCopyWeiboLink = handleCopyWeiboLink,
+            onBlockAuthor = handleBlockAuthor,
         )
         if (status.textHtml.isNotBlank()) {
             Spacer(Modifier.height(6.dp))
@@ -288,7 +300,10 @@ fun StatusCard(
                         onClick = onComment,
                         enabled = actionsEnabled,
                     )
-                    Box(Modifier.onGloballyPositioned { likeAnchor = it.boundsInWindow() }) {
+                    Box(Modifier.onGloballyPositioned { coordinates ->
+                        val pos = coordinates.positionInWindow()
+                        likeAnchor = Rect(pos.x, pos.y, pos.x + coordinates.size.width.toFloat(), pos.y + coordinates.size.height.toFloat())
+                    }) {
                         ActionIcon(
                             icon = if (status.liked) MiboIcons.HeartFill else MiboIcons.Heart,
                             text = fmtCount(status.attitudes),
@@ -363,6 +378,7 @@ fun StatusHeader(
     onDelete: (() -> Unit)? = null,
     onCopyLinks: (() -> Unit)? = null,
     onCopyWeiboLink: (() -> Unit)? = null,
+    onBlockAuthor: (() -> Unit)? = null,
 ) {
     val scheme = MiuixTheme.colorScheme
     val user = status.user
@@ -407,7 +423,7 @@ fun StatusHeader(
                         FollowTagBadge(tag, compact = true)
                     }
                 }
-                if (showMore && (onToggleFavorite != null || onToggleCloudFavorite != null || onDelete != null || onCopyLinks != null || onCopyWeiboLink != null)) {
+                if (showMore && (onToggleFavorite != null || onToggleCloudFavorite != null || onDelete != null || onCopyLinks != null || onCopyWeiboLink != null || onBlockAuthor != null)) {
                     Spacer(Modifier.width(6.dp))
                     StatusMoreButton(
                         statusId = status.id,
@@ -418,6 +434,7 @@ fun StatusHeader(
                         onDelete = onDelete,
                         onCopyLinks = onCopyLinks,
                         onCopyWeiboLink = onCopyWeiboLink,
+                        onBlockAuthor = onBlockAuthor,
                     )
                 }
             }
@@ -486,6 +503,7 @@ private fun StatusMoreButton(
     onDelete: (() -> Unit)?,
     onCopyLinks: (() -> Unit)?,
     onCopyWeiboLink: (() -> Unit)?,
+    onBlockAuthor: (() -> Unit)?,
 ) {
     val scheme = MiuixTheme.colorScheme
     var anchorBounds by remember { mutableStateOf(Rect.Zero) }
@@ -532,6 +550,9 @@ private fun StatusMoreButton(
                         }
                         if (onCopyWeiboLink != null) {
                             add(App.GlassMenuItem(text = "复制链接", icon = MiuixIcons.Link, onClick = onCopyWeiboLink))
+                        }
+                        if (onBlockAuthor != null) {
+                            add(App.GlassMenuItem(text = "屏蔽博主", onClick = onBlockAuthor))
                         }
                         if (onDelete != null) {
                             add(
