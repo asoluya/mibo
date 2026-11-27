@@ -29,7 +29,14 @@ object ContainerApi {
         val mediaId: String = "",
         /** 上传分片响应里原生的 `fid` 字段（若有）；发微博用不到，私信 fids 只认它。 */
         val dmFid: String = "",
-    )
+        /** 实况图子类型标记（livephoto）；空 = 普通图片。 */
+        val subtype: String = "",
+        /** 实况图视频段的 usid（视频段走 livephoto 分支上传所得）；空 = 普通图片。 */
+        val videoFid: String = "",
+    ) {
+        val isLivePhoto: Boolean
+            get() = subtype.isNotBlank() && videoFid.isNotBlank()
+    }
 
     internal data class PicDiscovery(
         val initUrl: String,
@@ -316,15 +323,19 @@ object ContainerApi {
             val obj = JSONObject()
                 .put("createtype", "localfile")
                 .put("fid", item.fid)
-                .put("type", item.type)
+                .put("type", if (item.isLivePhoto) "pic" else item.type)
                 .put("pic_source", "0")
                 .put("picStatus", "0")
             if (item.bypass.isNotBlank()) obj.put("bypass", item.bypass)
             if (item.md5.isNotBlank()) obj.put("pic_raw_md5", item.md5)
+            if (item.isLivePhoto) {
+                obj.put("subtype", item.subtype)
+                obj.put("video", item.videoFid)
+            }
             arr.put(obj)
         }
         val json = arr.toString()
-        if (media.any { it.type == "livephoto" }) {
+        if (media.any { it.isLivePhoto }) {
             ProbeLog.appendText("publish_media", json)
         }
         return json
@@ -513,6 +524,7 @@ object ContainerApi {
         fileName: String,
         md5Hex: String,
         mediaType: String = "pic",
+        ori: String = "0",
     ): UploadedMedia {
         if (bytes.isEmpty()) throw ApiException("图片内容为空")
         val resolvedAid = aid.ifBlank { ClientLogin.ensureAid() }
@@ -525,7 +537,7 @@ object ContainerApi {
         } else {
             discoverySet.pic
         }
-        val initProps = JSONObject().put("ori", "0").toString()
+        val initProps = JSONObject().put("ori", ori).toString()
         val initQuery = buildUploadQueryBase(
             uid = uid,
             gsid = gsid,
@@ -578,7 +590,7 @@ object ContainerApi {
                 }
                 is PicUploadInit.Legacy -> {
                     val sendProps = JSONObject()
-                        .put("ori", 0)
+                        .put("ori", ori.toIntOrNull() ?: 0)
                         .put("pri", 0)
                         .put("print_mark", 0)
                         .toString()
@@ -642,6 +654,45 @@ object ContainerApi {
             bypass = discovery.bypass,
             mediaId = (plan as? PicUploadInit.Mss)?.mediaId.orEmpty(),
             dmFid = rawFid,
+        )
+    }
+
+    /**
+     * 实况图双路上传（2026-11-27 按上游 COBO 已上线实现移植）：静图走 pic 分支
+     * 拿 pid，视频段走 livephoto 分支拿 usid；发布媒体项保持 type=pic +
+     * fid=静图 pid，另带 subtype=livephoto 与 video=usid 关联视频段。
+     * 之前把整个动态照片文件按 type=livephoto 发布（fid=usid）会被服务端
+     * 静默丢弃（A5 探针：send 响应 pic_ids=[]），不要再那样发。
+     */
+    suspend fun uploadLivePhoto(
+        uid: String,
+        gsid: String,
+        aid: String = "",
+        stillBytes: ByteArray,
+        videoBytes: ByteArray,
+        stillFileName: String = "pic.jpg",
+        videoFileName: String = "live.mov",
+        subtype: String = "livephoto",
+    ): UploadedMedia {
+        if (stillBytes.isEmpty()) throw ApiException("图片内容为空")
+        if (videoBytes.isEmpty()) throw ApiException("实况视频内容为空")
+        val resolvedAid = aid.ifBlank { ClientLogin.ensureAid() }
+        val discoverySet = discoverUploadEndpoints(uid, gsid, resolvedAid)
+        if (discoverySet.livephoto == null) throw ApiException("获取实况图上传配置失败")
+        val still = uploadPic(
+            uid, gsid, resolvedAid, stillBytes, stillFileName, md5Hex(stillBytes),
+            mediaType = "pic", ori = "1",
+        )
+        val video = uploadPic(
+            uid, gsid, resolvedAid, videoBytes, videoFileName, md5Hex(videoBytes),
+            mediaType = "livephoto", ori = "1",
+        )
+        return UploadedMedia(
+            fid = still.fid,
+            md5 = still.md5,
+            bypass = still.bypass,
+            subtype = subtype,
+            videoFid = video.fid,
         )
     }
 

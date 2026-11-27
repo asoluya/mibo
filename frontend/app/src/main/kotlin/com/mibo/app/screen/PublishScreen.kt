@@ -273,7 +273,7 @@ fun PublishScreen(nav: NavState, draft: String) {
                     checked = livePhoto,
                     onCheckedChange = { livePhoto = it },
                     title = "以实况图发布（实验）",
-                    summary = "上传阶段即按实况类型发送；试发时建议可见范围选「仅自己可见」",
+                    summary = "静图与视频段分开上传后关联发布；试发时建议可见范围选「仅自己可见」",
                 )
             }
             if (progress.isNotBlank()) {

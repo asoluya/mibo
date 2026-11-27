@@ -23,6 +23,7 @@ import kotlinx.coroutines.withContext
 import okhttp3.HttpUrl
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
 import java.net.URLDecoder
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -3149,11 +3150,22 @@ class Repo(private val context: Context, private val store: Store) {
         }
         if (isClientChannel()) {
             val md5Hex = ContainerApi.md5Hex(bytes)
-            val uploaded = withContainerAuth { uid, gsid, aid ->
-                ContainerApi.uploadPic(uid, gsid, aid, bytes, name, md5Hex, mediaType = if (livephoto) "livephoto" else "pic")
+            if (livephoto) {
+                // 实况发布正解（2026-11-27）：本地把动态照片拆成静图 + 尾部视频段，
+                // 双路上传后由发布媒体项关联（见 ContainerApi.uploadLivePhoto）。
+                // 拆不出视频段时退回下面的普通图片发布，不让整条微博发不出去。
+                val split = splitMotionPhotoBytes(bytes)
+                if (split != null) {
+                    val live = withContainerAuth { uid, gsid, aid ->
+                        ContainerApi.uploadLivePhoto(uid, gsid, aid, split.first, split.second)
+                    }
+                    uploadedContainerMedia[live.fid] = live
+                    return live.fid
+                }
             }
-            // 实况发布：2026-11-25 只改发布标曾被服务端丢弃整个媒体；v1.4 实验改为
-            // 上传 init 即按 livephoto 类型上传（livephoto=true 时），默认 pic 路径不变。
+            val uploaded = withContainerAuth { uid, gsid, aid ->
+                ContainerApi.uploadPic(uid, gsid, aid, bytes, name, md5Hex)
+            }
             uploadedContainerMedia[uploaded.fid] = uploaded
             return uploaded.fid
         }
@@ -3178,6 +3190,25 @@ class Repo(private val context: Context, private val store: Store) {
         val id = root.str("pic_id")
         if (id.isBlank()) throw ApiException(root.str("msg", "图片上传失败"))
         return id
+    }
+
+    /** 把动态照片字节拆成 (静图 JPEG, 尾部 MP4 视频段)；拆不出返回 null。 */
+    private fun splitMotionPhotoBytes(bytes: ByteArray): Pair<ByteArray, ByteArray>? {
+        val tmp = File(context.cacheDir, "livephoto_split.jpg")
+        return try {
+            tmp.writeBytes(bytes)
+            val videoLength = MotionPhotoParser.parse(tmp, expectMotionPhoto = true).embeddedVideoLength
+                ?: return null
+            if (videoLength <= 0L || videoLength >= bytes.size.toLong()) return null
+            val videoSize = videoLength.toInt()
+            val still = bytes.copyOfRange(0, bytes.size - videoSize)
+            val video = bytes.copyOfRange(bytes.size - videoSize, bytes.size)
+            if (still.isEmpty() || video.isEmpty()) null else still to video
+        } catch (_: Throwable) {
+            null
+        } finally {
+            tmp.delete()
+        }
     }
 
     suspend fun messages(page: Int, force: Boolean = false): List<MessageItem> {
