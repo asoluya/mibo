@@ -41,6 +41,24 @@ object MiboIcons {
         }
     }
 
+    /** 全屏/横屏：四角外扩框，描边手绘。 */
+    val Fullscreen: ImageVector by lazy {
+        outline("Fullscreen") {
+            moveTo(9f, 4f)
+            lineTo(4f, 4f)
+            lineTo(4f, 9f)
+            moveTo(15f, 4f)
+            lineTo(20f, 4f)
+            lineTo(20f, 9f)
+            moveTo(20f, 15f)
+            lineTo(20f, 20f)
+            lineTo(15f, 20f)
+            moveTo(4f, 15f)
+            lineTo(4f, 20f)
+            lineTo(9f, 20f)
+        }
+    }
+
     /** 评论：推特同款素气泡（圆角气泡 + 左下小尾巴，不带字线），描边风格与 Heart/Star 一致。 */
     val Comment: ImageVector by lazy {
         outline("Comment") {

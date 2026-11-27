@@ -2,7 +2,9 @@ package com.mibo.app.screen
 
 import android.Manifest
 import android.content.Context
+import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.BitmapRegionDecoder
@@ -3383,6 +3385,25 @@ private fun DirectVideoPlayer(
         window.attributes = params
     }
 
+    // 横屏按钮：按当前方向取反；离开播放页时恢复不锁定，避免把方向锁带出播放器。
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+
+    fun toggleOrientation() {
+        val act = activity ?: return
+        act.requestedOrientation = if (isLandscape) {
+            ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        } else {
+            ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+        }
+    }
+
+    DisposableEffect(activity) {
+        onDispose {
+            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        }
+    }
+
     MiboPredictiveBackHandler(nav)
 
     Box(Modifier.fillMaxSize().background(Color.Black)) {
@@ -3681,6 +3702,14 @@ private fun DirectVideoPlayer(
                         Icon(MiuixIcons.Download, "下载视频", Modifier.size(18.dp))
                     }
                     Spacer(Modifier.width(6.dp))
+                }
+                Spacer(Modifier.width(6.dp))
+                MediaIconButton(onClick = { toggleOrientation() }, size = VideoTopBarButtonHeight) {
+                    Icon(
+                        MiboIcons.Fullscreen,
+                        if (isLandscape) "切回竖屏" else "横屏",
+                        Modifier.size(18.dp),
+                    )
                 }
             }
         }
