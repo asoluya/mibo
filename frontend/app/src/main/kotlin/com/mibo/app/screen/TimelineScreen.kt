@@ -47,7 +47,9 @@ import androidx.compose.ui.unit.sp
 import com.mibo.app.App
 import com.mibo.app.data.FeedGap
 import com.mibo.app.data.FeedPage
+import com.mibo.app.data.ProbeLog
 import com.mibo.app.data.Status
+import com.mibo.app.data.parseWeiboTimeMillis
 import com.mibo.app.ui.NavState
 import com.mibo.app.ui.LocalTopBarBounds
 import com.mibo.app.ui.FeedTitleRowHeight
@@ -137,6 +139,12 @@ class FeedStore(
      * 只给首页那几栏开：别的地方进来应该是一条新流，不该沿用上次的列表。
      */
     val resumable: Boolean = false,
+    /**
+     * 关注流专用：服务端偶尔会把一条很久以前的微博混进刷新第一页（每次都是同一条，
+     * 清缓存也没用，因为它就在账号侧的返回里）。开启后，刷新时把发布时间明显
+     * 脱队的老微博滤掉，并记一条 ProbeLog 留证。
+     */
+    val dropStaleOutliers: Boolean = false,
     private val snapshotOwner: () -> String = { App.repo.session?.uid.orEmpty() },
     private val isStatusDeleted: (String) -> Boolean = { id -> App.isRepoReady() && App.repo.isDeleted(id) },
     private val loader: suspend (cursor: String?, force: Boolean) -> FeedPage = { cursor, force ->
@@ -346,18 +354,19 @@ class FeedStore(
             val page = loader(null, force)
             val known = HashSet<String>()
             val unique = page.items.filter { !isStatusDeleted(it.id) && it.user?.id !in App.blockedAuthorIds && known.add(it.id) }
+            val visible = if (dropStaleOutliers) filterStaleOutliers(unique) else unique
             gaps.clear()
             items.clear()
-            items.addAll(unique)
+            items.addAll(visible)
             lastReadBeforeStatusId = if (
-                previousHeadId != null && unique.indexOfFirst { it.id == previousHeadId } > 0
+                previousHeadId != null && visible.indexOfFirst { it.id == previousHeadId } > 0
             ) {
                 previousHeadId
             } else {
                 null
             }
             sinceId = page.sinceId
-            end = unique.isEmpty()
+            end = visible.isEmpty()
             lastAppliedLikeSeq = if (App.isRepoReady()) App.repo.currentLikeSeq() else 0L
             loaded = true
             // 这次是真的拉回来了，列表不再代表「上次的快照」，后面的刷新该照常回顶。
@@ -372,6 +381,36 @@ class FeedStore(
         } finally {
             fetching = false
         }
+    }
+
+    /**
+     * 滤掉刷新第一页里发布时间明显脱队的老微博：整页以新帖为主（≥70% 在最新一条的
+     * 3 天内）时，比最新一条老超过 3 天的条目判为服务端混入的陈旧条目并丢弃；
+     * 整页本身就旧（很久没刷）时不滤，避免误删。解析不出时间的条目一律保留。
+     * 丢弃的条目写一条 ProbeLog，留着日后核对服务端到底塞了什么。
+     */
+    private fun filterStaleOutliers(pageItems: List<Status>): List<Status> {
+        if (pageItems.size < 5) return pageItems
+        val times = pageItems.map { parseWeiboTimeMillis(it.createdAt) }
+        val newest = times.maxOrNull() ?: 0L
+        if (newest <= 0L) return pageItems
+        val threshold = newest - 3L * 24 * 60 * 60 * 1000
+        val freshCount = times.count { it >= threshold }
+        if (freshCount < pageItems.size * 0.7) return pageItems
+        val kept = ArrayList<Status>(pageItems.size)
+        pageItems.forEachIndexed { index, status ->
+            val t = times[index]
+            if (t in 1 until threshold) {
+                ProbeLog.appendText(
+                    "stale-outlier dropped",
+                    "id=${status.id} author=${status.user?.name}(${status.user?.id}) " +
+                        "createdAt=${status.createdAt} index=$index pageSize=${pageItems.size}",
+                )
+            } else {
+                kept.add(status)
+            }
+        }
+        return kept
     }
 
     suspend fun loadGap(gapId: String) {

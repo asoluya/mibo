@@ -306,7 +306,7 @@ fun MainShell(nav: NavState) {
     // 一份好友流，显示时统一叫「全部」；纯本地模式没有好友流，仍按「本地关注」走。
     val filter = if (guest) FeedFilter.Local else FeedFilter.All
     val friendsStore = remember {
-        FeedStore("friends", resumable = true, snapshotOwner = { accountOwner }) { cursor, force ->
+        FeedStore("friends", resumable = true, dropStaleOutliers = true, snapshotOwner = { accountOwner }) { cursor, force ->
             App.repo.friends(cursor, force)
         }
     }
