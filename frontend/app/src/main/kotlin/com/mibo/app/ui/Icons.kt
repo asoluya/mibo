@@ -53,6 +53,31 @@ object MiboIcons {
         }.build()
     }
 
+    /** 禁止：圆圈加斜杠，描边风格与 Heart 一致。 */
+    val Block: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "Block",
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = 24f,
+            viewportHeight = 24f,
+        ).apply {
+            path(
+                stroke = SolidColor(Color.Black),
+                strokeLineWidth = 1.9f,
+                strokeLineCap = StrokeCap.Round,
+                strokeLineJoin = StrokeJoin.Round,
+            ) {
+                moveTo(12f, 3f)
+                arcTo(9f, 9f, 0f, false, true, 12f, 21f)
+                arcTo(9f, 9f, 0f, false, true, 12f, 3f)
+                close()
+                moveTo(5.64f, 5.64f)
+                lineTo(18.36f, 18.36f)
+            }
+        }.build()
+    }
+
     /** 发布羽毛：推特写推按钮那支羽毛笔，描边风格与 Heart 一致。 */
     val Feather: ImageVector by lazy {
         ImageVector.Builder(

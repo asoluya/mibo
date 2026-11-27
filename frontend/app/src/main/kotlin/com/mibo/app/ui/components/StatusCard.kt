@@ -552,7 +552,7 @@ private fun StatusMoreButton(
                             add(App.GlassMenuItem(text = "复制链接", icon = MiuixIcons.Link, onClick = onCopyWeiboLink))
                         }
                         if (onBlockAuthor != null) {
-                            add(App.GlassMenuItem(text = "屏蔽博主", onClick = onBlockAuthor))
+                            add(App.GlassMenuItem(text = "屏蔽博主", icon = MiboIcons.Block, onClick = onBlockAuthor))
                         }
                         if (onDelete != null) {
                             add(
