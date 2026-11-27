@@ -258,7 +258,7 @@ fun TopicScreen(nav: NavState, initial: String = "") {
                             Text("浏览过的超话", fontSize = 14.sp, modifier = Modifier.weight(1f))
                             Box(
                                 modifier = Modifier
-                                    .softGlassCapsule(50)
+                                    .softGlassCapsule(50.dp)
                                     .clickable {
                                         App.settings.clearRecentSuperTopics()
                                         recents = emptyList()
