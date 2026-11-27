@@ -1808,11 +1808,14 @@ class Repo(private val context: Context, private val store: Store) {
                 "location" to "page_100808_super_index",
                 "timezone" to "GMT 0800",
                 "lang" to "zh-cn",
+                "plat" to "MacIntel",
+                "ua" to Api.DESKTOP_UA,
+                "screen" to "1920*1080",
                 "__rnd" to System.currentTimeMillis().toString(),
             ),
         )
         val root = try {
-            Api.getDesktop(url, desktopCookieOrNull())
+            Api.getDesktop(url, desktopCookieOrNull(), referer = "https://weibo.com/p/$id/super_index")
         } catch (e: ApiHttpException) {
             throw ApiException("签到失败（HTTP ${e.code}）")
         }

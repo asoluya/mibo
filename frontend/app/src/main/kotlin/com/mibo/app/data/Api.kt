@@ -130,13 +130,13 @@ object Api {
      * Some weibo.com ajax endpoints reject the mobile referer, so this variant signs the request
      * the way a desktop browser does and skips the cache.
      */
-    suspend fun getDesktop(url: String, cookie: String?): JSONObject =
+    suspend fun getDesktop(url: String, cookie: String?, referer: String = "https://weibo.com/"): JSONObject =
         withContext(Dispatchers.IO) {
             val request = Request.Builder()
                 .url(url)
                 .header("User-Agent", DESKTOP_UA)
                 .header("Accept", "application/json, text/plain, */*")
-                .header("Referer", "https://weibo.com/")
+                .header("Referer", referer)
                 .header("X-Requested-With", "XMLHttpRequest")
                 .apply { if (!cookie.isNullOrBlank()) header("Cookie", cookie) }
                 .get()
