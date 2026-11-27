@@ -25,6 +25,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import com.mibo.app.App
+import com.mibo.app.ui.LocalBackdrop
+import com.mibo.app.ui.blurEffectsEnabled
+import top.yukonga.miuix.kmp.glass.glassPanel
+import top.yukonga.miuix.kmp.material.GlassDefaults
+import top.yukonga.miuix.kmp.material.GlassEdgeStrokes
+import top.yukonga.miuix.kmp.material.GlassMaterials
+import top.yukonga.miuix.kmp.material.GlassShape
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -382,12 +391,37 @@ private fun toolbarMaterialFill(): Color = MiuixTheme.colorScheme.surfaceContain
 
 @Composable
 fun BackIconButton(onClick: () -> Unit) {
-    IconButton(
-        onClick = onClick,
-        backgroundColor = toolbarMaterialFill(),
-        cornerRadius = 20.dp,
-    ) {
-        Icon(MiuixIcons.Back, "返回", Modifier.size(24.dp))
+    // 有柔光玻璃采样层时用整块玻璃圆钮（与展开钮同一套材质），否则回退实色圆钮。
+    val backdrop = LocalBackdrop.current
+    val isDark = MiuixTheme.colorScheme.background.luminance() < 0.5f
+    if (blurEffectsEnabled() && backdrop != null) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .glassPanel(
+                    backdrop = backdrop,
+                    shape = GlassShape(20.dp),
+                    style = GlassDefaults.style(isDark),
+                    alpha = App.settings.barGlassAlpha,
+                    material = GlassMaterials.puredThinGlass(isDark),
+                    stroke = GlassEdgeStrokes.forTheme(isDark),
+                    shadow = null,
+                    shading = false,
+                )
+                .clip(CircleShape)
+                .clickable(onClick = onClick),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(MiuixIcons.Back, "返回", Modifier.size(24.dp))
+        }
+    } else {
+        IconButton(
+            onClick = onClick,
+            backgroundColor = toolbarMaterialFill(),
+            cornerRadius = 20.dp,
+        ) {
+            Icon(MiuixIcons.Back, "返回", Modifier.size(24.dp))
+        }
     }
 }
 
