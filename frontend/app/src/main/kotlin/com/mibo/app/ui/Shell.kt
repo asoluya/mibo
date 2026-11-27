@@ -814,6 +814,7 @@ fun MainShell(nav: NavState) {
                         scope.launch { feedPager.animateScrollToPage(targetPage) }
                     },
                     onPickNearbyCity = { showNearbyCityPicker = true },
+                    onOpenSuperTopic = { nav.push(Route.Topic()) },
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .fillMaxWidth()
@@ -870,7 +871,16 @@ fun MainShell(nav: NavState) {
                             openFeedSearch()
                         }
                     },
-                    onTab = { target -> if (!feedPanelCovering) nav.setTab(target) },
+                    onTab = { target ->
+                        if (!feedPanelCovering) {
+                            // 已在「微博」主页时再点主页键 = 回顶刷新（与悬浮刷新钮同一通道）。
+                            if (target == 1 && nav.mainTab == 1) {
+                                App.requestFeedTop(scrollToTop = true)
+                            } else {
+                                nav.setTab(target)
+                            }
+                        }
+                    },
                     fabExpanded = fabExpanded,
                     onExpandToggle = { if (!feedPanelCovering) fabExpanded = !fabExpanded },
                     expandGlow = hasNewFollow,
@@ -1143,6 +1153,7 @@ private fun MainBarUnderlay(
     onMenuOpened: () -> Unit,
     onCenterSelected: (FeedTabSelection) -> Unit,
     onPickNearbyCity: () -> Unit,
+    onOpenSuperTopic: () -> Unit,
     onScrollToTop: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -1264,6 +1275,7 @@ private fun MainBarUnderlay(
                             onCenterSelected(it)
                         },
                         onPickNearbyCity = onPickNearbyCity,
+                        onOpenSuperTopic = onOpenSuperTopic,
                         onSelect = { page -> scope.launch { feedPager.animateScrollToPage(page) } },
                         onFilterClick = { filterMenuExpanded = true },
                         onScrollToTop = onScrollToTop,
@@ -1942,6 +1954,7 @@ private fun FeedTabs(
     onFilterMenuDismiss: () -> Unit,
     onCenterSelected: (FeedTabSelection) -> Unit,
     onPickNearbyCity: () -> Unit,
+    onOpenSuperTopic: () -> Unit,
     onSelect: (Int) -> Unit,
     onFilterClick: () -> Unit,
     onScrollToTop: () -> Unit,
@@ -2072,6 +2085,7 @@ private fun FeedTabs(
                                 onCenterSelected = onCenterSelected,
                                 sideKeys = sideSelectionKeys,
                                 onPickNearbyCity = onPickNearbyCity,
+                                onOpenSuperTopic = onOpenSuperTopic,
                             ).flatMap { it.items }.map { it.toGlassMenuItem() }
                             App.showGlassMenu(centerAnchorBounds, items)
                             onFilterMenuDismiss()
@@ -2093,6 +2107,7 @@ internal fun buildCenterMenuEntries(
     onCenterSelected: (FeedTabSelection) -> Unit,
     sideKeys: Set<String> = emptySet(),
     onPickNearbyCity: () -> Unit = {},
+    onOpenSuperTopic: () -> Unit = {},
 ): List<DropdownEntry> {
     // 左右两格占住的内容从菜单里剔除（中间栏当前项除外，它被选中时仍要能看到勾）。
     val excluded = sideKeys - centerTab.key
@@ -2201,6 +2216,17 @@ internal fun buildCenterMenuEntries(
                 )
             )
         }
+        add(
+            DropdownEntry(
+                items = listOf(
+                    DropdownItem(
+                        text = "超话",
+                        selected = false,
+                        onClick = onOpenSuperTopic,
+                    )
+                )
+            )
+        )
     }
 }
 
@@ -2225,7 +2251,7 @@ fun FloatingBottomBar(
     expandGlow: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
-    // 「微博」单击只切 tab：回顶刷新改由右下悬浮刷新按钮承担，长按发布也已取消。
+    // 「微博」单击切 tab；已在本页时再点 = 回顶刷新（MainShell 的 onTab 接线），长按发布已取消。
     // 「消息」Tab 单击直接切页：通知入口已移到消息页顶部，不再弹二选一菜单。
     BoxWithConstraints(
         modifier

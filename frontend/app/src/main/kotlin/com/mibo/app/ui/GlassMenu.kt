@@ -12,6 +12,13 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.platform.LocalWindowInfo
 import com.mibo.app.App
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.glass.GlassDialog
+import top.yukonga.miuix.kmp.glass.GlassDialogButton
+import top.yukonga.miuix.kmp.glass.GlassDialogButtonRole
 import top.yukonga.miuix.kmp.glass.GlassDropdownPopup
 import top.yukonga.miuix.kmp.glass.GlassPopupDefaults
 import top.yukonga.miuix.kmp.glass.GlassPopupSizing
@@ -91,4 +98,37 @@ private fun GlassMenuRow(item: App.GlassMenuItem, onDrill: (App.GlassMenuItem) -
             }
         },
     )
+}
+
+/** 点赞前确认宿主：整块柔光玻璃对话框（miuix-glass 的 GlassDialog），确认才真正发出点赞。 */
+@Composable
+fun LikeConfirmHost() {
+    val request = App.likeConfirm
+    val status = request?.status
+    GlassDialog(
+        show = request != null,
+        onDismissRequest = { App.resolveLikeConfirm(false) },
+        backdrop = LocalBackdrop.current,
+        title = "确认点赞？",
+        summary = status?.let { s ->
+            val name = s.user?.name?.takeIf { it.isNotBlank() } ?: "该微博"
+            val text = s.plainText.replace('\n', ' ').take(60)
+            if (text.isBlank()) "@$name" else "@$name：$text"
+        },
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            GlassDialogButton(
+                onClick = { App.resolveLikeConfirm(false) },
+                modifier = Modifier.weight(1f),
+            ) { Text("取消") }
+            GlassDialogButton(
+                onClick = { App.resolveLikeConfirm(true) },
+                modifier = Modifier.weight(1f),
+                role = GlassDialogButtonRole.Primary,
+            ) { Text("点赞") }
+        }
+    }
 }

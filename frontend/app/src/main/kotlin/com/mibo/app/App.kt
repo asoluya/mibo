@@ -26,6 +26,7 @@ import com.mibo.app.data.Updater
 import com.mibo.app.data.User
 import com.mibo.app.data.WeiboEmojiBitmaps
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 
 class MiboApplication : Application() {
     override fun onCreate() {
@@ -245,12 +246,39 @@ object App {
         current.onDismissed()
     }
 
+    /** 点赞前确认的挂起请求：根节点的柔光玻璃对话框宿主渲染它，确认/取消后唤醒等待方。 */
+    class LikeConfirmRequest(
+        val status: Status,
+        val deferred: CompletableDeferred<Boolean>,
+    )
+
+    var likeConfirm by mutableStateOf<LikeConfirmRequest?>(null)
+        private set
+
+    fun resolveLikeConfirm(ok: Boolean) {
+        val current = likeConfirm ?: return
+        likeConfirm = null
+        current.deferred.complete(ok)
+    }
+
     /**
      * 统一执行微博点赞/取消赞：防重复点击、成功后同步所有列表状态，失败弹出可读提示。
      */
     suspend fun toggleStatusLike(status: Status): Status? {
         if (status.id.isBlank() || repo.isLikeInFlight(status.id)) return null
         if (repo.isLikeInFlight(status.id)) return null
+        if (!status.liked && settings.likeConfirm && !repo.guest) {
+            // 点赞前先弹柔光玻璃确认（取消赞不确认）；已有确认在等时忽略重复点击。
+            if (likeConfirm != null) return null
+            val deferred = CompletableDeferred<Boolean>()
+            likeConfirm = LikeConfirmRequest(status, deferred)
+            try {
+                if (!deferred.await()) return null
+            } catch (c: CancellationException) {
+                if (likeConfirm?.deferred === deferred) likeConfirm = null
+                throw c
+            }
+        }
         return try {
             repo.like(status.id, status.liked)
             val nextLiked = !status.liked

@@ -220,6 +220,8 @@ class Settings(context: Context) {
 
     /** 前台监测新帖：应用在前台时每 20 秒检测一次关注流，有新微博时刷新按钮发光提醒。默认关。 */
     var monitorNewPosts by mutableStateOf(sp.getBoolean("monitor_new_posts", false))
+
+    var likeConfirm by mutableStateOf(sp.getBoolean("like_confirm", true))
         private set
 
     /** 后台通知总开关：开启后前台服务定时轮询新的赞 / 评论 / @，有新的就发系统通知。默认关。 */
@@ -465,6 +467,11 @@ class Settings(context: Context) {
     fun applyMonitorNewPosts(value: Boolean) {
         monitorNewPosts = value
         sp.edit().putBoolean("monitor_new_posts", value).apply()
+    }
+
+    fun applyLikeConfirm(value: Boolean) {
+        likeConfirm = value
+        sp.edit().putBoolean("like_confirm", value).apply()
     }
 
     /** 后台通知是否也推关注新帖：默认关；开了之后每轮轮询顺带查关注流，有新帖发通知。 */

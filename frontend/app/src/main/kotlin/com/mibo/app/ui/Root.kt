@@ -413,6 +413,7 @@ fun MiboRoot() {
                 CompositionLocalProvider(LocalBackdrop provides if (blur) rootBackdrop else null) {
                     AppToastHost()
                     GlassMenuHost()
+                    LikeConfirmHost()
                     SaveImagesMenu(
                         items = saveTargets,
                         index = saveIndex,

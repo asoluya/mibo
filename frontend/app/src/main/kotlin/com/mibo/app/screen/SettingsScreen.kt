@@ -414,6 +414,13 @@ private fun LazyListScope.feedSettingsItems(
                 summary = "播放实况图时同步播放附带的视频声音",
                 modifier = Modifier.testTag("settings_live_photo_sound"),
             )
+            SwitchPreference(
+                checked = App.settings.likeConfirm,
+                onCheckedChange = { App.settings.applyLikeConfirm(it) },
+                title = "点赞前确认",
+                summary = "点赞时先弹柔光玻璃确认框，防误触",
+                modifier = Modifier.testTag("settings_like_confirm"),
+            )
         }
     }
 }

@@ -543,6 +543,7 @@ object ContainerApi {
         val totalChunks = (bytes.size + plan.chunkBytes - 1) / plan.chunkBytes
         var legacyFid = ""
         var rawFid = ""
+        var lastChunkJson: JSONObject? = null""
         for (index in 0 until totalChunks) {
             val start = index * plan.chunkBytes
             val end = minOf(bytes.size, start + plan.chunkBytes)
@@ -610,9 +611,19 @@ object ContainerApi {
                 }
                 is PicUploadInit.Legacy -> {
                     val picId = resp.json.str("pic_id").ifBlank { resp.json.str("fid") }
+                        .ifBlank { resp.json.str("media_id") }.ifBlank { resp.json.str("file_id") }
                     if (picId.isNotBlank()) legacyFid = picId
+                    lastChunkJson = resp.json
                 }
             }
+        }
+        if (mediaType == "livephoto") {
+            lastChunkJson?.let { ProbeLog.append("upload_chunk_last", it) }
+        }
+        if (plan is PicUploadInit.Legacy && legacyFid.isBlank()) {
+            // The unistore-service branches (livephoto) do not inline the final id in
+            // chunk responses (trial A2, 2026-11-27): finalize with act=check.
+            legacyFid = finalizeLegacyUpload(plan, discovery, uid, gsid, resolvedAid, md5Hex, mediaType)
         }
         val fid = when (plan) {
             is PicUploadInit.Mss -> plan.mediaId
@@ -627,6 +638,43 @@ object ContainerApi {
             mediaId = (plan as? PicUploadInit.Mss)?.mediaId.orEmpty(),
             dmFid = rawFid,
         )
+    }
+
+    /** Legacy-plan finalize: act=check against the session host, then the branch host. */
+    private suspend fun finalizeLegacyUpload(
+        plan: PicUploadInit.Legacy,
+        discovery: PicDiscovery,
+        uid: String,
+        gsid: String,
+        aid: String,
+        md5Hex: String,
+        mediaType: String,
+    ): String {
+        val hosts = listOf(plan.uploadUrl, discovery.uploadUrl).distinct().filter { it.isNotBlank() }
+        for (host in hosts) {
+            val query = buildUploadQueryBase(
+                uid = uid,
+                gsid = gsid,
+                aid = aid,
+                includeGsid = true,
+                includeSource = true,
+            ).apply {
+                put("act", "check")
+                put("filetoken", plan.fileToken)
+                put("filecheck", md5Hex)
+                put("type", mediaType)
+                put("urltag", plan.urlTag)
+            }
+            val resp = runCatching {
+                Api.containerUrlGetShare(host, query, ClientLogin.validatorHeaders(uid))
+            }.getOrNull() ?: continue
+            ClientLogin.recordValidator(resp.xValidator)
+            ProbeLog.append("upload_check type=" + mediaType, resp.json)
+            val id = resp.json.str("pic_id").ifBlank { resp.json.str("fid") }
+                .ifBlank { resp.json.str("media_id") }.ifBlank { resp.json.str("file_id") }
+            if (id.isNotBlank()) return id
+        }
+        return ""
     }
 
     /**
