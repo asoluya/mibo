@@ -41,7 +41,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.mibo.app.App
+import androidx.compose.runtime.LaunchedEffect
 import com.mibo.app.data.WeiboVisibility
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import top.yukonga.miuix.kmp.preference.SwitchPreference
 import com.mibo.app.data.applyComposerReplacement
 import com.mibo.app.data.detectComposerTrigger
 import com.mibo.app.ui.NavState
@@ -84,6 +88,8 @@ fun PublishScreen(nav: NavState, draft: String) {
     var error by remember { mutableStateOf<String?>(null) }
     var emojiOpen by remember { mutableStateOf(false) }
     var visibility by remember { mutableStateOf(WeiboVisibility.Public) }
+    var livePhoto by remember { mutableStateOf(false) }
+    var hasMotion by remember { mutableStateOf(false) }
     var visibilityDialog by remember { mutableStateOf(false) }
 
     val activeTrigger = remember(field.text, field.selection) {
@@ -101,6 +107,23 @@ fun PublishScreen(nav: NavState, draft: String) {
         }
         val nextPos = (start + snippet.length - cursorBack).coerceIn(0, next.length)
         field = TextFieldValue(next, TextRange(nextPos))
+    }
+
+    LaunchedEffect(images) {
+        livePhoto = false
+        hasMotion = false
+        val uri = images.singleOrNull() ?: return@LaunchedEffect
+        hasMotion = withContext(Dispatchers.IO) {
+            runCatching {
+                val head = App.context.contentResolver.openInputStream(uri)?.use { input ->
+                    val buf = ByteArray(256 * 1024)
+                    val n = input.read(buf)
+                    if (n <= 0) ByteArray(0) else buf.copyOf(n)
+                } ?: ByteArray(0)
+                val headText = String(head, Charsets.ISO_8859_1)
+                headText.contains("MotionPhoto") || headText.contains("MicroVideo")
+            }.getOrDefault(false)
+        }
     }
 
     val picker = rememberLauncherForActivityResult(
@@ -141,7 +164,7 @@ fun PublishScreen(nav: NavState, draft: String) {
                                         val ids = ArrayList<String>()
                                         images.forEachIndexed { index, uri ->
                                             progress = "上传图片 ${index + 1}/${images.size}"
-                                            ids.add(App.repo.uploadImage(uri))
+                                            ids.add(App.repo.uploadImage(uri, livephoto = livePhoto))
                                         }
                                         progress = "正在发布…"
                                         App.repo.publish(field.text.trim(), ids, visibility.code)
@@ -242,6 +265,15 @@ fun PublishScreen(nav: NavState, draft: String) {
                     "${field.text.length}",
                     fontSize = 12.sp,
                     color = MiuixTheme.colorScheme.onSurfaceSecondary,
+                )
+            }
+            if (hasMotion) {
+                Spacer(Modifier.height(10.dp))
+                SwitchPreference(
+                    checked = livePhoto,
+                    onCheckedChange = { livePhoto = it },
+                    title = "以实况图发布（实验）",
+                    summary = "上传阶段即按实况类型发送；试发时建议可见范围选「仅自己可见」",
                 )
             }
             if (progress.isNotBlank()) {

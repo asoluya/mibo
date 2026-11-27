@@ -3133,7 +3133,7 @@ class Repo(private val context: Context, private val store: Store) {
         return out.values.take(20)
     }
 
-    suspend fun uploadImage(uri: Uri): String {
+    suspend fun uploadImage(uri: Uri, livephoto: Boolean = false): String {
         val resolver = context.contentResolver
         val bytes = resolver.openInputStream(uri)?.use { it.readBytes() }
             ?: throw ApiException("无法读取图片")
@@ -3147,10 +3147,10 @@ class Repo(private val context: Context, private val store: Store) {
         if (isClientChannel()) {
             val md5Hex = ContainerApi.md5Hex(bytes)
             val uploaded = withContainerAuth { uid, gsid, aid ->
-                ContainerApi.uploadPic(uid, gsid, aid, bytes, name, md5Hex)
+                ContainerApi.uploadPic(uid, gsid, aid, bytes, name, md5Hex, mediaType = if (livephoto) "livephoto" else "pic")
             }
-            // 实况发布曾试过把图片改标 livephoto，服务端会把整个媒体丢弃（帖子无图），
-            // 2026-11-25 实测确认后撤下：一律按普通图片发布，先保住图。
+            // 实况发布：2026-11-25 只改发布标曾被服务端丢弃整个媒体；v1.4 实验改为
+            // 上传 init 即按 livephoto 类型上传（livephoto=true 时），默认 pic 路径不变。
             uploadedContainerMedia[uploaded.fid] = uploaded
             return uploaded.fid
         }

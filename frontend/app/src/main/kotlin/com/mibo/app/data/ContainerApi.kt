@@ -447,6 +447,7 @@ object ContainerApi {
                 "auth_accept" to "video",
             ),
         )
+        ProbeLog.append("multidiscovery", root)
         val info = parsePicDiscovery(root)
         picDiscoveryCache = PicDiscoveryCache(uid = uid, fetchedAtMs = now, info = info)
         return info
@@ -490,6 +491,7 @@ object ContainerApi {
         bytes: ByteArray,
         fileName: String,
         md5Hex: String,
+        mediaType: String = "pic",
     ): UploadedMedia {
         if (bytes.isEmpty()) throw ApiException("图片内容为空")
         val resolvedAid = aid.ifBlank { ClientLogin.ensureAid() }
@@ -502,7 +504,7 @@ object ContainerApi {
             includeGsid = true,
             includeSource = false,
         ).apply {
-            put("type", "pic")
+            put("type", mediaType)
             put("check", md5Hex)
             put("name", fileName)
             put("length", bytes.size.toString())
@@ -510,6 +512,7 @@ object ContainerApi {
         }
         val initResp = Api.containerUrlGetShare(discovery.initUrl, initQuery, ClientLogin.validatorHeaders(uid))
         ClientLogin.recordValidator(initResp.xValidator)
+        ProbeLog.append("upload_init type=" + mediaType, initResp.json)
         val plan = parseUploadInit(initResp.json, discovery.uploadUrl)
 
         val totalChunks = (bytes.size + plan.chunkBytes - 1) / plan.chunkBytes
@@ -559,7 +562,7 @@ object ContainerApi {
                     uploadQuery["filecheck"] = md5Hex
                     uploadQuery["filetoken"] = plan.fileToken
                     uploadQuery["filelength"] = bytes.size.toString()
-                    uploadQuery["type"] = "pic"
+                    uploadQuery["type"] = mediaType
                     uploadQuery["file_source"] = "9"
                     uploadQuery["mediaprops"] = sendProps
                     plan.uploadUrl
@@ -590,8 +593,10 @@ object ContainerApi {
             is PicUploadInit.Mss -> plan.mediaId
             is PicUploadInit.Legacy -> legacyFid.ifBlank { throw ApiException("图片上传失败") }
         }
+        ProbeLog.appendText("upload_result", "type=" + mediaType + " plan=" + plan.javaClass.simpleName + " fid=" + fid)
         return UploadedMedia(
             fid = fid,
+            type = mediaType,
             md5 = md5Hex,
             bypass = discovery.bypass,
             mediaId = (plan as? PicUploadInit.Mss)?.mediaId.orEmpty(),

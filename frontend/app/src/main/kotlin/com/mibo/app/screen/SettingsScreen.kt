@@ -1,5 +1,7 @@
 package com.mibo.app.screen
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.Manifest
 import androidx.compose.runtime.DisposableEffect
@@ -78,6 +80,7 @@ import com.mibo.app.App
 import com.mibo.app.data.Account
 import com.mibo.app.data.FeedTabSelection
 import com.mibo.app.data.FollowGroup
+import com.mibo.app.data.ProbeLog
 import com.mibo.app.data.Updater
 import com.mibo.app.data.feedTabOptions
 import com.mibo.app.ui.AppBarSurface
@@ -508,6 +511,20 @@ private fun LazyListScope.otherSettingsItems(
                 modifier = Modifier.testTag("settings_channel"),
                 summary = "Telegram · MiboWeibo",
                 onClick = { openExternalUrl(context, "https://t.me/MiboWeibo") },
+            )
+            ArrowPreference(
+                title = "实况图实验数据",
+                summary = "复制上传探测日志（multidiscovery / init）",
+                onClick = {
+                    val probeText = ProbeLog.read()
+                    if (probeText.isBlank()) {
+                        state.message = "暂无实验数据：先去发微博上传一张图片，再回来复制"
+                    } else {
+                        val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        cm.setPrimaryClip(ClipData.newPlainText("mibo-livephoto-probe", probeText))
+                        state.message = "实验数据已复制，粘贴到聊天里发给我"
+                    }
+                },
             )
         }
     }
