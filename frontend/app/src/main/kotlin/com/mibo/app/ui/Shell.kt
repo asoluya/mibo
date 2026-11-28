@@ -150,6 +150,7 @@ import com.mibo.app.screen.searchHorizontalPadding
 import com.mibo.app.screen.searchResultsItems
 import com.mibo.app.screen.NearbyCityPickerDialog
 import com.mibo.app.ui.components.Avatar
+import com.mibo.app.ui.components.BackIconButton
 import com.mibo.app.ui.components.LoadingState
 import com.mibo.app.ui.components.ProfileEditDialog
 import com.mibo.app.ui.components.navBottomPadding
@@ -165,7 +166,6 @@ import top.yukonga.miuix.kmp.basic.InputField
 import top.yukonga.miuix.kmp.basic.ListPopupColumn
 import top.yukonga.miuix.kmp.basic.PopupPositionProvider
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TopAppBarDefaults
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
@@ -1047,7 +1047,7 @@ fun MainShell(nav: NavState) {
             )
         }
 
-        // Layer 5: 标题行与展开后的搜索栏（在最顶层，确保搜索胶囊和“取消”按钮不被面板遮挡）。
+        // Layer 5: 标题行与展开后的搜索栏（在最顶层，确保返回圆钮、搜索胶囊和「搜索」钮不被面板遮挡）。
         CompositionLocalProvider(
             LocalBackdrop provides if (blur) {
                 if (tab == 0 && panelMounted) searchBackdrop else backdrop
@@ -1706,6 +1706,8 @@ private fun FeedTitleRow(
                             .align(Alignment.Center),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
+                        BackIconButton(onClick = onSearchCancel)
+                        Spacer(Modifier.width(8.dp))
                         InputField(
                             query = searchQuery,
                             onQueryChange = onSearchQueryChange,
@@ -1767,10 +1769,24 @@ private fun FeedTitleRow(
                             },
                         )
                         Spacer(Modifier.width(8.dp))
-                        TextButton(
-                            text = "取消",
-                            onClick = onSearchCancel,
-                        )
+                        // 右侧胶囊「搜索」钮（muju 同款布局）：与键盘搜索键同一条提交路径。
+                        Box(
+                            Modifier
+                                .height(40.dp)
+                                .clip(RoundedCornerShape(50))
+                                .background(scheme.primary)
+                                .clickable(role = Role.Button) { onSearchSubmit(searchQuery) }
+                                .padding(horizontal = 18.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = "搜索",
+                                color = scheme.onPrimary,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1,
+                            )
+                        }
                     }
                 } else {
                     // 标题、回顶点击区与搜索钮都已去掉（搜索入口移到底栏）：未展开时这一行不渲染任何东西，
