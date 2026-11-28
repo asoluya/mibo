@@ -311,7 +311,8 @@ fun MainShell(nav: NavState) {
         }
     }
     // 前台新微博检测：应用在前台时每隔设定秒数轻查一次关注流第一页，顶部 ID 变了就
-    // 直接走刷新键的同一通道自动刷新（回顶刷新），不再发光提醒。游客没有关注流，不查。
+    // 走关注页专用通道自动刷新（回顶刷新），不再发光提醒；在推荐等其它页时不触发，
+    // 自动刷新只针对关注页。游客没有关注流，不查。
     val lifecycleOwner = LocalLifecycleOwner.current
     var appResumed by remember { mutableStateOf(true) }
     DisposableEffect(lifecycleOwner) {
@@ -333,7 +334,7 @@ fun MainShell(nav: NavState) {
             val topId = friendsStore.items.firstOrNull()?.id ?: continue
             val page = runCatching { App.repo.friends(null, force = true) }.getOrNull() ?: continue
             val newestId = page.items.firstOrNull()?.id ?: continue
-            if (newestId != topId) App.requestFeedTop(scrollToTop = true)
+            if (newestId != topId) App.requestFriendsTop()
         }
     }
     val filterStores = remember {

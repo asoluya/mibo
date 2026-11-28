@@ -692,6 +692,16 @@ fun TimelineScreen(
         }
     }
     LaunchedEffect(Unit) {
+        App.friendsTopEvents.collect {
+            // 自动刷新只针对关注页：当前页正是关注流才回顶刷新，在推荐等页面时直接忽略。
+            val page = pagerState.currentPage
+            val store = currentStores.getOrNull(page) ?: return@collect
+            if (store !== currentFollowStore) return@collect
+            listStates.getOrNull(page)?.glideToTop()
+            store.refresh()
+        }
+    }
+    LaunchedEffect(Unit) {
         App.followEvents.collect { currentFollowStore.refresh() }
     }
     LaunchedEffect(Unit) {

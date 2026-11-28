@@ -169,6 +169,8 @@ object App {
     }
 
     val feedTopEvents = MutableSharedFlow<Boolean>(extraBufferCapacity = 1)
+    /** 监测新帖专用：只有关注页在看时才回顶刷新，其它页（推荐等）不打扰。 */
+    val friendsTopEvents = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val detailRefreshEvents = MutableSharedFlow<String>(extraBufferCapacity = 4)
     val followEvents = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val profileUpdatedEvents = MutableSharedFlow<User>(extraBufferCapacity = 4)
@@ -194,6 +196,10 @@ object App {
 
     fun requestFeedTop(scrollToTop: Boolean = true) {
         feedTopEvents.tryEmit(scrollToTop)
+    }
+
+    fun requestFriendsTop() {
+        friendsTopEvents.tryEmit(Unit)
     }
 
     fun requestDetailRefresh(statusId: String) {
