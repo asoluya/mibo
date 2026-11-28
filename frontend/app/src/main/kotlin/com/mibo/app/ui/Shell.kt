@@ -2009,9 +2009,9 @@ private fun FeedTabs(
     val configuration = LocalConfiguration.current
     val segmentWidthPx = with(density) { ((4 * 14).sp.toDp() + 2.dp + 10.dp + 22.dp).roundToPx() }
     val contourPadPx = with(density) { 5.dp.roundToPx() }
-    // 五格全开时按原公式整排会超出屏幕：总宽封顶为屏宽减两侧各 8dp，格宽等比收窄，
-    // 放不下的文字走省略号。三格及以下永远命中原公式，外观与之前一致。
-    val maxTotalWidthPx = with(density) { (configuration.screenWidthDp.dp - 16.dp).roundToPx() }
+    // 五格全开时按原公式整排会超出屏幕：总宽封顶为屏宽减两侧各 20dp 留白，格宽等比
+    // 收窄，放不下的文字走省略号。三格及以下永远命中原公式，外观与之前一致。
+    val maxTotalWidthPx = with(density) { (configuration.screenWidthDp.dp - 40.dp).roundToPx() }
     val fittedSegmentWidthPx = if (feedTabs.isEmpty()) {
         segmentWidthPx
     } else {
