@@ -3579,7 +3579,7 @@ private fun DirectVideoPlayer(
             )
         }
 
-        // 手势层铺在底部与顶部控件下面：单点暂停/继续播放（控件随之显现，播放时自动隐去），
+        // 手势层铺在底部与顶部控件下面：竖屏单点暂停/继续播放，全屏单点只显隐控件、双击才暂停/继续，
         // 左右拖动联动底部进度条快进/快退，左半上下划调亮度、右半上下划调音量，长按临时 3× 倍速并支持下滑锁定。
         // 直播模式下单点仅切换控件显隐，禁用倍速、进度拖动与暂停。
         Box(
@@ -3681,18 +3681,31 @@ private fun DirectVideoPlayer(
                         onDragCancel = { verticalActive = false },
                     )
                 }
-                .pointerInput(liveMode) {
+                .pointerInput(liveMode, isLandscape) {
                     detectTapGestures(
                         onTap = {
                             when {
                                 speedMenu -> speedMenu = false
                                 qualityMenu -> qualityMenu = false
                                 currentLiveMode -> controlsVisible = !controlsVisible
+                                // 全屏单击只显隐控制条：想收起进度条/顶栏时不会误暂停。
+                                isLandscape -> controlsVisible = !controlsVisible
                                 else -> {
                                     controlsVisible = true
                                     togglePlayPause()
                                 }
                             }
+                        },
+                        // 全屏暂停/继续改走双击（竖屏不设双击，单击立即响应不等待）。
+                        onDoubleTap = if (isLandscape) {
+                            {
+                                if (!currentLiveMode) {
+                                    controlsVisible = true
+                                    togglePlayPause()
+                                }
+                            }
+                        } else {
+                            null
                         },
                         onLongPress = { /* 长按 3× 倍速与锁定解锁由下方 awaitEachGesture 接管 */ },
                     )
