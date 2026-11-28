@@ -3867,8 +3867,10 @@ private fun DirectVideoPlayer(
                             .padding(horizontal = 8.dp, vertical = 3.dp),
                     ) {
                         Text(
+                            // 顶部徽标只显示实际分辨率（如 1920×1080），不带档位名；
+                            // 分辨率还没出来时短暂显示档位名。底部「画质 原画」保持不变。
                             if (videoWidth > 0 && videoHeight > 0) {
-                                "${quality.label} · ${videoWidth}×${videoHeight}"
+                                "${videoWidth}×${videoHeight}"
                             } else {
                                 quality.label
                             },
