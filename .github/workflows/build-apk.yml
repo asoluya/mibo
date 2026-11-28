@@ -53,15 +53,16 @@ jobs:
           echo "build-tools: $BT"
           UNSIGNED="$(ls frontend/app/build/outputs/apk/release/*-unsigned.apk | head -1)"
           echo "unsigned: $UNSIGNED"
+          VERSION=$(grep -oP 'versionName = "\K[^"]+' frontend/app/build.gradle.kts | head -1)
           "${BT}zipalign" -p 4 "$UNSIGNED" /tmp/aligned.apk
-          "${BT}apksigner" sign --ks ~/.android/debug.keystore --ks-pass pass:android --key-pass pass:android --ks-key-alias androiddebugkey --out app-release.apk /tmp/aligned.apk
-          "${BT}apksigner" verify --print-certs app-release.apk
+          "${BT}apksigner" sign --ks ~/.android/debug.keystore --ks-pass pass:android --key-pass pass:android --ks-key-alias androiddebugkey --out "Mibo-v$VERSION.apk" /tmp/aligned.apk
+          "${BT}apksigner" verify --print-certs "Mibo-v$VERSION.apk"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: mibo-release-apk
-          path: app-release.apk
+          path: Mibo-v*.apk
           retention-days: 7
 
       - name: Publish APK to Releases
@@ -72,8 +73,8 @@ jobs:
           VERSION=$(grep -oP 'versionName = "\K[^"]+' frontend/app/build.gradle.kts | head -1)
           awk -v v="v$VERSION" '/^## / { if (f) exit; if ($2 == v) f=1 } f { print }' CHANGELOG.md > /tmp/notes.md
           if [ ! -s /tmp/notes.md ]; then echo "Mibo v$VERSION" > /tmp/notes.md; fi
-          gh release create "v$VERSION" app-release.apk \
+          gh release create "v$VERSION" "Mibo-v$VERSION.apk" \
             --title "Mibo v$VERSION" \
             --notes-file /tmp/notes.md \
-          || { gh release upload "v$VERSION" app-release.apk --clobber \
+          || { gh release upload "v$VERSION" "Mibo-v$VERSION.apk" --clobber \
             && gh release edit "v$VERSION" --notes-file /tmp/notes.md; }
