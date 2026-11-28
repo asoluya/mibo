@@ -1089,6 +1089,66 @@ class Repo(private val context: Context, private val store: Store) {
         return containerExt
     }
 
+    /**
+     * 按需补拉一条长微博的全文 HTML。列表预取只覆盖根博与第一层转发，转发链深处、
+     * 桌面/访客通道拿到的截断版靠它兜底：先走 extend 三级通道，还拿不到就用
+     * statuses/show（isGetLongText=1 会把全文内联回 longText），最后试移动端 show。
+     * 拉不到返回 null，调用方保持截断版展示。
+     */
+    suspend fun loadLongTextHtml(status: Status): String? {
+        val id = status.id
+        if (id.isBlank()) return null
+        var payload: JSONObject? = null
+        var content = ""
+        val ext = fetchLongTextExtend(id, status.mid)
+        if (ext != null) {
+            content = extractExtendLongContent(ext)
+            if (content.isNotBlank()) payload = ext.optJSONObject("data") ?: ext
+        }
+        if (content.isBlank()) {
+            val show = try {
+                if (isClientChannel()) {
+                    containerGet("statuses/show", mapOf("id" to id, "isGetLongText" to "1"))
+                } else {
+                    null
+                }
+            } catch (e: Throwable) {
+                if (e is CancellationException) throw e
+                null
+            }
+            val showData = show?.optJSONObject("data") ?: show
+            val showContent = showData?.optJSONObject("longText")?.str("longTextContent").orEmpty()
+            if (showContent.isNotBlank()) {
+                content = showContent
+                payload = showData
+            }
+        }
+        if (content.isBlank() && !cookie().isNullOrBlank()) {
+            val mobile = try {
+                get(Api.url("https://m.weibo.cn/statuses/show", mapOf("id" to id)), cookie(), true)
+            } catch (e: Throwable) {
+                if (e is CancellationException) throw e
+                null
+            }
+            val data = mobile?.optJSONObject("data")
+            val mobileContent = data?.optJSONObject("longText")?.str("longTextContent").orEmpty()
+            if (mobileContent.isNotBlank()) {
+                content = mobileContent
+                payload = data
+            }
+        }
+        if (content.isBlank()) return null
+        if (longTextCache[id] == null) {
+            if (longTextCache.size > 200) longTextCache.clear()
+            longTextCache[id] = JSONObject().put("longTextContent", content)
+        }
+        val urlStruct = payload?.optJSONArray("url_struct")
+            ?: payload?.optJSONObject("longText")?.optJSONArray("url_struct")
+        val topicStruct = payload?.optJSONArray("topic_struct")
+            ?: payload?.optJSONObject("longText")?.optJSONArray("topic_struct")
+        return enrichSuperTopicLinks(formatContainerTextToHtml(content, urlStruct, topicStruct), urlStruct)
+    }
+
     private suspend fun enrichContainerLongTextObjects(roots: List<JSONObject>) {
         if (!isClientChannel() || roots.isEmpty()) return
         val candidates = ArrayList<Pair<String, JSONObject>>()
@@ -1165,13 +1225,29 @@ class Repo(private val context: Context, private val store: Store) {
         val arr = root.optJSONArray("statuses") ?: JSONArray()
         enrichContainerLongTextArray(arr)
         val rawItems = statusesOf(arr)
-        val items = if (boundaryId.isNullOrBlank()) rawItems else rawItems.filter { it.id != boundaryId }
+        val pageItems = if (boundaryId.isNullOrBlank()) rawItems else rawItems.filter { it.id != boundaryId }
+        val items = dropUnfollowedInsertions(pageItems)
         val cursor = root.str("next_cursor_str")
             .ifBlank { root.str("next_cursor") }
             .ifBlank { root.str("max_id") }
             .takeIf { it.isNotBlank() && it != "0" && it != boundaryId }
             ?: items.lastOrNull()?.id?.takeIf { items.size >= 5 }
         return FeedPage(items, cursor)
+    }
+
+    /**
+     * 关注类时间线（关注/好友圈/特别关注/分组）里混进的未关注博主投放：这类流的作者
+     * 本应全是已关注的人，作者明确未关注的整条丢掉——广告和推荐投放都走这条路进来，
+     * 光靠 mark/promotion 标记总有漏网的形态。保险：本页没有任何一条标了
+     * following=true，说明这批数据没带关注字段，整页不过滤；自己的博永远保留。
+     */
+    private fun dropUnfollowedInsertions(items: List<Status>): List<Status> {
+        if (items.none { it.user?.following == true }) return items
+        val myUid = session?.uid.orEmpty()
+        return items.filter { s ->
+            val u = s.user ?: return@filter true
+            u.following || u.id == myUid
+        }
     }
 
     suspend fun container(
@@ -1233,7 +1309,8 @@ class Repo(private val context: Context, private val store: Store) {
             val root = containerGet("statuses/friends/timeline", params)
             return parseContainerStatusPage(root, maxId)
         }
-        return statusFeed("https://m.weibo.cn/feed/friends", maxId, force)
+        val page = statusFeed("https://m.weibo.cn/feed/friends", maxId, force)
+        return page.copy(items = dropUnfollowedInsertions(page.items))
     }
 
     /** The "好友圈" feed: 客户端登录走 `groups/timeline`（`10009<uid>`），网页登录走 `/feed/circle`。 */
@@ -1248,7 +1325,8 @@ class Repo(private val context: Context, private val store: Store) {
             val root = containerGet("groups/timeline", params)
             return parseContainerStatusPage(root, maxId)
         }
-        return statusFeed("https://m.weibo.cn/feed/circle", maxId, force)
+        val page = statusFeed("https://m.weibo.cn/feed/circle", maxId, force)
+        return page.copy(items = dropUnfollowedInsertions(page.items))
     }
 
     /**

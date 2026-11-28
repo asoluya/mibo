@@ -1148,15 +1148,45 @@ private fun FoldableWeiboText(
     lineHeight: TextUnit,
 ) {
     val folded = status.foldedTextHtml
-    val canFold = fold && !folded.isNullOrBlank() && folded != status.textHtml
+    val hasFolded = !folded.isNullOrBlank() && folded != status.textHtml
     var expanded by remember(status.id) { mutableStateOf(false) }
+    var fullHtml by remember(status.id) { mutableStateOf<String?>(null) }
+    var loading by remember(status.id) { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    // 全文没随列表到手的长文（多见于转发链里的原博）：textHtml 只是截断版，
+    // 展开时按需补拉全文，拉到才算展开；拉不到保持原样并提示。
+    val pending = status.longTextPending && fullHtml == null
+    val canFold = fold && (hasFolded || pending)
     val folding = canFold && !expanded
+    // 详情页不折叠，但待补的全文也要自动拉齐，不能停在截断版。
+    LaunchedEffect(status.id, fold, pending) {
+        if (!fold && pending && !loading) {
+            loading = true
+            fullHtml = App.repo.loadLongTextHtml(status)
+            loading = false
+        }
+    }
     WeiboText(
-        html = if (folding) folded!! else status.textHtml,
+        html = fullHtml ?: if (folding) (if (hasFolded) folded!! else status.textHtml) else status.textHtml,
         fontSize = fontSize,
         lineHeight = lineHeight,
-        expandLabel = if (folding) "展开全文" else null,
-        onExpand = if (folding) ({ expanded = true }) else null,
+        expandLabel = when {
+            !folding -> null
+            loading -> "加载中…"
+            else -> "展开全文"
+        },
+        onExpand = if (folding && !loading) ({
+            if (pending) {
+                loading = true
+                scope.launch {
+                    fullHtml = App.repo.loadLongTextHtml(status)
+                    loading = false
+                    if (fullHtml != null) expanded = true else App.toast("全文加载失败，请重试")
+                }
+            } else {
+                expanded = true
+            }
+        }) else null,
     )
 }
 

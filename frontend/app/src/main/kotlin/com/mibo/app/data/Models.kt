@@ -723,6 +723,11 @@ data class Status(
      * 只有拿得到全文时才有值；拿不到时 [textHtml] 本身就是服务端截断过的版本。
      */
     val foldedTextHtml: String? = null,
+    /**
+     * 服务端标了长文但全文没到手：此时 [textHtml] 只是服务端截断版。
+     * 多见于转发链里的原博——列表预取只覆盖根与第一层，展开时要按需补拉全文。
+     */
+    val longTextPending: Boolean = false,
 ) {
     val plainText: String get() = stripHtml(textHtml)
 
@@ -937,6 +942,7 @@ data class Status(
                 visibility = parseStatusVisibility(o),
                 isLongText = longTextFlag || foldedHtml != null,
                 foldedTextHtml = foldedHtml,
+                longTextPending = longTextFlag && longContent == null,
             )
         }
     }
@@ -1423,7 +1429,7 @@ private fun stripServerTruncationMarker(html: String): String {
     return withoutExpand.trimEnd { it == '\u200b' || it == '.' || it == '…' || it.isWhitespace() }
 }
 
-private fun enrichSuperTopicLinks(textHtml: String, urlStruct: JSONArray?): String {
+internal fun enrichSuperTopicLinks(textHtml: String, urlStruct: JSONArray?): String {
     if (textHtml.isBlank() || urlStruct == null || urlStruct.length() == 0) return textHtml
     var out = textHtml
     for (i in 0 until urlStruct.length()) {
@@ -2267,7 +2273,9 @@ fun formatWeiboTime(raw: String?): String {
  */
 internal fun JSONObject.isPromotedStatus(): Boolean {
     val mark = optString("mark")
-    return mark.contains("reallog_mark_ad") || mark.contains("WeiboAD")
+    if (mark.contains("reallog_mark_ad") || mark.contains("WeiboAD")) return true
+    // 另一批投放不带 mark，只挂 promotion 对象；正常博（包括博主自己发的商业博）没这个字段。
+    return optJSONObject("promotion") != null
 }
 
 /** `statuses` 数组 → 微博列表，顺手丢掉推广博。时间线和分组流共用。 */
