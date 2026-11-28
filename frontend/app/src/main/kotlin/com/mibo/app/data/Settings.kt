@@ -491,6 +491,16 @@ class Settings(context: Context) {
         sp.edit().putBoolean("monitor_new_posts", value).apply()
     }
 
+    /** 监测新帖的检测间隔（秒）：前台时每隔该秒数轻查一次关注流，默认 20。 */
+    var monitorIntervalSeconds by mutableStateOf(sp.getInt("monitor_interval_seconds", 20))
+        private set
+
+    fun applyMonitorIntervalSeconds(value: Int) {
+        val coerced = value.coerceIn(5, 3600)
+        monitorIntervalSeconds = coerced
+        sp.edit().putInt("monitor_interval_seconds", coerced).apply()
+    }
+
     fun applyLikeConfirm(value: Boolean) {
         likeConfirm = value
         sp.edit().putBoolean("like_confirm", value).apply()

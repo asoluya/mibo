@@ -310,8 +310,8 @@ fun MainShell(nav: NavState) {
             App.repo.friends(cursor, force)
         }
     }
-    // 前台新微博检测：应用在前台时每 20 秒轻查一次关注流第一页，顶部 ID 变了就直接
-    // 走刷新键的同一通道自动刷新（回顶刷新），不再发光提醒。游客没有关注流，不查。
+    // 前台新微博检测：应用在前台时每隔设定秒数轻查一次关注流第一页，顶部 ID 变了就
+    // 直接走刷新键的同一通道自动刷新（回顶刷新），不再发光提醒。游客没有关注流，不查。
     val lifecycleOwner = LocalLifecycleOwner.current
     var appResumed by remember { mutableStateOf(true) }
     DisposableEffect(lifecycleOwner) {
@@ -322,12 +322,13 @@ fun MainShell(nav: NavState) {
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
-    LaunchedEffect(appResumed, guest, App.settings.monitorNewPosts) {
+    LaunchedEffect(appResumed, guest, App.settings.monitorNewPosts, App.settings.monitorIntervalSeconds) {
         if (!appResumed || guest || !App.settings.monitorNewPosts) {
             return@LaunchedEffect
         }
+        val intervalSeconds = App.settings.monitorIntervalSeconds
         while (true) {
-            delay(20_000)
+            delay(intervalSeconds * 1_000L)
             if (!friendsStore.loaded || friendsStore.refreshing || friendsStore.loading) continue
             val topId = friendsStore.items.firstOrNull()?.id ?: continue
             val page = runCatching { App.repo.friends(null, force = true) }.getOrNull() ?: continue

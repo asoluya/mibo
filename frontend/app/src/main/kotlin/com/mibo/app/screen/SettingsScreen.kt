@@ -399,9 +399,48 @@ private fun LazyListScope.feedSettingsItems(
                 checked = App.settings.monitorNewPosts,
                 onCheckedChange = { App.settings.applyMonitorNewPosts(it) },
                 title = "监测新帖",
-                summary = "前台时每 20 秒检测关注流，有新微博时自动刷新",
+                summary = "前台时按下方间隔检测关注流，有新微博时自动刷新",
                 modifier = Modifier.testTag("settings_monitor_new_posts"),
             )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 16.dp, top = 2.dp, bottom = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("监测间隔")
+                    Text(
+                        "监测新帖的检测间隔，单位秒（5–3600），默认 20",
+                        fontSize = 13.sp,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    )
+                }
+                var monitorIntervalText by remember {
+                    mutableStateOf(App.settings.monitorIntervalSeconds.toString())
+                }
+                TextField(
+                    value = monitorIntervalText,
+                    onValueChange = { input ->
+                        monitorIntervalText = input.filter { it.isDigit() }.take(5)
+                    },
+                    modifier = Modifier
+                        .width(96.dp)
+                        .onFocusChanged { focus ->
+                            if (!focus.isFocused) {
+                                monitorIntervalText.trim().toIntOrNull()?.let {
+                                    App.settings.applyMonitorIntervalSeconds(it)
+                                }
+                                monitorIntervalText = App.settings.monitorIntervalSeconds.toString()
+                            }
+                        }
+                        .testTag("settings_monitor_interval_seconds"),
+                    label = "秒",
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    maxLines = 1,
+                    minLines = 1,
+                )
+            }
             SwitchPreference(
                 checked = App.settings.livePhotoAutoPlay,
                 onCheckedChange = { App.settings.applyLivePhotoAutoPlay(it) },
