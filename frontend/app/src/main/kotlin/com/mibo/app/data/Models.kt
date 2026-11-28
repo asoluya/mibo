@@ -435,6 +435,7 @@ internal fun extractVideoInfo(page: JSONObject, fallbackPics: List<Pic> = emptyL
         if (liveIsReplay) {
             media?.str("replay_hd").orEmpty()
                 .ifBlank { media?.str("replay_ld").orEmpty() }
+                .ifBlank { bestPlaybackUrl(media?.optJSONArray("playback_list")) }
                 .ifBlank { firstPlaybackUrl(media?.optJSONArray("playback_list")) }
                 .ifBlank { media?.str("stream_url_hd").orEmpty() }
                 .ifBlank { media?.str("stream_url").orEmpty() }
@@ -442,12 +443,15 @@ internal fun extractVideoInfo(page: JSONObject, fallbackPics: List<Pic> = emptyL
             ""
         }
     } else {
-        media?.str("stream_url_hd")
-            ?.ifBlank { media.str("stream_url") }
-            ?.ifBlank { media.str("mp4_720p_mp4") }
-            ?.ifBlank { media.str("mp4_hd_url") }
-            ?.ifBlank { media.str("mp4_sd_url") }
-            .orEmpty()
+        // 原画 = 最清晰档：先从 playback_list 按画质打分挑最佳（原画/超清在这一层），
+        // 拿不到才回落到 stream_url_hd 等老链——老链的 hd/720p 字段常常只是 720p 转码，
+        // 放在前面会把更高清的档位短路掉（用户实测「原画不够清晰」的根因）。
+        bestPlaybackUrl(media?.optJSONArray("playback_list"))
+            .ifBlank { media?.str("stream_url_hd").orEmpty() }
+            .ifBlank { media?.str("stream_url").orEmpty() }
+            .ifBlank { media?.str("mp4_720p_mp4").orEmpty() }
+            .ifBlank { media?.str("mp4_hd_url").orEmpty() }
+            .ifBlank { media?.str("mp4_sd_url").orEmpty() }
             .ifBlank { firstPlaybackUrl(media?.optJSONArray("playback_list")) }
             .ifBlank { urlsObj?.str("mp4_720p_mp4").orEmpty() }
             .ifBlank { urlsObj?.str("mp4_hd_mp4").orEmpty() }
@@ -1679,6 +1683,53 @@ private fun videoCoverUrl(page: JSONObject, media: JSONObject?, pics: List<Pic>)
         .ifBlank { pics.firstOrNull()?.thumb.orEmpty() }
         .trim()
     return normalizeWeiboMediaUrl(raw)
+}
+
+/**
+ * 原画档专用：从 playback_list 里按画质打分挑最清晰的一条 mp4。
+ * 打分与 VideoSupport 的 playinfo 挑选一致：标签（原画 > 超清/1080 > 高清/720 >
+ * 标清/480 > 流畅/360）优先，其次像素面积，再次码率；字段在条目、meta、play_info
+ * 三层都找。无任何信号时同分不替换，保持靠前条目优先。
+ */
+private fun bestPlaybackUrl(arr: JSONArray?): String {
+    if (arr == null) return ""
+    var bestUrl = ""
+    var bestScore = Long.MIN_VALUE
+    for (i in 0 until arr.length()) {
+        val item = arr.optJSONObject(i) ?: continue
+        val play = item.optJSONObject("play_info") ?: continue
+        val url = play.str("url")
+        if (url.isBlank()) continue
+        val mime = play.str("mime")
+        val isMp4 = mime.contains("mp4", ignoreCase = true) || url.contains(".mp4", ignoreCase = true)
+        if (!isMp4) continue
+        val meta = item.optJSONObject("meta")
+        fun strField(key: String): String =
+            item.optString(key).ifBlank { meta?.optString(key).orEmpty() }.ifBlank { play.optString(key) }
+        fun intField(key: String): Int =
+            item.optInt(key).takeIf { it > 0 }
+                ?: meta?.optInt(key)?.takeIf { it > 0 }
+                ?: play.optInt(key).takeIf { it > 0 }
+                ?: 0
+        val label = listOf("label", "quality_label", "quality", "name")
+            .firstNotNullOfOrNull { strField(it).takeIf { s -> s.isNotBlank() } }.orEmpty()
+        val labelScore = when {
+            label.contains("原画") -> 500L
+            label.contains("超清") || label.contains("1080") -> 400L
+            label.contains("高清") || label.contains("720") -> 300L
+            label.contains("标清") || label.contains("480") -> 200L
+            label.contains("流畅") || label.contains("360") -> 100L
+            else -> 0L
+        }
+        val area = intField("width").toLong() * intField("height").toLong()
+        val bitrate = maxOf(intField("bitrate"), intField("br"), intField("bps")).toLong()
+        val score = labelScore * 1_000_000_000_000L + area * 1_000L + bitrate
+        if (score > bestScore) {
+            bestScore = score
+            bestUrl = url
+        }
+    }
+    return bestUrl
 }
 
 private fun firstPlaybackUrl(arr: JSONArray?): String {
