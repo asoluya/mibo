@@ -576,10 +576,10 @@ private fun LazyListScope.otherSettingsItems(
                 onClick = { nav.push(Route.About) },
             )
             ArrowPreference(
-                title = "频道",
-                modifier = Modifier.testTag("settings_channel"),
-                summary = "Telegram · MiboWeibo",
-                onClick = { openExternalUrl(context, "https://t.me/MiboWeibo") },
+                title = "加入群组",
+                modifier = Modifier.testTag("settings_group"),
+                summary = "Telegram 群组",
+                onClick = { openExternalUrl(context, "https://t.me/+ojt_ZyEBfaFjMDI5") },
             )
             if (ProbeLog.ENTRY_VISIBLE) {
                 ArrowPreference(
