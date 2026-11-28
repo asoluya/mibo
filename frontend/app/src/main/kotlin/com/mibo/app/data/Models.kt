@@ -1675,6 +1675,8 @@ data class Comment(
     val textHtml: String,
     val user: User?,
     val createdAt: String,
+    /** 评论者的 IP 属地（如「河北」）；接口没给时为空，界面不显示。 */
+    val location: String = "",
     val likes: Int,
     val liked: Boolean = false,
     /** 评论自带的配图（图片评论），按上传顺序。 */
@@ -1717,6 +1719,7 @@ data class Comment(
                 textHtml = textHtml,
                 user = User.from(o.optJSONObject("user")),
                 createdAt = o.str("created_at"),
+                location = commentLocationOf(o),
                 // The hot list spells it `like_count`, the chronological one `like_counts`.
                 likes = if (o.has("like_count")) o.int("like_count") else o.int("like_counts"),
                 liked = parseCommentLiked(o),
@@ -1729,6 +1732,42 @@ data class Comment(
             )
         }
     }
+}
+
+private val commentLocationProbeFired = java.util.concurrent.atomic.AtomicBoolean(false)
+
+/**
+ * 评论的 IP 属地。各通道字段不一：H5/网页版形态的评论把属地放在 `source` 里
+ * （值形如「来自河北」，不是设备名）；客户端形态可能给 `region_name` / `ip_location`。
+ * `source` 是设备名（「iPhone客户端」之类）时不能当属地用，所以只认「来自<短地名>」形态。
+ * 候选都没命中时落一条一次性探针到实验数据，下次导出就能确认该通道的真实字段。
+ */
+private fun commentLocationOf(o: JSONObject): String {
+    val region = o.str("region_name").ifBlank { o.str("ip_location") }
+    if (region.isNotBlank()) return region.removePrefix("发布于").trim()
+    val source = stripHtml(o.str("source")).trim()
+    if (source.startsWith("来自")) {
+        val place = source.removePrefix("来自").trim()
+        if (place.isNotBlank() && place.length <= 12 &&
+            !place.contains("客户") && !place.contains("网页") && !place.contains("微博")
+        ) {
+            return place
+        }
+    }
+    if (o.has("source") && commentLocationProbeFired.compareAndSet(false, true)) {
+        val keys = ArrayList<String>()
+        val iter = o.keys()
+        while (iter.hasNext()) keys.add(iter.next())
+        ProbeLog.append(
+            "comment_location_probe",
+            JSONObject()
+                .put("keys", JSONArray(keys))
+                .put("source", o.str("source"))
+                .put("region_name", o.str("region_name"))
+                .put("ip_location", o.str("ip_location")),
+        )
+    }
+    return ""
 }
 
 internal fun parseStatusLiked(o: JSONObject): Boolean =

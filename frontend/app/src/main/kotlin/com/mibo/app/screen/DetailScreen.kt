@@ -1096,7 +1096,10 @@ private fun CommentCard(    comment: Comment,
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = formatWeiboTime(comment.createdAt),
+                text = buildString {
+                    append(formatWeiboTime(comment.createdAt))
+                    if (comment.location.isNotBlank()) append(" · ").append(comment.location)
+                },
                 fontSize = 11.sp,
                 color = scheme.onSurfaceSecondary,
                 maxLines = 1,
@@ -1384,7 +1387,10 @@ internal fun ReplyRow(
             Spacer(Modifier.height(bottomGap))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = formatWeiboTime(reply.createdAt),
+                    text = buildString {
+                        append(formatWeiboTime(reply.createdAt))
+                        if (reply.location.isNotBlank()) append(" · ").append(reply.location)
+                    },
                     fontSize = 11.sp,
                     color = scheme.onSurfaceSecondary,
                     maxLines = 1,

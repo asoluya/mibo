@@ -4017,7 +4017,81 @@ class Repo(private val context: Context, private val store: Store) {
         }.getOrNull()
     }
 
-    suspend fun profile(uid: String, force: Boolean = false): User? = profileFor(cookie(), uid, force)
+    suspend fun profile(uid: String, force: Boolean = false): User? {
+        val user = profileFor(cookie(), uid, force)
+        if (uid != session?.uid) runCatching { probeProfileLikeTabs(uid) }
+        return user
+    }
+
+    private val profileLikeProbeFired = java.util.concurrent.atomic.AtomicBoolean(false)
+
+    /**
+     * 一次性探针（为「主页流混入对方赞过的微博」取样）：把对方主页 tabsInfo 的标签容器
+     * 和赞容器第一页的卡片形状落进实验数据——官方那种「她X赞过的微博(N)」是分组
+     * 分隔卡混在流里下发的，得先确认分隔卡的 card_type 和字段才能照着复刻。
+     */
+    suspend fun probeProfileLikeTabs(uid: String) {
+        if (!profileLikeProbeFired.compareAndSet(false, true)) return
+        val root = try {
+            if (isClientChannel()) {
+                containerGet("profile", mapOf("uid" to uid))
+            } else {
+                get(
+                    Api.url("https://m.weibo.cn/api/container/getIndex", mapOf("type" to "uid", "value" to uid)),
+                    cookie(),
+                    false,
+                )
+            }
+        } catch (e: Throwable) {
+            if (e is CancellationException) throw e
+            return
+        }
+        val tabs = root.optJSONObject("data")?.optJSONObject("tabsInfo")?.optJSONArray("tabs")
+            ?: root.optJSONObject("tabsInfo")?.optJSONArray("tabs")
+        val tabDump = JSONArray()
+        if (tabs != null) {
+            for (i in 0 until tabs.length()) {
+                val tab = tabs.optJSONObject(i) ?: continue
+                tabDump.put(
+                    JSONObject()
+                        .put("containerid", tab.str("containerid").ifBlank { tab.str("container_id") })
+                        .put("tabKey", tab.str("tabKey"))
+                        .put("tab_type", tab.str("tab_type"))
+                        .put("title", tab.str("title")),
+                )
+            }
+        }
+        ProbeLog.append("profile_like_tabs", JSONObject().put("uid", uid).put("tabs", tabDump))
+        val cid = extractLikeTabContainerId(root) ?: "230869${uid}_-_mix"
+        val page = try {
+            if (isClientChannel()) {
+                containerGet("profile/statuses", mapOf("containerid" to cid, "count" to "20"))
+            } else {
+                get(Api.url("https://m.weibo.cn/api/container/getIndex", mapOf("containerid" to cid)), cookie(), false)
+            }
+        } catch (e: Throwable) {
+            if (e is CancellationException) throw e
+            null
+        }
+        val cards = page?.optJSONArray("cards") ?: page?.optJSONObject("data")?.optJSONArray("cards")
+        val cardDump = JSONArray()
+        if (cards != null) {
+            for (i in 0 until cards.length()) {
+                val card = cards.optJSONObject(i) ?: continue
+                val mblog = card.optJSONObject("mblog")
+                val entry = JSONObject()
+                    .put("card_type", card.optInt("card_type"))
+                    .put("itemid", card.str("itemid"))
+                if (mblog != null) {
+                    entry.put("mblog_id", mblog.str("idstr").ifBlank { mblog.str("id") })
+                } else {
+                    entry.put("raw", card.toString().take(1200))
+                }
+                cardDump.put(entry)
+            }
+        }
+        ProbeLog.append("profile_like_cards", JSONObject().put("uid", uid).put("cid", cid).put("cards", cardDump))
+    }
 
     // ---- 主页「更多」菜单：关注分组 / 基本资料 / 拉黑 ----
 
