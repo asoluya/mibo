@@ -19,7 +19,6 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -33,6 +32,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.runtime.Composable
@@ -40,7 +40,6 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -51,7 +50,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
@@ -96,7 +94,6 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.basic.Close
 import top.yukonga.miuix.kmp.icon.extended.Delete
-import top.yukonga.miuix.kmp.icon.extended.ExpandMore
 import top.yukonga.miuix.kmp.icon.extended.Search
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import kotlinx.coroutines.delay
@@ -438,12 +435,11 @@ private val SearchInEase = CubicBezierEasing(0.42f, 0f, 1f, 1f)
 private data class SearchHistoryColors(
     val titleColor: Color,
     val deleteIconColor: Color,
-    val expandIconColor: Color,
 )
 
 /**
  * 搜索历史区的尺寸/颜色常量（替代 COUI 的 SearchHistoryViewDefaults，Miuix 无对应件）。
- * 数值按原组件的视觉规格近似：标题 16sp Medium、chip 高 32dp、折叠 2 行/展开 6 行。
+ * 数值按原组件的视觉规格近似：标题 16sp Medium、chip 高 32dp、单行横滑。
  */
 private object SearchHistoryDefaults {
     val TitleMarginVertical = 8.dp
@@ -453,12 +449,7 @@ private object SearchHistoryDefaults {
     val DeleteIconEndMargin = 4.dp
     val FlowMarginTop = 6.dp
     val FlowItemSpacing = 8.dp
-    val FlowLineSpacing = 8.dp
-    val ExpandButtonSize = 28.dp
-    val ExpandIconSize = 18.dp
     val ChipHeight = 32.dp
-    const val MaxRowFolded = 2
-    const val MaxRowUnfolded = 6
 
     fun titleTextStyle(): TextStyle = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Medium)
 
@@ -466,7 +457,6 @@ private object SearchHistoryDefaults {
     fun colors(): SearchHistoryColors = SearchHistoryColors(
         titleColor = MiuixTheme.colorScheme.onSurface,
         deleteIconColor = MiuixTheme.colorScheme.onSurfaceSecondary,
-        expandIconColor = MiuixTheme.colorScheme.onSurfaceSecondary,
     )
 }
 
@@ -500,17 +490,11 @@ fun MiboSearchHistoryPanel(
     onDeleteAllClick: () -> Unit,
     title: String,
     deleteIconDescription: String,
-    expandable: Boolean = true,
-    maxRowFolded: Int = SearchHistoryDefaults.MaxRowFolded,
-    maxRowUnfolded: Int = SearchHistoryDefaults.MaxRowUnfolded,
 ) {
     val scope = rememberCoroutineScope()
     val viewAlpha = remember { Animatable(1f) }
     var clearingAll by remember { mutableStateOf(false) }
-    var expanded by remember { mutableStateOf(false) }
     val colors = SearchHistoryDefaults.colors()
-    val canExpand = expandable && maxRowFolded < maxRowUnfolded
-    val maxRows = if (canExpand && expanded) maxRowUnfolded else maxRowFolded
     val anyEditing = editingItem != null
 
     LaunchedEffect(items.isEmpty()) {
@@ -525,16 +509,17 @@ fun MiboSearchHistoryPanel(
         modifier = Modifier
             .graphicsLayer { alpha = viewAlpha.value }
             .padding(
-                start = horizontalPadding,
                 top = SearchHistoryDefaults.PaddingTop,
-                end = horizontalPadding,
                 bottom = SearchHistoryDefaults.PaddingBottom,
             ),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = SearchHistoryDefaults.TitleMarginVertical),
+                .padding(
+                    horizontal = horizontalPadding,
+                    vertical = SearchHistoryDefaults.TitleMarginVertical,
+                ),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
@@ -570,49 +555,24 @@ fun MiboSearchHistoryPanel(
             }
         }
 
-        FlowRow(
+        // 单行横滑（同 muju 搜索历史）：不再多行折叠，也没有展开/收起钮。
+        LazyRow(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = SearchHistoryDefaults.FlowMarginTop),
             horizontalArrangement = Arrangement.spacedBy(SearchHistoryDefaults.FlowItemSpacing),
-            verticalArrangement = Arrangement.spacedBy(SearchHistoryDefaults.FlowLineSpacing),
-            maxLines = maxRows,
+            contentPadding = PaddingValues(horizontal = horizontalPadding),
         ) {
-            items.forEach { item ->
-                key(item) {
-                    SearchHistoryChip(
-                        item = item,
-                        isEditing = editingItem == item,
-                        anyEditing = anyEditing,
-                        onClick = { onItemClick(item) },
-                        onStartEditing = { onStartEditing(item) },
-                        onCancelEditing = onCancelEditing,
-                        onCommitRemove = { onRemoveItem(item) },
-                    )
-                }
-            }
-        }
-
-        if (canExpand) {
-            Box(
-                modifier = Modifier.fillMaxWidth(),
-                contentAlignment = Alignment.Center,
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(SearchHistoryDefaults.ExpandButtonSize)
-                        .clickable { expanded = !expanded },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        imageVector = MiuixIcons.ExpandMore,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .size(SearchHistoryDefaults.ExpandIconSize)
-                            .rotate(if (expanded) 180f else 0f),
-                        tint = colors.expandIconColor,
-                    )
-                }
+            items(items, key = { it }) { item ->
+                SearchHistoryChip(
+                    item = item,
+                    isEditing = editingItem == item,
+                    anyEditing = anyEditing,
+                    onClick = { onItemClick(item) },
+                    onStartEditing = { onStartEditing(item) },
+                    onCancelEditing = onCancelEditing,
+                    onCommitRemove = { onRemoveItem(item) },
+                )
             }
         }
     }
