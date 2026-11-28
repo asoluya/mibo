@@ -4691,6 +4691,70 @@ class Repo(private val context: Context, private val store: Store) {
     }
 
     /**
+     * 主页内搜索：网页端 `ajax/statuses/searchProfile` 按关键词搜某个人的微博，按页码翻页。
+     *
+     * 这个接口只认网页登录 cookie（要有 `SUB`）加 `X-XSRF-TOKEN`：客户端登录先试着用 gsid
+     * 换一份网页会话（[ensureClientSession]），访客 / 换不到时退到能拿到的最佳 cookie 硬发，
+     * 结果里带 [ProfileSearchResult.cookieLimited] 让页面提示可能不完整。
+     * 响应结构（`data.total` + `data.list`，ajax 格式）未经真机验证，每次请求都记一条
+     * `profile_search` 探针，出问题先看日志里的首条 key 集合再改解析。
+     */
+    suspend fun searchProfileStatuses(uid: String, query: String, page: Int): ProfileSearchResult {
+        val current = page.coerceAtLeast(1)
+        if (session?.let { !it.loggedIn && it.loginType == LOGIN_TYPE_CLIENT && it.gsid.isNotBlank() } == true) {
+            ensureClientSession()
+        }
+        val cookie = runCatching { desktopCookie() }.getOrNull()
+            ?: desktopCookieOrNull().orEmpty()
+        val limited = !cookie.contains("SUB=")
+        val url = Api.url(
+            "https://weibo.com/ajax/statuses/searchProfile",
+            linkedMapOf(
+                "uid" to uid,
+                "q" to query,
+                "page" to current.toString(),
+                "count" to "20",
+            ),
+        )
+        fun log(extra: String) {
+            ProbeLog.appendText(
+                "profile_search",
+                "uid=$uid q=${query.take(20)} page=$current limited=$limited $extra",
+            )
+        }
+        val root = try {
+            val json = Api.getDesktopSt(url, cookie, desktopXsrf(), referer = "https://weibo.com/u/$uid")
+            log("http=200")
+            json
+        } catch (e: ApiHttpException) {
+            log("http=${e.code}")
+            throw e
+        }
+        val data = root.optJSONObject("data")
+        if (data == null) {
+            val msg = root.str("msg").ifBlank { root.str("error") }
+            log("no_data msg=${msg.take(80)}")
+            if (msg.isNotBlank()) throw ApiException(msg)
+            return ProfileSearchResult(emptyList(), 0, limited)
+        }
+        val list = data.optJSONArray("list")
+        val firstKeys = list?.optJSONObject(0)?.let { first ->
+            val keys = ArrayList<String>()
+            val iter = first.keys()
+            while (iter.hasNext()) keys.add(iter.next())
+            keys.joinToString(",")
+        }.orEmpty()
+        log("total=${data.optInt("total")} list=${list?.length() ?: 0} firstKeys=$firstKeys")
+        val items = try {
+            if (list == null) emptyList() else statusesOf(list)
+        } catch (t: Throwable) {
+            ProbeLog.appendText("profile_search", "parse_error=${t.message}")
+            throw ApiException("搜索结果解析失败")
+        }
+        return ProfileSearchResult(items, data.optInt("total"), limited)
+    }
+
+    /**
      * 关注 / 粉丝列表。自己的列表走 `selffollowed` / `selffans`（别人那套容器对自己的
      * 账号不完整），别人的走 `231051`；关注按页码翻，粉丝按已拉取的条数偏移翻。
      */

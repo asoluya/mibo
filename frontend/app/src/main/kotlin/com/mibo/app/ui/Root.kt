@@ -87,6 +87,7 @@ import com.mibo.app.screen.BlockedAuthorsScreen
 import com.mibo.app.screen.NotifySettingsScreen
 import com.mibo.app.screen.BarPositionScreen
 import com.mibo.app.screen.ProfileScreen
+import com.mibo.app.screen.ProfileSearchScreen
 import com.mibo.app.screen.PublishScreen
 import com.mibo.app.screen.RelationsScreen
 import com.mibo.app.screen.SettingsGroupScreen
@@ -783,6 +784,7 @@ private fun RouteContent(route: Route, nav: NavState) {
         is Route.Detail -> DetailScreen(nav, route.id, route.mid, route.readOnly || App.repo.guest)
         is Route.EditHistory -> EditHistoryScreen(nav, route.mid)
         is Route.Profile -> ProfileScreen(nav, route.uid)
+        is Route.ProfileSearch -> ProfileSearchScreen(nav, route.uid)
         is Route.Relations -> RelationsScreen(nav, route.uid, route.kind)
         is Route.Publish -> PublishScreen(nav, route.draft)
         is Route.Chat -> ChatScreen(nav, route.uid, route.name, route.gid)

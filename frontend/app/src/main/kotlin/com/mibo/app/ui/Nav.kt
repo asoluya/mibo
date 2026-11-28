@@ -249,6 +249,7 @@ sealed interface Route {
     data class Detail(val id: String, val mid: String, val readOnly: Boolean = false) : Route
     data class EditHistory(val mid: String) : Route
     data class Profile(val uid: String?) : Route
+    data class ProfileSearch(val uid: String) : Route
     data class Relations(val uid: String, val kind: RelationKind) : Route
     data class Publish(val draft: String = "") : Route
     data class Chat(val uid: String = "", val name: String, val gid: String = "") : Route

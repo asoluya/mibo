@@ -144,6 +144,31 @@ object Api {
             execute(request)
         }
 
+    /**
+     * 桌面端带 XSRF 令牌的读请求：`weibo.com/ajax/...` 里有一批接口（如主页内搜索
+     * `ajax/statuses/searchProfile`）没令牌就直接拒，口径与 [postDesktopJson] 对齐，只是改成 GET。
+     */
+    suspend fun getDesktopSt(
+        url: String,
+        cookie: String?,
+        xsrfToken: String?,
+        referer: String = "https://weibo.com/",
+    ): JSONObject = withContext(Dispatchers.IO) {
+        val request = Request.Builder()
+            .url(url)
+            .header("User-Agent", DESKTOP_UA)
+            .header("Accept", "application/json, text/plain, */*")
+            .header("Referer", referer)
+            .header("X-Requested-With", "XMLHttpRequest")
+            .apply {
+                if (!cookie.isNullOrBlank()) header("Cookie", cookie)
+                if (!xsrfToken.isNullOrBlank()) header("X-XSRF-TOKEN", xsrfToken)
+            }
+            .get()
+            .build()
+        execute(request)
+    }
+
     suspend fun postDesktopJson(
         url: String,
         jsonBody: String,

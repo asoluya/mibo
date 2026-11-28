@@ -2116,6 +2116,17 @@ data class FeedPage(
     val featuredUsers: List<SearchFeaturedUser> = emptyList(),
 )
 
+/**
+ * 主页内搜索（`ajax/statuses/searchProfile`）一页的结果。
+ * [cookieLimited] 表示这次没能用上带 `SUB` 的网页登录 cookie（访客或客户端登录换不到），
+ * 结果可能不完整，页面据此给一行提示。
+ */
+data class ProfileSearchResult(
+    val items: List<Status>,
+    val total: Int,
+    val cookieLimited: Boolean,
+)
+
 /** How the detail page orders its comments: the hot list, or every comment in time order. */
 enum class CommentSort { Hot, Time }
 

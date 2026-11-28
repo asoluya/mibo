@@ -153,9 +153,15 @@ import top.yukonga.miuix.kmp.basic.VerticalDivider
 import top.yukonga.miuix.kmp.basic.TopAppBarDefaults
 import top.yukonga.miuix.kmp.basic.rememberPullToRefreshState
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
+import top.yukonga.miuix.kmp.glass.glassPanel
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Ok
+import top.yukonga.miuix.kmp.icon.extended.Search
 import top.yukonga.miuix.kmp.icon.extended.Undo
+import top.yukonga.miuix.kmp.material.GlassDefaults
+import top.yukonga.miuix.kmp.material.GlassEdgeStrokes
+import top.yukonga.miuix.kmp.material.GlassMaterials
+import top.yukonga.miuix.kmp.material.GlassShape
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
@@ -384,6 +390,10 @@ fun ProfileScreen(nav: NavState, uid: String?) {
                         color = Color.Transparent,
                         navigationIcon = { BackIconButton { nav.pop() } },
                         actions = {
+                            ProfileSearchAction(
+                                uid = uid.orEmpty().ifBlank { App.repo.session?.uid.orEmpty() },
+                                nav = nav,
+                            )
                             ProfileMoreAction(
                                 tag = tag,
                                 uid = uid.orEmpty().ifBlank { App.repo.session?.uid.orEmpty() },
@@ -628,6 +638,51 @@ private fun ProfileMoreAction(
                 }
             },
         )
+    }
+}
+
+/**
+ * 主页顶栏的搜索圆钮，排在「更多」左边：和返回键同一套玻璃观感，
+ * 点开 [Route.ProfileSearch] 按关键词搜这个人的微博。uid 还没定下来时不显示。
+ */
+@Composable
+private fun ProfileSearchAction(uid: String, nav: NavState) {
+    if (uid.isBlank()) return
+    val backdrop = LocalBackdrop.current
+    val isDark = MiuixTheme.colorScheme.background.luminance() < 0.5f
+    val onClick = { nav.push(Route.ProfileSearch(uid)) }
+    if (blurEffectsEnabled() && backdrop != null) {
+        Box(
+            modifier = Modifier
+                .padding(end = 8.dp)
+                .size(40.dp)
+                .glassPanel(
+                    backdrop = backdrop,
+                    shape = GlassShape(20.dp),
+                    style = GlassDefaults.style(isDark),
+                    alpha = App.settings.barGlassAlpha,
+                    material = GlassMaterials.puredThinGlass(isDark),
+                    stroke = GlassEdgeStrokes.forTheme(isDark),
+                    shadow = null,
+                    shading = false,
+                )
+                .clip(CircleShape)
+                .clickable(onClick = onClick)
+                .semantics { contentDescription = "搜索TA的微博" }
+                .testTag("profile_search"),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(MiuixIcons.Search, "搜索", Modifier.size(24.dp))
+        }
+    } else {
+        IconButton(
+            onClick = onClick,
+            backgroundColor = MiuixTheme.colorScheme.surfaceContainerHigh,
+            cornerRadius = 20.dp,
+            modifier = Modifier.padding(end = 8.dp).testTag("profile_search"),
+        ) {
+            Icon(MiuixIcons.Search, "搜索", Modifier.size(24.dp))
+        }
     }
 }
 
