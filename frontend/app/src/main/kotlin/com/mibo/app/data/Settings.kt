@@ -491,16 +491,6 @@ class Settings(context: Context) {
         sp.edit().putBoolean("monitor_new_posts", value).apply()
     }
 
-    /** 定时刷新间隔（秒）：0 = 不自动刷新；大于 0 时前台每隔该秒数走一次刷新键通道。 */
-    var autoRefreshSeconds by mutableStateOf(sp.getInt("auto_refresh_seconds", 0))
-        private set
-
-    fun applyAutoRefreshSeconds(value: Int) {
-        val coerced = value.coerceIn(0, 86400)
-        autoRefreshSeconds = coerced
-        sp.edit().putInt("auto_refresh_seconds", coerced).apply()
-    }
-
     fun applyLikeConfirm(value: Boolean) {
         likeConfirm = value
         sp.edit().putBoolean("like_confirm", value).apply()
