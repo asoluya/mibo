@@ -547,6 +547,8 @@ fun TimelineScreen(
     emptyTexts: List<String>,
     followStore: FeedStore,
     recommendStore: FeedStore,
+    /** 监测自动刷新的覆盖页之一：停在特别关注页时也跟关注页一样回顶刷新。 */
+    specialStore: FeedStore? = null,
     topInset: Dp,
     onScrollOffset: (Float) -> Unit,
     slotKeys: List<String> = stores.indices.map { it.toString() },
@@ -592,6 +594,7 @@ fun TimelineScreen(
         }
     }
     val currentFollowStore by rememberUpdatedState(followStore)
+    val currentSpecialStore by rememberUpdatedState(specialStore)
     val currentStores by rememberUpdatedState(stores)
     DisposableEffect(stores, listStates, pagerState.currentPage) {
         val bindings = ArrayList<Pair<FeedStore, ScrollAnchorController>>()
@@ -696,10 +699,11 @@ fun TimelineScreen(
     }
     LaunchedEffect(Unit) {
         App.friendsTopEvents.collect {
-            // 自动刷新只针对关注页：当前页正是关注流才回顶刷新，在推荐等页面时直接忽略。
+            // 自动刷新只针对关注页与特别关注页：当前页正是这两条流之一才回顶刷新，
+            // 在推荐等页面时直接忽略。
             val page = pagerState.currentPage
             val store = currentStores.getOrNull(page) ?: return@collect
-            if (store !== currentFollowStore) return@collect
+            if (store !== currentFollowStore && store !== currentSpecialStore) return@collect
             listStates.getOrNull(page)?.glideToTop()
             store.refresh()
         }
