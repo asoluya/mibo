@@ -523,6 +523,8 @@ private fun firstPlayInfoPlaybackUrl(playInfo: JSONObject): String {
         val label = listOf("label", "quality_label", "quality", "name")
             .firstNotNullOfOrNull { strField(it).takeIf { s -> s.isNotBlank() } }.orEmpty()
         val labelScore = when {
+            label.contains("4K") || label.contains("2160") -> 600L
+            label.contains("2K") || label.contains("1440") -> 550L
             label.contains("原画") -> 500L
             label.contains("超清") || label.contains("1080") -> 400L
             label.contains("高清") || label.contains("720") -> 300L
@@ -541,7 +543,7 @@ private fun firstPlayInfoPlaybackUrl(playInfo: JSONObject): String {
     return bestUrl.ifBlank { firstMp4 }.ifBlank { firstAny }
 }
 
-private fun resolveWeiboVideoByFid(fid: String, cacheDir: File? = null): ResolvedVideo? {
+internal fun resolveWeiboVideoByFid(fid: String, cacheDir: File? = null): ResolvedVideo? {
     val cookie = runCatching { App.repo.cookie() }.getOrNull()
     var confirmedUnavailable: ResolvedVideo.Unavailable? = null
     runCatching {
@@ -663,17 +665,39 @@ private fun resolveWeiboVideoByFid(fid: String, cacheDir: File? = null): Resolve
 
 private fun pickBestQualityUrl(urls: JSONObject?): String? {
     if (urls == null) return null
-    val preferred = listOf("原画", "超清 1080P", "高清 720P", "标清 480P", "流畅 360P")
-    for (label in preferred) {
-        val u = urls.optString(label)
-        if (u.isNotBlank()) return u
-    }
+    // playinfo 的 urls 是「标签 -> 地址」表，真实标签集是 超清 4K / 超清 2K / 高清 1080P /
+    // 高清 720P / 标清 480P，旧的固定优先列表对不上（曾靠遍历顺序蒙中）。地址里带
+    // template=宽x高 是真实分辨率：打分以 template 面积为准、标签档位为辅。
+    var best: String? = null
+    var bestScore = Long.MIN_VALUE
     val keys = urls.keys()
     while (keys.hasNext()) {
-        val u = urls.optString(keys.next())
-        if (u.isNotBlank()) return u
+        val label = keys.next()
+        val u = urls.optString(label)
+        if (u.isBlank()) continue
+        val tm = Regex("""template=(\d+)x(\d+)""").find(u)
+        val area = if (tm != null) {
+            tm.groupValues[1].toLong() * tm.groupValues[2].toLong()
+        } else {
+            0L
+        }
+        val rank = when {
+            label.contains("4K") || label.contains("2160") -> 600L
+            label.contains("2K") || label.contains("1440") -> 550L
+            label.contains("原画") -> 500L
+            label.contains("1080") -> 400L
+            label.contains("720") -> 300L
+            label.contains("480") -> 200L
+            label.contains("360") -> 100L
+            else -> 0L
+        }
+        val score = if (area > 0) area * 1_000L + rank else rank * 1_000_000L
+        if (score > bestScore) {
+            bestScore = score
+            best = u
+        }
     }
-    return null
+    return best
 }
 
 private fun resolveBilibiliVideo(bvid: String): ResolvedVideo.DirectStream? = runCatching {

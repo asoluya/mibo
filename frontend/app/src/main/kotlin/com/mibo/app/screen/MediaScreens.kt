@@ -3123,7 +3123,7 @@ private fun PlayerSeekBar(
 }
 
 @Composable
-fun VideoScreen(nav: NavState, url: String, title: String, isLive: Boolean = false, altUrl: String = "") {
+fun VideoScreen(nav: NavState, url: String, title: String, isLive: Boolean = false, altUrl: String = "", oid: String = "") {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val liveRequested = remember(url, isLive) { isLive || isWeiboLiveLink(url) }
@@ -3131,9 +3131,16 @@ fun VideoScreen(nav: NavState, url: String, title: String, isLive: Boolean = fal
         val unwrapped = unwrapWeiboLink(url)
         resolveWeiboLink(unwrapped) ?: unwrapped
     }
+    // 时间线数据里的 stream_url_hd 最高只到 720p（个别还是 480p 冒充 hd），真正的档位阶梯
+    // （1080P/2K/4K）只在 playinfo 接口的 urls 表里：带 oid 且画质偏好为原画时先去升档，
+    // 失败/超时再回落时间线直链。无水印偏好不升档（它要的就是源文件直链那一档）。
+    val wantUpgrade = remember(url, oid, liveRequested) {
+        oid.startsWith("1034:") && !liveRequested && isDirectVideoStream(url) &&
+            runCatching { App.settings.videoQuality }.getOrDefault(VideoQuality.Original) == VideoQuality.Original
+    }
     var resolved by remember(url, liveRequested) {
         mutableStateOf<ResolvedVideo?>(
-            if (!liveRequested && isDirectVideoStream(url)) {
+            if (!wantUpgrade && !liveRequested && isDirectVideoStream(url)) {
                 ResolvedVideo.DirectStream(
                     url,
                     referer = defaultRefererFor(url),
@@ -3206,7 +3213,32 @@ fun VideoScreen(nav: NavState, url: String, title: String, isLive: Boolean = fal
 
     LaunchedEffect(url, liveRequested) {
         if (resolved == null) {
-            resolved = resolvePlayableVideo(url, context.cacheDir, isLiveHint = liveRequested)
+            resolved = if (wantUpgrade) {
+                val upgraded = withTimeoutOrNull(4000) {
+                    withContext(Dispatchers.IO) { resolveWeiboVideoByFid(oid, context.cacheDir) }
+                } as? ResolvedVideo.DirectStream
+                if (upgraded != null) {
+                    val mergedAlt = upgraded.altUrl?.takeIf { it.isNotBlank() && it != upgraded.url }
+                        ?: altUrl.takeIf { it.isNotBlank() && it != upgraded.url }
+                    ProbeLog.append(
+                        "video_upgrade",
+                        JSONObject()
+                            .put("oid", oid)
+                            .put("from", url)
+                            .put("to", upgraded.url),
+                    )
+                    upgraded.copy(altUrl = mergedAlt)
+                } else {
+                    ResolvedVideo.DirectStream(
+                        url,
+                        referer = defaultRefererFor(url),
+                        isLive = false,
+                        altUrl = altUrl.takeIf { it.isNotBlank() && it != url },
+                    )
+                }
+            } else {
+                resolvePlayableVideo(url, context.cacheDir, isLiveHint = liveRequested)
+            }
         }
     }
 

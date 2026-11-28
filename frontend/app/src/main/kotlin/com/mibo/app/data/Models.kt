@@ -557,6 +557,7 @@ internal fun extractVideoInfo(page: JSONObject, fallbackPics: List<Pic> = emptyL
         durationSec = if (livePage && !liveIsReplay) 0 else videoDurationSec(page, media),
         isLive = livePage && !liveIsReplay,
         altUrl = altUrl,
+        oid = page.str("object_id"),
     )
 }
 
@@ -579,6 +580,8 @@ data class VideoInfo(
     val isLive: Boolean = false,
     /** 另一画质档位的地址（与 [url] 相对的无水印/原画），无第二档时为空。 */
     val altUrl: String = "",
+    /** 视频对象 id（如 1034:…），播放页据此去 playinfo 接口升档（1080P/2K/4K）；无则为空。 */
+    val oid: String = "",
 )
 
 data class BigPicInfo(
@@ -1714,6 +1717,8 @@ private fun bestPlaybackUrl(arr: JSONArray?): String {
         val label = listOf("label", "quality_label", "quality", "name")
             .firstNotNullOfOrNull { strField(it).takeIf { s -> s.isNotBlank() } }.orEmpty()
         val labelScore = when {
+            label.contains("4K") || label.contains("2160") -> 600L
+            label.contains("2K") || label.contains("1440") -> 550L
             label.contains("原画") -> 500L
             label.contains("超清") || label.contains("1080") -> 400L
             label.contains("高清") || label.contains("720") -> 300L

@@ -276,7 +276,7 @@ sealed interface Route {
         val index: Int,
         val editableAvatar: Boolean = false,
     ) : Route
-    data class Video(val url: String, val title: String, val isLive: Boolean = false, val altUrl: String = "") : Route
+    data class Video(val url: String, val title: String, val isLive: Boolean = false, val altUrl: String = "", val oid: String = "") : Route
     data class Vote(val voteId: String) : Route
 }
 

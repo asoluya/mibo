@@ -371,7 +371,7 @@ fun DetailScreen(nav: NavState, id: String, mid: String, readOnly: Boolean = fal
                             onDeleted = { nav.pop() },
                             onUser = { nav.push(Route.Profile(it.id)) },
                             onImage = { pics, i -> nav.push(Route.Images(pics, i)) },
-                            onVideo = { nav.push(Route.Video(it.url, it.title, it.isLive, it.altUrl)) },
+                            onVideo = { nav.push(Route.Video(it.url, it.title, it.isLive, it.altUrl, it.oid)) },
                             onLike = { anchor ->
                                 val s = status ?: return@StatusCard
                                 scope.launch {
