@@ -388,7 +388,7 @@ private fun LazyListScope.feedSettingsItems(
             insideMargin = PaddingValues(0.dp),
         ) {
             ArrowPreference(
-                title = "微博最左栏",
+                title = "顶栏拓展（最左栏）",
                 modifier = Modifier.testTag("settings_feed_far_left_tab"),
                 summary = state.feedFarLeftTab.label,
                 onClick = { state.pickFeedFarLeft = true },
@@ -406,7 +406,7 @@ private fun LazyListScope.feedSettingsItems(
                 onClick = { state.pickFeedRight = true },
             )
             ArrowPreference(
-                title = "微博最右栏",
+                title = "顶栏拓展（最右栏）",
                 modifier = Modifier.testTag("settings_feed_far_right_tab"),
                 summary = state.feedFarRightTab.label,
                 onClick = { state.pickFeedFarRight = true },
@@ -627,7 +627,7 @@ private fun SettingsDialogs(
 
     if (state.pickFeedFarLeft) {
         FeedTabPicker(
-            title = "微博最左栏内容",
+            title = "顶栏拓展（最左栏）内容",
             selected = state.feedFarLeftTab,
             options = farLeftOptions,
             onDismiss = { state.pickFeedFarLeft = false },
@@ -669,7 +669,7 @@ private fun SettingsDialogs(
 
     if (state.pickFeedFarRight) {
         FeedTabPicker(
-            title = "微博最右栏内容",
+            title = "顶栏拓展（最右栏）内容",
             selected = state.feedFarRightTab,
             options = farRightOptions,
             onDismiss = { state.pickFeedFarRight = false },
