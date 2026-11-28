@@ -4026,115 +4026,138 @@ class Repo(private val context: Context, private val store: Store) {
     private val profileLikeProbeFired = java.util.concurrent.atomic.AtomicBoolean(false)
 
     /**
-     * 一次性探针（为「主页流混入对方赞过的微博」取样）：把对方主页 tabsInfo 的标签容器
-     * 和赞容器第一页的卡片形状落进实验数据——官方那种「她X赞过的微博(N)」是分组
-     * 分隔卡混在流里下发的，得先确认分隔卡的 card_type 和字段才能照着复刻。
+     * 一次性探针 v3（为「主页流混入对方赞过的微博」取样）：v2 已确认主页流里
+     * itemid 形如 `1076030002_<作者>` 的卡就是赞过的（与赞容器精确对上一条），
+     * 但还有一批作者非本人、itemid 却是本人帖形状的卡没定性。这一轮抓三类卡
+     * （本人帖 / 0002 卡 / 外人形状卡）各一张完整原文和键表，再拉赞容器两页
+     * 建 mblog_id -> 点赞序号对照表，标出 feed 每张卡是否能在赞容器里对上。
      */
     suspend fun probeProfileLikeTabs(uid: String) {
         if (!profileLikeProbeFired.compareAndSet(false, true)) return
-        val root = try {
-            if (isClientChannel()) {
-                containerGet("profile", mapOf("uid" to uid))
-            } else {
-                get(
-                    Api.url("https://m.weibo.cn/api/container/getIndex", mapOf("type" to "uid", "value" to uid)),
-                    cookie(),
-                    false,
-                )
-            }
-        } catch (e: Throwable) {
-            if (e is CancellationException) throw e
-            return
-        }
-        suspend fun fetchCards(cid: String): JSONArray? {
-            val page = try {
+
+        suspend fun fetchPage(cid: String, sinceId: String? = null): JSONObject? {
+            return try {
                 if (isClientChannel()) {
-                    containerGet("profile/statuses", mapOf("containerid" to cid, "count" to "20"))
+                    val params = mutableMapOf("containerid" to cid, "count" to "20")
+                    if (!sinceId.isNullOrBlank()) params["since_id"] = sinceId
+                    containerGet("profile/statuses", params)
                 } else {
-                    get(Api.url("https://m.weibo.cn/api/container/getIndex", mapOf("containerid" to cid)), cookie(), false)
+                    val params = mutableMapOf("containerid" to cid)
+                    if (!sinceId.isNullOrBlank()) params["since_id"] = sinceId
+                    get(Api.url("https://m.weibo.cn/api/container/getIndex", params), cookie(), false)
                 }
             } catch (e: Throwable) {
                 if (e is CancellationException) throw e
                 null
             }
-            return page?.optJSONArray("cards") ?: page?.optJSONObject("data")?.optJSONArray("cards")
         }
 
-        fun dumpCards(cards: JSONArray?): JSONArray {
+        fun cardsOf(page: JSONObject?): JSONArray? =
+            page?.optJSONArray("cards") ?: page?.optJSONObject("data")?.optJSONArray("cards")
+
+        fun cursorOf(page: JSONObject?): String =
+            page?.optJSONObject("cardlistInfo")?.str("since_id")?.ifBlank { null }
+                ?: page?.optJSONObject("data")?.optJSONObject("cardlistInfo")?.str("since_id")?.ifBlank { null }
+                ?: page?.optJSONObject("data")?.str("since_id")?.ifBlank { null }
+                ?: page?.str("since_id").orEmpty()
+
+        fun keyList(obj: JSONObject?): JSONArray {
             val out = JSONArray()
-            if (cards == null) return out
-            for (i in 0 until cards.length()) {
-                val card = cards.optJSONObject(i) ?: continue
-                val entry = JSONObject()
-                    .put("card_type", card.optInt("card_type"))
-                    .put("itemid", card.str("itemid"))
-                val mblog = card.optJSONObject("mblog")
-                if (mblog != null) {
-                    entry.put("mblog_id", mblog.str("idstr").ifBlank { mblog.str("id") })
-                    entry.put("author", mblog.optJSONObject("user")?.str("idstr") ?: "")
-                }
-                val group = card.optJSONArray("card_group")
-                if (group != null) {
-                    entry.put("title", card.str("title"))
-                    val subs = JSONArray()
-                    for (k in 0 until group.length()) {
-                        val sub = group.optJSONObject(k) ?: continue
-                        val subEntry = JSONObject()
-                            .put("card_type", sub.optInt("card_type"))
-                            .put("itemid", sub.str("itemid"))
-                        sub.optJSONObject("mblog")?.let {
-                            subEntry.put("mblog_id", it.str("idstr").ifBlank { it.str("id") })
-                        }
-                        if (sub.optJSONObject("mblog") == null) {
-                            subEntry.put("raw", sub.toString().take(600))
-                        }
-                        subs.put(subEntry)
-                    }
-                    entry.put("card_group", subs)
-                } else if (mblog == null) {
-                    entry.put("raw", card.toString().take(1200))
-                }
-                out.put(entry)
-            }
+            if (obj == null) return out
+            val iter = obj.keys()
+            while (iter.hasNext()) out.put(iter.next())
             return out
         }
 
-        // 「微博」容器（107603）第一页的卡片形状：官方主页流的赞过批次很可能就藏在这里。
-        ProbeLog.append(
-            "profile_feed_cards",
-            JSONObject().put("uid", uid).put("cards", dumpCards(fetchCards("107603$uid"))),
-        )
-        // 赞容器：分组卡的标题/子卡 + 第一条 mblog 的时间相关字段（找点赞时间）。
-        val likeCid = "230869${uid}_-_mix"
-        val likeCards = fetchCards(likeCid)
-        val likeDump = JSONObject().put("uid", uid).put("cid", likeCid).put("cards", dumpCards(likeCards))
-        if (likeCards != null) {
-            var firstMblog: JSONObject? = null
-            for (i in 0 until likeCards.length()) {
-                val card = likeCards.optJSONObject(i) ?: continue
-                firstMblog = card.optJSONObject("mblog")
-                    ?: card.optJSONArray("card_group")?.optJSONObject(0)?.optJSONObject("mblog")
-                if (firstMblog != null) break
-            }
-            if (firstMblog != null) {
-                val keys = JSONArray()
-                val timeFields = JSONObject()
-                val iter = firstMblog.keys()
-                while (iter.hasNext()) {
-                    val key = iter.next()
-                    keys.put(key)
-                    val lower = key.lowercase()
-                    if (lower.contains("time") || lower.contains("date") || lower.contains("like") ||
-                        lower.contains("created") || lower.contains("attitude")
-                    ) {
-                        timeFields.put(key, firstMblog.opt(key)?.toString()?.take(200) ?: "")
-                    }
+        fun entryOf(itemid: String): String =
+            itemid.substringAfterLast('_', "").takeIf { it.isNotBlank() && it.all(Char::isDigit) } ?: ""
+
+        fun collectLikes(cards: JSONArray?, into: MutableMap<String, String>) {
+            if (cards == null) return
+            for (i in 0 until cards.length()) {
+                val card = cards.optJSONObject(i) ?: continue
+                val mblog = card.optJSONObject("mblog")
+                val mid = mblog?.str("idstr")?.ifBlank { mblog.str("id") }.orEmpty()
+                val entry = entryOf(card.str("itemid"))
+                if (mid.isNotBlank() && entry.isNotBlank()) into.putIfAbsent(mid, entry)
+                val group = card.optJSONArray("card_group") ?: continue
+                for (k in 0 until group.length()) {
+                    val sub = group.optJSONObject(k) ?: continue
+                    val subMblog = sub.optJSONObject("mblog") ?: continue
+                    val subMid = subMblog.str("idstr").ifBlank { subMblog.str("id") }
+                    val subEntry = entryOf(sub.str("itemid"))
+                    if (subMid.isNotBlank() && subEntry.isNotBlank()) into.putIfAbsent(subMid, subEntry)
                 }
-                likeDump.put("first_mblog_keys", keys)
-                likeDump.put("first_mblog_time_fields", timeFields)
             }
         }
-        ProbeLog.append("profile_like_cards2", likeDump)
+
+        // ---- 赞容器两页：mblog_id -> 点赞序号 ----
+        val likeCid = "230869${uid}_-_mix"
+        val likeMap = LinkedHashMap<String, String>()
+        val likePage1 = fetchPage(likeCid)
+        collectLikes(cardsOf(likePage1), likeMap)
+        val likeCursor = cursorOf(likePage1)
+        if (likeCursor.isNotBlank()) {
+            collectLikes(cardsOf(fetchPage(likeCid, likeCursor)), likeMap)
+        }
+
+        // ---- 主页流第一页：逐卡形状 + 三类样本 + 赞对照 ----
+        val feedCards = cardsOf(fetchPage("107603$uid"))
+        val feedDump = JSONObject().put("uid", uid)
+        val entries = JSONArray()
+        val matches = JSONArray()
+        var sampleOwn: JSONObject? = null
+        var sampleLiked: JSONObject? = null
+        var sampleForeign: JSONObject? = null
+        var foreignTotal = 0
+        var foreignMatched = 0
+        if (feedCards != null) {
+            for (i in 0 until feedCards.length()) {
+                val card = feedCards.optJSONObject(i) ?: continue
+                val itemid = card.str("itemid")
+                val entry = JSONObject()
+                    .put("card_type", card.optInt("card_type"))
+                    .put("itemid", itemid)
+                val mblog = card.optJSONObject("mblog")
+                if (mblog != null) {
+                    val mid = mblog.str("idstr").ifBlank { mblog.str("id") }
+                    val author = mblog.optJSONObject("user")?.str("idstr") ?: ""
+                    entry.put("mblog_id", mid)
+                    entry.put("author", author)
+                    val likeEntry = likeMap[mid]
+                    if (likeEntry != null) {
+                        entry.put("like_entry", likeEntry)
+                        matches.put(JSONObject().put("mblog_id", mid).put("like_entry", likeEntry))
+                    }
+                    val isLikedShape = itemid.startsWith("1076030002_")
+                    if (author != uid) {
+                        foreignTotal++
+                        if (likeEntry != null) foreignMatched++
+                    }
+                    val sample = JSONObject()
+                        .put("raw", card.toString().take(1800))
+                        .put("card_keys", keyList(card))
+                        .put("mblog_keys", keyList(mblog))
+                    when {
+                        isLikedShape && sampleLiked == null -> sampleLiked = sample
+                        author == uid && sampleOwn == null -> sampleOwn = sample
+                        author != uid && !isLikedShape && sampleForeign == null -> sampleForeign = sample
+                    }
+                } else if (card.optJSONArray("card_group") == null) {
+                    entry.put("raw", card.toString().take(600))
+                }
+                entries.put(entry)
+            }
+        }
+        feedDump.put("cards", entries)
+        feedDump.put("like_matches", matches)
+        feedDump.put("foreign_total", foreignTotal)
+        feedDump.put("foreign_matched", foreignMatched)
+        feedDump.put("like_map_size", likeMap.size)
+        sampleOwn?.let { feedDump.put("sample_own", it) }
+        sampleLiked?.let { feedDump.put("sample_0002", it) }
+        sampleForeign?.let { feedDump.put("sample_foreign", it) }
+        ProbeLog.append("profile_feed_cards2", feedDump)
     }
 
     // ---- 主页「更多」菜单：关注分组 / 基本资料 / 拉黑 ----
