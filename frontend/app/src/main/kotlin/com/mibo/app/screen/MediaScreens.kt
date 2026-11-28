@@ -3562,6 +3562,13 @@ private fun DirectVideoPlayer(
                     this.player = player
                 }
             },
+            // 切画质会换一个新的 ExoPlayer 实例：必须把 PlayerView 重新绑到新 player，
+            // 否则 view 还连着已释放的旧 player —— 画面停在最后一帧，只有新 player 的声音在放。
+            update = { view ->
+                if (view.player !== player) {
+                    view.player = player
+                }
+            },
             modifier = Modifier.fillMaxSize(),
         )
 
