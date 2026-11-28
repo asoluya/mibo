@@ -190,7 +190,6 @@ import coil3.decode.DataSource
 import coil3.imageLoader
 import coil3.memory.MemoryCache
 import coil3.request.ImageRequest
-import coil3.request.SuccessResult
 import coil3.request.maxBitmapSize
 import coil3.size.Size
 import com.mibo.app.App
@@ -314,57 +313,6 @@ private val ChromeScrim = Brush.verticalGradient(
 private val ScrimTail = 34.dp
 
 /**
- * Samples the strip of the picture the top bar sits on. A letterboxed wide shot leaves the bar on
- * pure black, so the answer there is "dark backdrop, light glyphs"; a bright photo needs the
- * opposite, or the close button and the page counter disappear into it.
- */
-private suspend fun topBandIsLight(
-    context: Context,
-    url: String,
-    screenWidthDp: Int,
-    screenHeightDp: Int,
-): Boolean = runCatching {
-    // Same key the viewer itself requests, so the sample rides the bitmap Coil already has.
-    val request = ImageRequest.Builder(context)
-        .data(url)
-        .size(72)
-        .build()
-    val sampled = ((context.imageLoader.execute(request) as? SuccessResult)?.image as? BitmapImage)
-        ?.bitmap ?: return false
-    // A hardware bitmap refuses getPixel, so the strip is copied back to the CPU first.
-    val bitmap = if (sampled.config == Bitmap.Config.HARDWARE) {
-        sampled.copy(Bitmap.Config.ARGB_8888, false) ?: return false
-    } else {
-        sampled
-    }
-    val width = bitmap.width
-    val height = bitmap.height
-    if (width <= 0 || height <= 0) return false
-
-    // Fit scaling in dp: a wide picture gets letterboxed and the bar lands on black.
-    val fit = minOf(screenWidthDp.toFloat() / width, screenHeightDp.toFloat() / height)
-    val top = (screenHeightDp - height * fit) / 2f
-    val band = screenHeightDp * 0.11f
-    if (top >= band) return false
-
-    val y0 = ((0f - top) / fit).toInt().coerceIn(0, height - 1)
-    val y1 = ((band - top) / fit).toInt().coerceIn(0, height - 1)
-    var sum = 0.0
-    var count = 0
-    for (y in y0..y1) {
-        for (x in 0 until width) {
-            val color = bitmap.getPixel(x, y)
-            val r = (color shr 16) and 0xFF
-            val g = (color shr 8) and 0xFF
-            val b = color and 0xFF
-            sum += (0.299 * r + 0.587 * g + 0.114 * b) / 255.0
-            count++
-        }
-    }
-    count > 0 && sum / count > 0.62
-}.getOrDefault(false)
-
-/**
  * Viewer system bars.
  *
  * The gallery keeps the status bar up while the controls are up and drops it together with them, so
@@ -408,6 +356,8 @@ private fun ViewerSystemBars(visible: Boolean) {
  * 材质：有 backdrop 且模糊开启时用与底栏同一套 OS4 柔光玻璃（glassPanel + 薄玻璃 +
  * 边缘柔光描边，浓度跟随「顶栏与底栏透明度」），否则退回半透明填充；
  * 按压缩放与提亮两种材质下都保留，亮色模式下填充材质另有一层柔和投影。
+ * [fixedLight] 时恒浅色柔光：不随主题取色，玻璃下另垫恒定白洗、字形恒深色，
+ * 底图是纯黑时也保持浅色磨砂观感（看图页顶栏用）。
  */
 @Composable
 private fun MediaMaterialPill(
@@ -415,10 +365,11 @@ private fun MediaMaterialPill(
     height: Dp = MediaControlHeight,
     horizontalPadding: Dp = 14.dp,
     onClick: (() -> Unit)? = null,
+    fixedLight: Boolean = false,
     content: @Composable BoxScope.() -> Unit,
 ) {
     val scheme = MiuixTheme.colorScheme
-    val isDark = scheme.background.luminance() < 0.5f
+    val isDark = if (fixedLight) false else scheme.background.luminance() < 0.5f
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
     val pressProgress by animateFloatAsState(
@@ -432,12 +383,18 @@ private fun MediaMaterialPill(
     // 按压缩放与提亮幅度取原 COUI 默认值的近似：缩到 0.96、填充与内容各提亮一档。
     val scale = 1f - (1f - 0.96f) * pressProgress
     val baseFill = if (isDark) Color.Black else Color.White
-    val fillColor = colorLerp(baseFill, Color.White, 0.12f * pressProgress).copy(alpha = 0.42f)
-    val contentColor = colorLerp(
-        scheme.onBackground,
-        Color.White,
-        0.2f * pressProgress,
-    )
+    val fillColor = colorLerp(baseFill, Color.White, 0.12f * pressProgress)
+        .copy(alpha = if (fixedLight) 0.78f else 0.42f)
+    // 固定浅色时字形恒深色：常规提亮是往白色方向走的，浅底上会把字形冲淡，故跳过。
+    val contentColor = if (fixedLight) {
+        Color(0xFF1A1A1A)
+    } else {
+        colorLerp(
+            scheme.onBackground,
+            Color.White,
+            0.2f * pressProgress,
+        )
+    }
     val currentOnClick by rememberUpdatedState(onClick)
     val pillShape = RoundedCornerShape(50)
     val clickableModifier = remember(onClick != null, interactionSource) {
@@ -456,7 +413,7 @@ private fun MediaMaterialPill(
     val backdrop = LocalBackdrop.current
     val glassActive = blurEffectsEnabled() && backdrop != null
     val materialModifier = if (blurEffectsEnabled() && backdrop != null) {
-        Modifier.glassPanel(
+        val glass = Modifier.glassPanel(
             backdrop = backdrop,
             shape = GlassShape(50.dp),
             style = GlassDefaults.style(isDark),
@@ -466,6 +423,13 @@ private fun MediaMaterialPill(
             shadow = null,
             shading = false,
         )
+        // 薄玻璃的明度来自被模糊的底图，垫纯黑时整颗钮会沉成黑色；固定浅色先在玻璃下
+        // 垫一层恒定白洗，玻璃只负责磨砂质感，观感不再随底图明暗变。
+        if (fixedLight) {
+            Modifier.clip(pillShape).background(Color.White.copy(alpha = 0.5f)).then(glass)
+        } else {
+            glass
+        }
     } else {
         Modifier.clip(pillShape).background(fillColor)
     }
@@ -512,6 +476,7 @@ private fun MediaIconButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     size: Dp = MediaControlHeight,
+    fixedLight: Boolean = false,
     content: @Composable BoxScope.() -> Unit,
 ) {
     MediaMaterialPill(
@@ -519,6 +484,7 @@ private fun MediaIconButton(
         height = size,
         horizontalPadding = 0.dp,
         onClick = onClick,
+        fixedLight = fixedLight,
         content = content,
     )
 }
@@ -542,7 +508,6 @@ fun ImageViewerScreen(
     val urls = effectivePics.map { it.large }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val configuration = LocalConfiguration.current
     val transition = LocalRouteTransition.current
     val origins = LocalImageOrigins.current
     val density = LocalDensity.current.density
@@ -604,16 +569,6 @@ fun ImageViewerScreen(
         origins.beginViewing(viewerOwner, if (transitionExiting && !hasThumb) null else current)
     }
     DisposableEffect(viewerOwner) { onDispose { origins.endViewing(viewerOwner) } }
-
-    // Kept across page turns so the chrome does not flicker while the next sample lands.
-    var light by remember { mutableStateOf(false) }
-    LaunchedEffect(current) {
-        light = withContext(Dispatchers.IO) {
-            topBandIsLight(context, current, configuration.screenWidthDp, configuration.screenHeightDp)
-        }
-    }
-    val ink = if (light) Color(0xFF1A1A1A) else Color.White
-    val plate = if (light) Color.White else Color(0xFF141414)
 
     ViewerSystemBars(visible = chrome)
 
@@ -759,6 +714,7 @@ fun ImageViewerScreen(
                     Box(Modifier.align(Alignment.CenterStart)) {
                         MediaIconButton(
                             size = MediaControlHeight,
+                            fixedLight = true,
                             onClick = {
                                 if (!frame.dismiss.exiting && !frame.dismiss.dragging) {
                                     frame.dismiss.cancelActive()
@@ -772,7 +728,7 @@ fun ImageViewerScreen(
 
                     // Centred on the screen rather than tucked against the close button.
                     Box(Modifier.align(Alignment.Center)) {
-                        MediaMaterialPill {
+                        MediaMaterialPill(fixedLight = true) {
                             Text(
                                 "${pagerState.currentPage + 1} / ${urls.size}",
                                 color = LocalContentColor.current,
@@ -792,6 +748,7 @@ fun ImageViewerScreen(
                                 Box {
                                     MediaIconButton(
                                         size = MediaControlHeight,
+                                        fixedLight = true,
                                         onClick = {
                                             if (!frame.dismiss.exiting && !frame.dismiss.dragging) {
                                                 avatarMoreOpen = true
@@ -875,6 +832,7 @@ fun ImageViewerScreen(
                             } else {
                                 MediaIconButton(
                                     size = MediaControlHeight,
+                                    fixedLight = true,
                                     onClick = {
                                         if (!frame.dismiss.exiting && !frame.dismiss.dragging) {
                                             saver.saveOne(
