@@ -3444,9 +3444,10 @@ private fun DirectVideoPlayer(
     val liveMode = isLive || playerIsLive
     val currentLiveMode by rememberUpdatedState(liveMode)
     var durationMs by remember { mutableLongStateOf(0L) }
-    // 实际播放流的分辨率，随画质徽标一起显示（如「原画 · 1920×1080」），便于核对档位是否真清晰。
+    // 实际播放流的分辨率与帧率，显示在顶部徽标（如 1920×1080 · 30fps），便于核对档位是否真清晰。
     var videoWidth by remember { mutableIntStateOf(0) }
     var videoHeight by remember { mutableIntStateOf(0) }
+    var videoFps by remember { mutableFloatStateOf(0f) }
     var positionMs by remember { mutableLongStateOf(0L) }
     var bufferedPositionMs by remember { mutableLongStateOf(0L) }
     var isScrubbing by remember { mutableStateOf(false) }
@@ -3489,6 +3490,7 @@ private fun DirectVideoPlayer(
         durationMs = player.duration.coerceAtLeast(0L)
         videoWidth = player.videoSize.width
         videoHeight = player.videoSize.height
+        videoFps = player.videoFormat?.frameRate?.takeIf { it > 0f } ?: 0f
         bufferedPositionMs = player.bufferedPosition.coerceAtLeast(0L)
         if (!isScrubbing) {
             positionMs = player.currentPosition.coerceAtLeast(0L)
@@ -3900,10 +3902,14 @@ private fun DirectVideoPlayer(
                             .padding(horizontal = 8.dp, vertical = 3.dp),
                     ) {
                         Text(
-                            // 顶部徽标只显示实际分辨率（如 1920×1080），不带档位名；
+                            // 顶部徽标显示实际分辨率 + 帧率（如 1920×1080 · 30fps），不带档位名；
                             // 分辨率还没出来时短暂显示档位名。底部「画质 原画」保持不变。
                             if (videoWidth > 0 && videoHeight > 0) {
-                                "${videoWidth}×${videoHeight}"
+                                if (videoFps > 0f) {
+                                    "${videoWidth}×${videoHeight} · ${Math.round(videoFps)}fps"
+                                } else {
+                                    "${videoWidth}×${videoHeight}"
+                                }
                             } else {
                                 quality.label
                             },
