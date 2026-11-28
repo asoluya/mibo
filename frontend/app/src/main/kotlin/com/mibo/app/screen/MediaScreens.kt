@@ -41,6 +41,7 @@ import androidx.compose.foundation.gestures.calculateCentroid
 import androidx.compose.foundation.gestures.calculateCentroidSize
 import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.gestures.calculateZoom
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -2985,24 +2986,134 @@ private fun speedLabel(value: Float): String = when (value) {
     else -> "3.0×"
 }
 
-/** 与 [MediaIconButton] 共用同一套 [MediaMaterialPill] 材质的胶囊按钮，用于视频倍速切换。 */
+/** 播放页扁平图标按钮：无玻璃底、白色图标，与参考播放样式一致。 */
 @Composable
-private fun VideoSpeedPill(
-    text: String,
+private fun PlayerIconButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
 ) {
-    MediaMaterialPill(
-        modifier = modifier,
-        height = VideoTopBarButtonHeight,
-        onClick = onClick,
+    Box(
+        modifier = modifier
+            .size(40.dp)
+            .clip(CircleShape)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
     ) {
-        Text(
-            text = text,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Medium,
-            color = LocalContentColor.current,
-            maxLines = 1,
+        content()
+    }
+}
+
+/** 播放页底部动作项：图标在上、标签在下（标签自带当前值，如「倍速 1.0×」「画质 原画」）。 */
+@Composable
+private fun PlayerActionItem(
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    icon: @Composable () -> Unit,
+) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(10.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(
+            modifier = Modifier.height(24.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            icon()
+        }
+        Spacer(Modifier.height(3.dp))
+        Text(label, color = Color.White, fontSize = 11.sp, maxLines = 1)
+    }
+}
+
+/** 参考样式的细线进度条：白色已播段 + 圆点滑块；点按直接定位，横拖走 onScrub、松手 onScrubEnd。 */
+@Composable
+private fun PlayerSeekBar(
+    positionMs: Long,
+    durationMs: Long,
+    onScrub: (Long) -> Unit,
+    onScrubEnd: (Long) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var widthPx by remember { mutableStateOf(0f) }
+    var dragFraction by remember { mutableStateOf<Float?>(null) }
+    val baseFraction = if (durationMs > 0L) {
+        (positionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
+    } else {
+        0f
+    }
+    val fraction = dragFraction ?: baseFraction
+    fun fractionToMs(f: Float): Long =
+        (f.coerceIn(0f, 1f) * durationMs.toFloat()).toLong().coerceIn(0L, durationMs)
+    Box(
+        modifier = modifier
+            .height(24.dp)
+            .onSizeChanged { widthPx = it.width.toFloat() }
+            .pointerInput(durationMs) {
+                detectTapGestures { offset ->
+                    if (durationMs > 0L && size.width > 0) {
+                        onScrubEnd(fractionToMs(offset.x / size.width))
+                    }
+                }
+            }
+            .pointerInput(durationMs) {
+                detectHorizontalDragGestures(
+                    onDragStart = { offset ->
+                        if (durationMs > 0L && size.width > 0) {
+                            val f = (offset.x / size.width).coerceIn(0f, 1f)
+                            dragFraction = f
+                            onScrub(fractionToMs(f))
+                        }
+                    },
+                    onHorizontalDrag = { change, _ ->
+                        if (durationMs > 0L && size.width > 0) {
+                            val f = (change.position.x / size.width).coerceIn(0f, 1f)
+                            dragFraction = f
+                            onScrub(fractionToMs(f))
+                        }
+                    },
+                    onDragEnd = {
+                        dragFraction?.let { onScrubEnd(fractionToMs(it)) }
+                        dragFraction = null
+                    },
+                    onDragCancel = {
+                        dragFraction = null
+                    },
+                )
+            },
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(3.dp)
+                .align(Alignment.Center)
+                .clip(RoundedCornerShape(50))
+                .background(Color.White.copy(alpha = 0.28f)),
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(fraction)
+                .height(3.dp)
+                .align(Alignment.CenterStart)
+                .clip(RoundedCornerShape(50))
+                .background(Color.White),
+        )
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .offset {
+                    IntOffset(
+                        (widthPx * fraction - 6.dp.toPx()).roundToInt().coerceAtLeast(0),
+                        0,
+                    )
+                }
+                .size(12.dp)
+                .clip(CircleShape)
+                .background(Color.White),
         )
     }
 }
@@ -3642,7 +3753,7 @@ private fun DirectVideoPlayer(
                 .fillMaxWidth()
                 .align(Alignment.TopCenter),
         ) {
-            Row(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(
@@ -3656,10 +3767,13 @@ private fun DirectVideoPlayer(
                     ) {}
                     .statusBarsPadding()
                     .padding(8.dp),
+            ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                MediaIconButton(onClick = { nav.pop() }, size = VideoTopBarButtonHeight) {
-                    Icon(MiuixIcons.Close, "关闭", Modifier.size(18.dp))
+                PlayerIconButton(onClick = { nav.pop() }) {
+                    Icon(MiuixIcons.Back, "返回", Modifier.size(22.dp), tint = Color.White)
                 }
                 if (liveMode) {
                     val liveShape = RoundedCornerShape(50)
@@ -3681,51 +3795,134 @@ private fun DirectVideoPlayer(
                         Text("直播", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Medium)
                     }
                 }
-                Spacer(Modifier.width(10.dp))
-                Text(
-                    title,
-                    color = Color.White,
-                    fontSize = 14.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f).padding(end = 8.dp),
-                )
-                if (!liveMode) {
-                    if (altUrlState != null) {
-                        Box {
-                            VideoSpeedPill(
-                                text = quality.label,
-                                onClick = { qualityMenu = !qualityMenu },
-                            )
-                            OverlayListPopup(
-                                show = qualityMenu,
-                                popupPositionProvider = ListPopupDefaults.DropdownPositionProvider,
-                                onDismissRequest = { qualityMenu = false },
-                            ) {
-                                val dismiss = LocalDismissState.current
-                                ListPopupColumn {
-                                    VideoQuality.entries.forEachIndexed { index, q ->
-                                        DropdownImpl(
-                                            item = DropdownItem(text = q.label),
-                                            optionSize = VideoQuality.entries.size,
-                                            isSelected = quality == q,
-                                            index = index,
-                                            onSelectedIndexChange = {
-                                                switchQuality(q)
-                                                dismiss?.invoke()
-                                            },
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                        Spacer(Modifier.width(6.dp))
+                if (liveMode) {
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        title,
+                        color = Color.White,
+                        fontSize = 14.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f).padding(end = 8.dp),
+                    )
+                } else {
+                    Spacer(Modifier.weight(1f))
+                    PlayerIconButton(onClick = { onDownload(activeStreamUrl) }) {
+                        Icon(MiuixIcons.Download, "下载视频", Modifier.size(20.dp), tint = Color.White)
                     }
-                    Box {
-                        VideoSpeedPill(
-                            text = speedLabel(effectivePlaybackSpeed),
-                            onClick = { speedMenu = !speedMenu },
+                    Spacer(Modifier.width(2.dp))
+                }
+                PlayerIconButton(onClick = { toggleOrientation() }) {
+                    Icon(
+                        MiboIcons.Fullscreen,
+                        if (isLandscape) "切回竖屏" else "横屏",
+                        Modifier.size(20.dp),
+                        tint = Color.White,
+                    )
+                }
+            }
+            if (!liveMode) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                    horizontalArrangement = Arrangement.Center,
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(50))
+                            .background(Color.White.copy(alpha = 0.14f))
+                            .padding(horizontal = 8.dp, vertical = 3.dp),
+                    ) {
+                        Text(
+                            quality.label,
+                            color = Color.White,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
                         )
+                    }
+                }
+            }
+            }
+        }
+
+        AnimatedVisibility(
+            visible = !liveMode && (controlsVisible || speedMenu || qualityMenu),
+            enter = fadeIn(tween(150)),
+            exit = fadeOut(tween(150)),
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(Alignment.BottomCenter),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(Color.Transparent, Color.Black.copy(alpha = 0.72f)),
+                        ),
+                    )
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                    ) {}
+                    .navigationBarsPadding()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+            ) {
+                val displayPos = if (isScrubbing) scrubPositionMs else positionMs
+                if (title.isNotBlank()) {
+                    Text(
+                        title,
+                        color = Color.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(bottom = 12.dp),
+                    )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = formatVideoTime(displayPos),
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        modifier = Modifier.widthIn(min = 40.dp),
+                    )
+                    PlayerSeekBar(
+                        positionMs = displayPos,
+                        durationMs = durationMs,
+                        onScrub = { ms ->
+                            isScrubbing = true
+                            scrubPositionMs = ms
+                        },
+                        onScrubEnd = { ms ->
+                            player.seekTo(ms)
+                            positionMs = ms
+                            isScrubbing = false
+                        },
+                        modifier = Modifier.weight(1f).padding(horizontal = 10.dp),
+                    )
+                    Text(
+                        text = "-" + formatVideoTime((durationMs - displayPos).coerceAtLeast(0L)),
+                        color = Color.White.copy(alpha = 0.85f),
+                        fontSize = 12.sp,
+                        modifier = Modifier.widthIn(min = 40.dp),
+                        textAlign = TextAlign.End,
+                    )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box {
+                        PlayerActionItem(
+                            label = "倍速 ${speedLabel(effectivePlaybackSpeed)}",
+                            onClick = { speedMenu = !speedMenu },
+                        ) {
+                            Icon(MiuixIcons.Recent, "倍速", Modifier.size(22.dp), tint = Color.White)
+                        }
                         OverlayListPopup(
                             show = speedMenu,
                             popupPositionProvider = ListPopupDefaults.DropdownPositionProvider,
@@ -3750,90 +3947,58 @@ private fun DirectVideoPlayer(
                             }
                         }
                     }
-                    Spacer(Modifier.width(6.dp))
-                    MediaIconButton(onClick = { onDownload(activeStreamUrl) }, size = VideoTopBarButtonHeight) {
-                        Icon(MiuixIcons.Download, "下载视频", Modifier.size(18.dp))
+                    PlayerActionItem(
+                        label = if (isPlaying) "暂停" else "播放",
+                        onClick = ::togglePlayPause,
+                    ) {
+                        Icon(
+                            if (isPlaying) MiuixIcons.Pause else MiuixIcons.Play,
+                            if (isPlaying) "暂停" else "播放",
+                            Modifier.size(22.dp),
+                            tint = Color.White,
+                        )
                     }
-                    Spacer(Modifier.width(6.dp))
-                }
-                Spacer(Modifier.width(6.dp))
-                MediaIconButton(onClick = { toggleOrientation() }, size = VideoTopBarButtonHeight) {
-                    Icon(
-                        MiboIcons.Fullscreen,
-                        if (isLandscape) "切回竖屏" else "横屏",
-                        Modifier.size(18.dp),
-                    )
-                }
-            }
-        }
-
-        AnimatedVisibility(
-            visible = !liveMode && (controlsVisible || speedMenu),
-            enter = fadeIn(tween(150)),
-            exit = fadeOut(tween(150)),
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.BottomCenter),
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(
-                        Brush.verticalGradient(
-                            listOf(Color.Transparent, Color.Black.copy(alpha = 0.72f)),
-                        ),
-                    )
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                    ) {}
-                    .navigationBarsPadding()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    val displayPos = if (isScrubbing) scrubPositionMs else positionMs
-                    val effectiveDur = durationMs.coerceAtLeast(1L)
-                    Text(
-                        text = formatVideoTime(displayPos),
-                        color = Color.White,
-                        fontSize = 12.sp,
-                        modifier = Modifier.widthIn(min = 44.dp),
-                    )
-                    // 原 COUI IntentSlider 的播放状态/锥光/缓冲副进度在 Miuix Slider 没有对应，拖动求进度行为不变。
-                    // 进度色不用主题强调色，改白色玻璃调，与柔光玻璃按钮统一。
-                    Slider(
-                        value = displayPos.coerceIn(0L, effectiveDur).toFloat(),
-                        onValueChange = { next ->
-                            isScrubbing = true
-                            scrubPositionMs = next.roundToLong()
-                        },
-                        onValueChangeFinished = {
-                            player.seekTo(scrubPositionMs)
-                            positionMs = scrubPositionMs
-                            isScrubbing = false
-                        },
-                        valueRange = 0f..effectiveDur.toFloat(),
-                        enabled = durationMs > 0L,
-                        colors = SliderDefaults.sliderColors(
-                            foregroundColor = Color.White,
-                            disabledForegroundColor = Color.White.copy(alpha = 0.5f),
-                            backgroundColor = Color.White.copy(alpha = 0.28f),
-                            disabledBackgroundColor = Color.White.copy(alpha = 0.18f),
-                            thumbColor = Color.White,
-                            disabledThumbColor = Color.White.copy(alpha = 0.6f),
-                        ),
-                        modifier = Modifier.weight(1f).padding(horizontal = 4.dp),
-                    )
-                    Text(
-                        text = formatVideoTime(durationMs),
-                        color = Color.White.copy(alpha = 0.85f),
-                        fontSize = 12.sp,
-                        modifier = Modifier.widthIn(min = 44.dp),
-                        textAlign = TextAlign.End,
-                    )
+                    Box {
+                        PlayerActionItem(
+                            label = "画质 ${quality.label}",
+                            onClick = {
+                                if (altUrlState != null) {
+                                    qualityMenu = !qualityMenu
+                                } else {
+                                    flash("当前视频只有一档画质")
+                                }
+                            },
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .border(1.5.dp, Color.White, RoundedCornerShape(4.dp))
+                                    .padding(horizontal = 3.dp, vertical = 1.dp),
+                            ) {
+                                Text("HQ", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                        OverlayListPopup(
+                            show = qualityMenu,
+                            popupPositionProvider = ListPopupDefaults.DropdownPositionProvider,
+                            onDismissRequest = { qualityMenu = false },
+                        ) {
+                            val dismiss = LocalDismissState.current
+                            ListPopupColumn {
+                                VideoQuality.entries.forEachIndexed { index, q ->
+                                    DropdownImpl(
+                                        item = DropdownItem(text = q.label),
+                                        optionSize = VideoQuality.entries.size,
+                                        isSelected = quality == q,
+                                        index = index,
+                                        onSelectedIndexChange = {
+                                            switchQuality(q)
+                                            dismiss?.invoke()
+                                        },
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
