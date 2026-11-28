@@ -517,6 +517,35 @@ internal fun extractVideoInfo(page: JSONObject, fallbackPics: List<Pic> = emptyL
         .ifBlank { page.str("content1") }
         .ifBlank { media?.str("kol_title").orEmpty() }
         .ifBlank { media?.str("next_title").orEmpty() }
+    // 画质双档探针：把候选字段原样落盘，核对哪些视频凑不出「无水印」第二档以及原因。
+    if (!livePage) {
+        val playbackDump = StringBuilder()
+        media?.optJSONArray("playback_list")?.let { arr ->
+            for (i in 0 until arr.length()) {
+                val item = arr.optJSONObject(i) ?: continue
+                val play = item.optJSONObject("play_info")
+                val label = item.optString("quality_label")
+                    .ifBlank { play?.optString("quality_label").orEmpty() }
+                playbackDump.append(label).append('=')
+                    .append(play?.optString("url").orEmpty()).append(';')
+            }
+        }
+        ProbeLog.append(
+            "video_info_probe",
+            JSONObject()
+                .put("page_url", page.str("page_url"))
+                .put("object_id", page.str("object_id"))
+                .put("stream_url", media?.str("stream_url").orEmpty())
+                .put("stream_url_hd", media?.str("stream_url_hd").orEmpty())
+                .put("mp4_720p_mp4", media?.str("mp4_720p_mp4").orEmpty())
+                .put("mp4_hd_url", media?.str("mp4_hd_url").orEmpty())
+                .put("mp4_sd_url", media?.str("mp4_sd_url").orEmpty())
+                .put("urls_keys", urlsObj?.keys()?.asSequence()?.joinToString(",").orEmpty())
+                .put("playback", playbackDump.toString())
+                .put("nowm", noWatermarkUrl)
+                .put("direct", directUrl),
+        )
+    }
     return VideoInfo(
         title = title,
         cover = videoCoverUrl(page, media, fallbackPics),

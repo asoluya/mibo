@@ -491,6 +491,16 @@ class Settings(context: Context) {
         sp.edit().putBoolean("monitor_new_posts", value).apply()
     }
 
+    /** 定时刷新间隔（分钟）：0 = 不自动刷新；大于 0 时前台每隔该分钟数走一次刷新键通道。 */
+    var autoRefreshMinutes by mutableStateOf(sp.getInt("auto_refresh_minutes", 0))
+        private set
+
+    fun applyAutoRefreshMinutes(value: Int) {
+        val coerced = value.coerceIn(0, 1440)
+        autoRefreshMinutes = coerced
+        sp.edit().putInt("auto_refresh_minutes", coerced).apply()
+    }
+
     fun applyLikeConfirm(value: Boolean) {
         likeConfirm = value
         sp.edit().putBoolean("like_confirm", value).apply()
@@ -503,6 +513,15 @@ class Settings(context: Context) {
     fun applyNotifyNewPosts(value: Boolean) {
         notifyNewPosts = value
         sp.edit().putBoolean("notify_new_posts", value).apply()
+    }
+
+    /** 只推送特别关注：开后互动通知与新帖推送只报特别关注的人，名单拉不到时不拦截。 */
+    var notifySpecialOnly by mutableStateOf(sp.getBoolean("notify_special_only", false))
+        private set
+
+    fun applyNotifySpecialOnly(value: Boolean) {
+        notifySpecialOnly = value
+        sp.edit().putBoolean("notify_special_only", value).apply()
     }
 
     fun applyNotifyEnabled(value: Boolean) {

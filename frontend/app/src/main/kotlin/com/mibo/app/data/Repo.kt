@@ -1649,6 +1649,10 @@ class Repo(private val context: Context, private val store: Store) {
         return ids
     }
 
+    /** 通知过滤用：特别关注名单（服务端名单 + 本地标记），走缓存不强制刷新。 */
+    suspend fun specialFollowUidSet(): Set<String> =
+        runCatching { specialFollowUids(false) }.getOrDefault(emptySet()) + FollowTags.uids(FollowTag.Special)
+
     /** weibo.com 分组表里标题为「特别关注」那一组的 gid，4040233714204024 是它的历史固定值。 */
     private suspend fun specialGroupId(): String? =
         findGroupIdByTitle(fetchDesktopAllGroups(), "特别关注")

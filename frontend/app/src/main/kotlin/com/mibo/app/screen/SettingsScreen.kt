@@ -402,6 +402,45 @@ private fun LazyListScope.feedSettingsItems(
                 summary = "前台时每 20 秒检测关注流，有新微博时刷新按钮会发光提醒",
                 modifier = Modifier.testTag("settings_monitor_new_posts"),
             )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 16.dp, top = 2.dp, bottom = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("定时刷新")
+                    Text(
+                        "0 为不刷新，单位分钟；到点自动刷新，与点刷新键一样",
+                        fontSize = 13.sp,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    )
+                }
+                var autoRefreshText by remember {
+                    mutableStateOf(App.settings.autoRefreshMinutes.toString())
+                }
+                TextField(
+                    value = autoRefreshText,
+                    onValueChange = { input ->
+                        autoRefreshText = input.filter { it.isDigit() }.take(4)
+                    },
+                    modifier = Modifier
+                        .width(96.dp)
+                        .onFocusChanged { focus ->
+                            if (!focus.isFocused) {
+                                autoRefreshText.trim().toIntOrNull()?.let {
+                                    App.settings.applyAutoRefreshMinutes(it)
+                                }
+                                autoRefreshText = App.settings.autoRefreshMinutes.toString()
+                            }
+                        }
+                        .testTag("settings_auto_refresh_minutes"),
+                    label = "分钟",
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    maxLines = 1,
+                    minLines = 1,
+                )
+            }
             SwitchPreference(
                 checked = App.settings.livePhotoAutoPlay,
                 onCheckedChange = { App.settings.applyLivePhotoAutoPlay(it) },
@@ -1087,6 +1126,7 @@ fun NotifySettingsScreen(nav: NavState) {
     val context = LocalContext.current
     var enabled by remember { mutableStateOf(App.settings.notifyEnabled) }
     var newPosts by remember { mutableStateOf(App.settings.notifyNewPosts) }
+    var specialOnly by remember { mutableStateOf(App.settings.notifySpecialOnly) }
     var intervalText by remember { mutableStateOf(App.settings.notifyIntervalSeconds.toString()) }
     var batteryIgnored by remember { mutableStateOf(isIgnoringBatteryOptimizations(context)) }
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -1164,6 +1204,16 @@ fun NotifySettingsScreen(nav: NavState) {
                             title = "新帖推送",
                             summary = "关注的人发新微博时也发一条通知",
                             modifier = Modifier.testTag("notify_new_posts"),
+                        )
+                        SwitchPreference(
+                            checked = specialOnly,
+                            onCheckedChange = { v ->
+                                specialOnly = v
+                                App.settings.applyNotifySpecialOnly(v)
+                            },
+                            title = "只推送特别关注",
+                            summary = "开启后，赞、评论、@ 和新帖只推送特别关注的人",
+                            modifier = Modifier.testTag("notify_special_only"),
                         )
                         Row(
                             modifier = Modifier

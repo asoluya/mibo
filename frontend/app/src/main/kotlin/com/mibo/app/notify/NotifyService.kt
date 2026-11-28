@@ -77,6 +77,15 @@ class NotifyPollService : Service() {
 
     private suspend fun pollOnce() {
         if (!App.isRepoReady() || App.repo.guest) return
+        // 只推送特别关注：名单走 Repo 缓存；开关关着或名单为空（拉取失败）时不拦截，避免误杀全部通知。
+        val specialOnly = runCatching { App.settings.notifySpecialOnly }.getOrDefault(false)
+        val specialUids: Set<String> = if (specialOnly) {
+            runCatching { App.repo.specialFollowUidSet() }.getOrDefault(emptySet())
+        } else {
+            emptySet()
+        }
+        fun fromSpecial(uid: String?): Boolean =
+            !specialOnly || specialUids.isEmpty() || (uid != null && uid in specialUids)
         val checks = listOf(
             Check("like", "赞", 1002, NotificationTab.Like),
             Check("comment", "评论", 1003, NotificationTab.Comment),
@@ -86,18 +95,22 @@ class NotifyPollService : Service() {
         val prefs = getSharedPreferences(STATE_PREFS, MODE_PRIVATE)
         for (check in checks) {
             val page = runCatching { App.repo.notifications(check.tab) }.getOrNull() ?: continue
-            // @微博 返回的是微博列表，其余返回通知列表，统一成 (id, 一行文案)。
-            val entries: List<Pair<String, String>> = if (check.tab == NotificationTab.AtWeibo) {
+            // @微博 返回的是微博列表，其余返回通知列表，统一成 (id, 一行文案, 作者 uid)。
+            val entries: List<Triple<String, String, String>> = if (check.tab == NotificationTab.AtWeibo) {
                 page.statuses.map { status ->
-                    status.id to listOf(status.user?.name.orEmpty(), plainText(status.textHtml))
-                        .filter { it.isNotBlank() }.joinToString("：")
+                    Triple(
+                        status.id,
+                        listOf(status.user?.name.orEmpty(), plainText(status.textHtml))
+                            .filter { it.isNotBlank() }.joinToString("："),
+                        status.user?.id.orEmpty(),
+                    )
                 }
             } else {
                 page.notifications.map { item ->
                     val head = listOf(item.user?.name.orEmpty(), item.actionLabel)
                         .filter { it.isNotBlank() }.joinToString(" ")
                     val body = plainText(item.textHtml)
-                    item.id to if (body.isBlank()) head else "$head：$body"
+                    Triple(item.id, if (body.isBlank()) head else "$head：$body", item.user?.id.orEmpty())
                 }
             }
             if (entries.isEmpty()) continue
@@ -110,9 +123,14 @@ class NotifyPollService : Service() {
             }
             if (topId == lastSeen) continue
             val knownIndex = entries.indexOfFirst { it.first == lastSeen }
-            val newCount = if (knownIndex >= 0) knownIndex else entries.size
+            val newEntries = entries.take(if (knownIndex >= 0) knownIndex else entries.size)
             prefs.edit().putString(stateKey, topId).apply()
-            postInteractionNotification(this, check.notificationId, check.label, newCount, entries.first().second)
+            val deliverable = newEntries.filter { fromSpecial(it.third) }
+            if (deliverable.isNotEmpty()) {
+                postInteractionNotification(
+                    this, check.notificationId, check.label, deliverable.size, deliverable.first().second,
+                )
+            }
         }
         // 新帖推送（单独开关）：顺带查一次关注流，榜首变了就按同样的规则发一条。
         if (runCatching { App.settings.notifyNewPosts }.getOrDefault(false)) {
@@ -125,12 +143,15 @@ class NotifyPollService : Service() {
                     prefs.edit().putString(stateKey, topId).apply()
                 } else if (topId != lastSeen) {
                     val knownIndex = items.indexOfFirst { it.id == lastSeen }
-                    val newCount = if (knownIndex >= 0) knownIndex else items.size
+                    val newItems = items.take(if (knownIndex >= 0) knownIndex else items.size)
                     prefs.edit().putString(stateKey, topId).apply()
-                    val top = items.first()
-                    val firstText = listOf(top.user?.name.orEmpty(), plainText(top.textHtml))
-                        .filter { it.isNotBlank() }.joinToString("：")
-                    postInteractionNotification(this, 1005, "微博", newCount, firstText)
+                    val deliverable = newItems.filter { fromSpecial(it.user?.id) }
+                    if (deliverable.isNotEmpty()) {
+                        val top = deliverable.first()
+                        val firstText = listOf(top.user?.name.orEmpty(), plainText(top.textHtml))
+                            .filter { it.isNotBlank() }.joinToString("：")
+                        postInteractionNotification(this, 1005, "微博", deliverable.size, firstText)
+                    }
                 }
             }
         }

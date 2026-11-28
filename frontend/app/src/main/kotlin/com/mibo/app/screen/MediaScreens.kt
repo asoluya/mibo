@@ -2954,7 +2954,6 @@ private fun playerView(context: Context, player: ExoPlayer, controls: Boolean): 
 
 private val VideoTopBarButtonHeight = MediaControlHeight
 
-private const val SeekStepMs = 5_000L
 
 private val Speeds = listOf(1f, 1.25f, 1.5f, 2f, 3f)
 
@@ -3188,17 +3187,16 @@ fun VideoScreen(nav: NavState, url: String, title: String, isLive: Boolean = fal
         is ResolvedVideo.DirectStream -> {
             val effectiveTitle = current.title?.takeIf { it.isNotBlank() }
                 ?: title.ifBlank { if (current.isLive || liveRequested) "直播" else "" }
-            // 画质双档探针：两档地址都落盘，供核对无水印/原画的字段映射是否正确。
+            // 画质双档探针：每次打开视频都落一行（alt 为空 = 这条视频没凑出第二档），供核对映射。
             LaunchedEffect(current.url, current.altUrl) {
-                if (!current.altUrl.isNullOrBlank()) {
-                    ProbeLog.append(
-                        "video_quality",
-                        JSONObject()
-                            .put("pref", runCatching { App.settings.videoQuality.key }.getOrDefault(""))
-                            .put("url", current.url)
-                            .put("alt", current.altUrl),
-                    )
-                }
+                ProbeLog.append(
+                    "video_quality",
+                    JSONObject()
+                        .put("pref", runCatching { App.settings.videoQuality.key }.getOrDefault(""))
+                        .put("route", url)
+                        .put("url", current.url)
+                        .put("alt", current.altUrl.orEmpty()),
+                )
             }
             DirectVideoPlayer(
                 nav = nav,
@@ -3356,16 +3354,6 @@ private fun DirectVideoPlayer(
         flash("画质已固定为${target.label}")
     }
 
-    fun seekBy(deltaMs: Long) {
-        if (currentLiveMode) return
-        val raw = (player.currentPosition + deltaMs).coerceAtLeast(0L)
-        val dur = player.duration.takeIf { it > 0L } ?: Long.MAX_VALUE
-        val target = raw.coerceAtMost(dur)
-        player.seekTo(target)
-        positionMs = target
-        flash(if (deltaMs < 0L) "快退 5 秒" else "快进 5 秒")
-    }
-
     fun togglePlayPause() {
         if (currentLiveMode) return
         if (player.isPlaying) {
@@ -3470,9 +3458,9 @@ private fun DirectVideoPlayer(
             )
         }
 
-        // 手势层铺在底部与顶部控件下面：单点切换整套控件显隐，左/中/右双击快退5秒/暂停播放/快进5秒，
+        // 手势层铺在底部与顶部控件下面：单点暂停/继续播放（控件随之显现，播放时自动隐去），
         // 左右拖动联动底部进度条快进/快退，左半上下划调亮度、右半上下划调音量，长按临时 3× 倍速并支持下滑锁定。
-        // 直播模式下仅保留单点显隐与亮度/音量手势，禁用倍速、进度拖动、快进/快退与暂停。
+        // 直播模式下单点仅切换控件显隐，禁用倍速、进度拖动与暂停。
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -3575,23 +3563,14 @@ private fun DirectVideoPlayer(
                 .pointerInput(liveMode) {
                     detectTapGestures(
                         onTap = {
-                            if (speedMenu) {
-                                speedMenu = false
-                            } else {
-                                controlsVisible = !controlsVisible
-                            }
-                        },
-                        onDoubleTap = { offset ->
-                            if (speedMenu) {
-                                speedMenu = false
-                                return@detectTapGestures
-                            }
-                            if (currentLiveMode) return@detectTapGestures
-                            val w = size.width.toFloat().coerceAtLeast(1f)
                             when {
-                                offset.x < w / 3f -> seekBy(-SeekStepMs)
-                                offset.x > w * 2f / 3f -> seekBy(SeekStepMs)
-                                else -> togglePlayPause()
+                                speedMenu -> speedMenu = false
+                                qualityMenu -> qualityMenu = false
+                                currentLiveMode -> controlsVisible = !controlsVisible
+                                else -> {
+                                    controlsVisible = true
+                                    togglePlayPause()
+                                }
                             }
                         },
                         onLongPress = { /* 长按 3× 倍速与锁定解锁由下方 awaitEachGesture 接管 */ },
@@ -3811,48 +3790,6 @@ private fun DirectVideoPlayer(
                     .navigationBarsPadding()
                     .padding(horizontal = 16.dp, vertical = 12.dp),
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 10.dp),
-                    horizontalArrangement = Arrangement.spacedBy(24.dp, Alignment.CenterHorizontally),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    MediaIconButton(
-                        onClick = { seekBy(-SeekStepMs) },
-                        size = VideoTopBarButtonHeight,
-                        modifier = Modifier.semantics { contentDescription = "快退 5 秒" },
-                    ) {
-                        Text(
-                            text = "-5s",
-                            color = LocalContentColor.current,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                    }
-                    MediaIconButton(
-                        onClick = ::togglePlayPause,
-                        size = VideoTopBarButtonHeight,
-                    ) {
-                        Icon(
-                            imageVector = if (isPlaying) MiuixIcons.Pause else MiuixIcons.Play,
-                            contentDescription = if (isPlaying) "暂停" else "播放",
-                            modifier = Modifier.size(18.dp),
-                        )
-                    }
-                    MediaIconButton(
-                        onClick = { seekBy(SeekStepMs) },
-                        size = VideoTopBarButtonHeight,
-                        modifier = Modifier.semantics { contentDescription = "快进 5 秒" },
-                    ) {
-                        Text(
-                            text = "+5s",
-                            color = LocalContentColor.current,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                    }
-                }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
