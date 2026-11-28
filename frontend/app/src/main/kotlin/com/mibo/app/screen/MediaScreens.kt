@@ -174,6 +174,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.VideoSize
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
@@ -3410,6 +3411,9 @@ private fun DirectVideoPlayer(
     val liveMode = isLive || playerIsLive
     val currentLiveMode by rememberUpdatedState(liveMode)
     var durationMs by remember { mutableLongStateOf(0L) }
+    // 实际播放流的分辨率，随画质徽标一起显示（如「原画 · 1920×1080」），便于核对档位是否真清晰。
+    var videoWidth by remember { mutableIntStateOf(0) }
+    var videoHeight by remember { mutableIntStateOf(0) }
     var positionMs by remember { mutableLongStateOf(0L) }
     var bufferedPositionMs by remember { mutableLongStateOf(0L) }
     var isScrubbing by remember { mutableStateOf(false) }
@@ -3450,6 +3454,8 @@ private fun DirectVideoPlayer(
             playerIsLive = true
         }
         durationMs = player.duration.coerceAtLeast(0L)
+        videoWidth = player.videoSize.width
+        videoHeight = player.videoSize.height
         bufferedPositionMs = player.bufferedPosition.coerceAtLeast(0L)
         if (!isScrubbing) {
             positionMs = player.currentPosition.coerceAtLeast(0L)
@@ -3491,6 +3497,11 @@ private fun DirectVideoPlayer(
 
             override fun onPlaybackStateChanged(playbackState: Int) {
                 syncPlayerState()
+            }
+
+            override fun onVideoSizeChanged(videoSize: VideoSize) {
+                videoWidth = videoSize.width
+                videoHeight = videoSize.height
             }
         }
         player.addListener(listener)
@@ -3856,7 +3867,11 @@ private fun DirectVideoPlayer(
                             .padding(horizontal = 8.dp, vertical = 3.dp),
                     ) {
                         Text(
-                            quality.label,
+                            if (videoWidth > 0 && videoHeight > 0) {
+                                "${quality.label} · ${videoWidth}×${videoHeight}"
+                            } else {
+                                quality.label
+                            },
                             color = Color.White,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Medium,
