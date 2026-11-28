@@ -16,7 +16,7 @@ internal object ProbeLog {
      * 只有带探针/需要导日志调试的版本才在本轮改包里改成 true。
      * 隐藏只是不显示入口，日志照常落盘。
      */
-    const val ENTRY_VISIBLE: Boolean = false
+    const val ENTRY_VISIBLE: Boolean = true
 
     private const val MAX_BYTES = 180_000
     private val lock = Any()

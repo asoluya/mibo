@@ -12,6 +12,7 @@ import android.graphics.Rect as AndroidRect
 import android.media.AudioManager
 import android.os.Build
 import java.io.File
+import org.json.JSONObject
 import android.net.Uri
 import android.provider.Settings
 import android.util.Log
@@ -191,7 +192,9 @@ import coil3.size.Size
 import com.mibo.app.App
 import com.mibo.app.data.Api
 import com.mibo.app.data.Pic
+import com.mibo.app.data.ProbeLog
 import com.mibo.app.data.ProfileWebFallbackException
+import com.mibo.app.data.VideoQuality
 import com.mibo.app.data.WEIBO_PROFILE_EDIT_URL
 import com.mibo.app.ui.MiboIcons
 import com.mibo.app.ui.MiboPredictiveBackHandler
@@ -3006,7 +3009,7 @@ private fun VideoSpeedPill(
 }
 
 @Composable
-fun VideoScreen(nav: NavState, url: String, title: String, isLive: Boolean = false) {
+fun VideoScreen(nav: NavState, url: String, title: String, isLive: Boolean = false, altUrl: String = "") {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val liveRequested = remember(url, isLive) { isLive || isWeiboLiveLink(url) }
@@ -3017,7 +3020,12 @@ fun VideoScreen(nav: NavState, url: String, title: String, isLive: Boolean = fal
     var resolved by remember(url, liveRequested) {
         mutableStateOf<ResolvedVideo?>(
             if (!liveRequested && isDirectVideoStream(url)) {
-                ResolvedVideo.DirectStream(url, referer = defaultRefererFor(url), isLive = false)
+                ResolvedVideo.DirectStream(
+                    url,
+                    referer = defaultRefererFor(url),
+                    isLive = false,
+                    altUrl = altUrl.takeIf { it.isNotBlank() && it != url },
+                )
             } else null,
         )
     }
@@ -3180,6 +3188,18 @@ fun VideoScreen(nav: NavState, url: String, title: String, isLive: Boolean = fal
         is ResolvedVideo.DirectStream -> {
             val effectiveTitle = current.title?.takeIf { it.isNotBlank() }
                 ?: title.ifBlank { if (current.isLive || liveRequested) "直播" else "" }
+            // 画质双档探针：两档地址都落盘，供核对无水印/原画的字段映射是否正确。
+            LaunchedEffect(current.url, current.altUrl) {
+                if (!current.altUrl.isNullOrBlank()) {
+                    ProbeLog.append(
+                        "video_quality",
+                        JSONObject()
+                            .put("pref", runCatching { App.settings.videoQuality.key }.getOrDefault(""))
+                            .put("url", current.url)
+                            .put("alt", current.altUrl),
+                    )
+                }
+            }
             DirectVideoPlayer(
                 nav = nav,
                 streamUrl = current.url,
@@ -3189,7 +3209,8 @@ fun VideoScreen(nav: NavState, url: String, title: String, isLive: Boolean = fal
                 isLive = current.isLive,
                 hud = hud,
                 flash = ::flash,
-                onDownload = { startVideoDownload(current.url, current.referer) },
+                onDownload = { u -> startVideoDownload(u, current.referer) },
+                altStreamUrl = current.altUrl,
             )
         }
 
@@ -3217,7 +3238,8 @@ private fun DirectVideoPlayer(
     isLive: Boolean,
     hud: String,
     flash: (String) -> Unit,
-    onDownload: () -> Unit,
+    onDownload: (String) -> Unit,
+    altStreamUrl: String? = null,
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
@@ -3226,6 +3248,15 @@ private fun DirectVideoPlayer(
         context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     }
     var activeStreamUrl by remember(streamUrl) { mutableStateOf(streamUrl) }
+    // 画质双档：altUrlState 是另一档的地址，切换时与 activeStreamUrl 对调；quality 是当前档。
+    var altUrlState by remember(streamUrl) { mutableStateOf(altStreamUrl) }
+    var quality by remember {
+        mutableStateOf(runCatching { App.settings.videoQuality }.getOrDefault(VideoQuality.Original))
+    }
+    var qualityMenu by remember { mutableStateOf(false) }
+    // 切档后新播放器从原位置续播，并保持切换前的播放/暂停状态。
+    var resumePositionMs by remember { mutableLongStateOf(0L) }
+    var resumePlaying by remember { mutableStateOf(true) }
     val player = remember(activeStreamUrl, referer) {
         val effectiveReferer = referer?.takeIf { it.isNotBlank() } ?: defaultRefererFor(activeStreamUrl)
         val httpFactory = DefaultHttpDataSource.Factory().apply {
@@ -3255,7 +3286,8 @@ private fun DirectVideoPlayer(
                 )
                 setMediaItem(MediaItem.fromUri(activeStreamUrl))
                 prepare()
-                playWhenReady = true
+                if (resumePositionMs > 0L) seekTo(resumePositionMs)
+                playWhenReady = resumePlaying
             }
     }
 
@@ -3312,6 +3344,18 @@ private fun DirectVideoPlayer(
         }
     }
 
+    fun switchQuality(target: VideoQuality) {
+        val targetUrl = altUrlState ?: return
+        if (target == quality) return
+        resumePositionMs = player.currentPosition
+        resumePlaying = player.isPlaying || player.playWhenReady
+        altUrlState = activeStreamUrl
+        activeStreamUrl = targetUrl
+        quality = target
+        App.settings.applyVideoQuality(target)
+        flash("画质已固定为${target.label}")
+    }
+
     fun seekBy(deltaMs: Long) {
         if (currentLiveMode) return
         val raw = (player.currentPosition + deltaMs).coerceAtLeast(0L)
@@ -3363,8 +3407,8 @@ private fun DirectVideoPlayer(
         }
     }
 
-    LaunchedEffect(controlsVisible, isPlaying, speedMenu, isScrubbing) {
-        if (controlsVisible && isPlaying && !speedMenu && !isScrubbing) {
+    LaunchedEffect(controlsVisible, isPlaying, speedMenu, qualityMenu, isScrubbing) {
+        if (controlsVisible && isPlaying && !speedMenu && !qualityMenu && !isScrubbing) {
             delay(5000)
             controlsVisible = false
         }
@@ -3612,7 +3656,7 @@ private fun DirectVideoPlayer(
         )
 
         AnimatedVisibility(
-            visible = controlsVisible || speedMenu,
+            visible = controlsVisible || speedMenu || qualityMenu,
             enter = fadeIn(tween(150)),
             exit = fadeOut(tween(150)),
             modifier = Modifier
@@ -3668,6 +3712,36 @@ private fun DirectVideoPlayer(
                     modifier = Modifier.weight(1f).padding(end = 8.dp),
                 )
                 if (!liveMode) {
+                    if (altUrlState != null) {
+                        Box {
+                            VideoSpeedPill(
+                                text = quality.label,
+                                onClick = { qualityMenu = !qualityMenu },
+                            )
+                            OverlayListPopup(
+                                show = qualityMenu,
+                                popupPositionProvider = ListPopupDefaults.DropdownPositionProvider,
+                                onDismissRequest = { qualityMenu = false },
+                            ) {
+                                val dismiss = LocalDismissState.current
+                                ListPopupColumn {
+                                    VideoQuality.entries.forEachIndexed { index, q ->
+                                        DropdownImpl(
+                                            item = DropdownItem(text = q.label),
+                                            optionSize = VideoQuality.entries.size,
+                                            isSelected = quality == q,
+                                            index = index,
+                                            onSelectedIndexChange = {
+                                                switchQuality(q)
+                                                dismiss?.invoke()
+                                            },
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        Spacer(Modifier.width(6.dp))
+                    }
                     Box {
                         VideoSpeedPill(
                             text = speedLabel(effectivePlaybackSpeed),
@@ -3698,7 +3772,7 @@ private fun DirectVideoPlayer(
                         }
                     }
                     Spacer(Modifier.width(6.dp))
-                    MediaIconButton(onClick = onDownload, size = VideoTopBarButtonHeight) {
+                    MediaIconButton(onClick = { onDownload(activeStreamUrl) }, size = VideoTopBarButtonHeight) {
                         Icon(MiuixIcons.Download, "下载视频", Modifier.size(18.dp))
                     }
                     Spacer(Modifier.width(6.dp))

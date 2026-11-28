@@ -456,6 +456,31 @@ internal fun extractVideoInfo(page: JSONObject, fallbackPics: List<Pic> = emptyL
             .ifBlank { urlsObj?.str("stream_url_hd").orEmpty() }
             .ifBlank { urlsObj?.str("stream_url").orEmpty() }
     }
+    // 无水印档：media_info / urls 里的直链 mp4（源文件档），与播放器转码流是两条链。
+    val noWatermarkUrl = if (livePage) {
+        ""
+    } else {
+        media?.str("mp4_720p_mp4").orEmpty()
+            .ifBlank { media?.str("mp4_hd_url").orEmpty() }
+            .ifBlank { urlsObj?.str("mp4_720p_mp4").orEmpty() }
+            .ifBlank { urlsObj?.str("mp4_hd_mp4").orEmpty() }
+            .ifBlank { media?.str("mp4_sd_url").orEmpty() }
+            .ifBlank { urlsObj?.str("mp4_ld_mp4").orEmpty() }
+    }
+    // 按已固定的画质档位选主地址，另一档留作播放页可切换的 altUrl。
+    val qualityPref = runCatching { com.mibo.app.App.settings.videoQuality }
+        .getOrDefault(VideoQuality.Original)
+    val pickedUrl = if (!livePage && qualityPref == VideoQuality.NoWatermark && noWatermarkUrl.isNotBlank()) {
+        noWatermarkUrl
+    } else {
+        directUrl
+    }
+    val altUrl = if (livePage) {
+        ""
+    } else {
+        val other = if (pickedUrl == noWatermarkUrl) directUrl else noWatermarkUrl
+        other.takeIf { it.isNotBlank() && it != pickedUrl }.orEmpty()
+    }
     val fallbackLiveStream = if (livePage && !liveIsReplay) {
         media?.str("live_hd").orEmpty()
             .ifBlank { media?.str("live_ld").orEmpty() }
@@ -477,7 +502,7 @@ internal fun extractVideoInfo(page: JSONObject, fallbackPics: List<Pic> = emptyL
                     .orEmpty()
             }
     }
-    val resolvedUrl = directUrl.ifBlank {
+    val resolvedUrl = pickedUrl.ifBlank {
         if (livePage && liveId != null) {
             "https://weibo.com/l/wblive/m/show/$liveId"
         } else {
@@ -498,6 +523,7 @@ internal fun extractVideoInfo(page: JSONObject, fallbackPics: List<Pic> = emptyL
         url = resolvedUrl,
         durationSec = if (livePage && !liveIsReplay) 0 else videoDurationSec(page, media),
         isLive = livePage && !liveIsReplay,
+        altUrl = altUrl,
     )
 }
 
@@ -518,6 +544,8 @@ data class VideoInfo(
     val url: String,
     val durationSec: Int = 0,
     val isLive: Boolean = false,
+    /** 另一画质档位的地址（与 [url] 相对的无水印/原画），无第二档时为空。 */
+    val altUrl: String = "",
 )
 
 data class BigPicInfo(

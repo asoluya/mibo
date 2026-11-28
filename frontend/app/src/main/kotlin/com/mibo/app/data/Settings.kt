@@ -36,6 +36,17 @@ enum class FeedTabItem(val key: String, val label: String, val tag: String) {
     }
 }
 
+/** 视频画质档位：播放页选一次后固定，之后所有视频都按所选档位取流。 */
+enum class VideoQuality(val key: String, val label: String) {
+    NoWatermark("nowm", "无水印"),
+    Original("orig", "原画"),
+    ;
+
+    companion object {
+        fun fromKey(key: String?): VideoQuality = entries.firstOrNull { it.key == key } ?: Original
+    }
+}
+
 /**
  * 首页某一栏看什么。内置流直接用 [item]；关注分组是 [item] 为 [FeedTabItem.Group]
  * 再加上具体那一组的 gid 与名字 —— 分组是账号里的数据，不能写进枚举。
@@ -219,6 +230,10 @@ class Settings(context: Context) {
     var livePhotoSound by mutableStateOf(sp.getBoolean("live_photo_sound", true))
         private set
 
+    /** 视频画质：播放页顶栏选一次后固定，解析与播放都按此档位取流。默认原画。 */
+    var videoQuality by mutableStateOf(VideoQuality.fromKey(sp.getString("video_quality", null)))
+        private set
+
     /** 前台监测新帖：应用在前台时每 20 秒检测一次关注流，有新微博时刷新按钮发光提醒。默认关。 */
     var monitorNewPosts by mutableStateOf(sp.getBoolean("monitor_new_posts", false))
 
@@ -244,6 +259,11 @@ class Settings(context: Context) {
     fun applyMainTab(value: Int) {
         mainTab = value
         sp.edit().putInt("main_tab", value).apply()
+    }
+
+    fun applyVideoQuality(value: VideoQuality) {
+        videoQuality = value
+        sp.edit().putString("video_quality", value.key).apply()
     }
 
     /** Records a submitted query, newest first, keeping at most [SearchHistoryLimit] entries. */

@@ -810,7 +810,7 @@ private fun RouteContent(route: Route, nav: NavState) {
         is Route.Topic -> TopicScreen(nav, route.name)
         is Route.TopicFeed -> TopicFeedScreen(nav, route.topic)
         is Route.Images -> ImageViewerScreen(nav, route.pics, route.index, route.editableAvatar)
-        is Route.Video -> VideoScreen(nav, route.url, route.title, route.isLive)
+        is Route.Video -> VideoScreen(nav, route.url, route.title, route.isLive, route.altUrl)
         is Route.Vote -> VoteScreen(nav, route.voteId)
     }
 }

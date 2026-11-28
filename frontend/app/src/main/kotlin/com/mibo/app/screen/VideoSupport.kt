@@ -7,6 +7,7 @@ import android.os.Environment
 import android.provider.MediaStore
 import com.mibo.app.App
 import com.mibo.app.data.Api
+import com.mibo.app.data.VideoQuality
 import com.mibo.app.ui.extractWeiboLiveId
 import com.mibo.app.ui.isWeiboLiveLink
 import com.mibo.app.ui.isWeiboShortLink
@@ -38,6 +39,8 @@ internal sealed interface ResolvedVideo {
         val title: String? = null,
         val isLive: Boolean = false,
         val fallbackUrl: String? = null,
+        /** 另一画质档位的地址（与 [url] 相对的无水印/原画），无第二档时为 null。 */
+        val altUrl: String? = null,
     ) : ResolvedVideo
 
     data class WebPage(
@@ -578,10 +581,31 @@ private fun resolveWeiboVideoByFid(fid: String, cacheDir: File? = null): Resolve
                 ?: firstPlayInfoPlaybackUrl(playInfo).takeIf { it.isNotBlank() }
                 ?: playInfo.optString("stream_url_hd").takeIf { it.isNotBlank() }
                 ?: playInfo.optString("stream_url").takeIf { it.isNotBlank() }
-            if (!picked.isNullOrBlank()) {
-                val url = normalizeWeiboStreamUrl(picked)
+            // 无水印档：playinfo 里的直链 mp4（源文件档）；与原画档互为播放页可切换的另一档。
+            val noWatermarkPick = playInfo.optString("mp4_720p_mp4").takeIf { it.isNotBlank() }
+                ?: playInfo.optString("mp4_hd_url").takeIf { it.isNotBlank() }
+                ?: urls?.optString("mp4_720p_mp4")?.takeIf { it.isNotBlank() }
+                ?: urls?.optString("mp4_hd_mp4")?.takeIf { it.isNotBlank() }
+                ?: firstPlayInfoPlaybackUrl(playInfo).takeIf { it.isNotBlank() }
+            val qualityPref = runCatching { App.settings.videoQuality }
+                .getOrDefault(VideoQuality.Original)
+            val chosen = if (qualityPref == VideoQuality.NoWatermark && !noWatermarkPick.isNullOrBlank()) {
+                noWatermarkPick
+            } else {
+                picked
+            }
+            val altPick = (if (chosen == noWatermarkPick) picked else noWatermarkPick)
+                ?.takeIf { it.isNotBlank() && it != chosen }
+            if (!chosen.isNullOrBlank()) {
+                val url = normalizeWeiboStreamUrl(chosen)
                 val isLive = (isLivePlay || liveStatus == 1) && liveStatus != 3
-                val stream = ResolvedVideo.DirectStream(url, referer = "https://weibo.com/", title = title, isLive = isLive)
+                val stream = ResolvedVideo.DirectStream(
+                    url,
+                    referer = "https://weibo.com/",
+                    title = title,
+                    isLive = isLive,
+                    altUrl = altPick?.let { normalizeWeiboStreamUrl(it) },
+                )
                 return if (isLive) stream else normalizeResolvedStream(stream, cacheDir)
             }
             if (isLivePlay || liveStatus >= 0) {
