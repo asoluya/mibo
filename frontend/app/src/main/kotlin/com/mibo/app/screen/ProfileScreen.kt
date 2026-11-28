@@ -190,6 +190,10 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.graphics.vector.ImageVector
 import java.net.URLEncoder
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 import kotlin.math.roundToInt
 
 internal data class CoverContrast(
@@ -648,6 +652,91 @@ class ProfileTabState {
     var error by mutableStateOf<String?>(null)
     var resolvedUid by mutableStateOf<String?>(null)
     var loadedUid by mutableStateOf<String?>(null)
+    /** 他人主页的点赞时间表（mblog id -> 点赞时刻），给「赞过的微博」分隔行标时间用。 */
+    var likeTimes by mutableStateOf<Map<String, Long>>(emptyMap())
+    var likeTimesUid by mutableStateOf<String?>(null)
+}
+
+/** 主页流的一行：普通微博，或一簇「赞过的微博」前面的分隔行。 */
+private sealed interface ProfileRow {
+    val key: String
+
+    data class LikeDivider(val label: String, val firstId: String) : ProfileRow {
+        override val key: String get() = "likediv-$firstId"
+    }
+
+    data class Entry(val status: Status) : ProfileRow {
+        override val key: String get() = status.id
+    }
+}
+
+/**
+ * 把主页流按服务端下发的顺序切分：连续的 [Status.profileLiked] 归为一簇，
+ * 簇前插一行「她/他<点赞时间>赞过的微博（N）」；点赞时间取簇内第一条查得到的，
+ * 查不到就只写「赞过的微博（N）」。
+ */
+private fun buildProfileRows(
+    items: List<Status>,
+    likeTimes: Map<String, Long>,
+    pronoun: String,
+): List<ProfileRow> {
+    if (items.none { it.profileLiked }) return items.map { ProfileRow.Entry(it) }
+    val rows = ArrayList<ProfileRow>(items.size + 4)
+    var i = 0
+    while (i < items.size) {
+        val head = items[i]
+        if (!head.profileLiked) {
+            rows.add(ProfileRow.Entry(head))
+            i++
+            continue
+        }
+        var j = i
+        var likeAt = 0L
+        while (j < items.size && items[j].profileLiked) {
+            if (likeAt == 0L) likeAt = likeTimes[items[j].id] ?: 0L
+            j++
+        }
+        rows.add(ProfileRow.LikeDivider(likedBatchLabel(pronoun, likeAt, j - i), head.id))
+        for (k in i until j) rows.add(ProfileRow.Entry(items[k]))
+        i = j
+    }
+    return rows
+}
+
+private fun likedBatchLabel(pronoun: String, likeMillis: Long, count: Int): String {
+    val whenText = if (likeMillis > 0L) {
+        val date = Date(likeMillis)
+        val cal = Calendar.getInstance().apply { timeInMillis = likeMillis }
+        val now = Calendar.getInstance()
+        val yesterday = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -1) }
+        val hm = SimpleDateFormat("HH:mm", Locale.US).format(date)
+        fun sameDay(a: Calendar, b: Calendar) =
+            a.get(Calendar.YEAR) == b.get(Calendar.YEAR) &&
+                a.get(Calendar.DAY_OF_YEAR) == b.get(Calendar.DAY_OF_YEAR)
+        when {
+            sameDay(cal, now) -> "今天$hm"
+            sameDay(cal, yesterday) -> "昨天$hm"
+            cal.get(Calendar.YEAR) == now.get(Calendar.YEAR) ->
+                "${cal.get(Calendar.MONTH) + 1}-${cal.get(Calendar.DAY_OF_MONTH)}"
+            else -> SimpleDateFormat("yyyy-MM-dd", Locale.US).format(date)
+        }
+    } else {
+        ""
+    }
+    return if (whenText.isBlank()) "${pronoun}赞过的微博（$count）"
+    else "$pronoun${whenText}赞过的微博（$count）"
+}
+
+@Composable
+private fun LikeBatchDivider(label: String) {
+    Text(
+        label,
+        fontSize = 12.sp,
+        color = MiuixTheme.colorScheme.onSurfaceSecondary,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+    )
 }
 
 @Composable
@@ -692,6 +781,18 @@ fun ProfileContent(
         }
     }
 
+    // 他人主页：拉一份点赞时间表，给流里「赞过的微博」分隔行标时间；自己的主页不混排，不用拉。
+    suspend fun refreshLikeTimes(force: Boolean = false) {
+        val target = tabState.resolvedUid ?: return
+        if (App.repo.guest || target == App.repo.session?.uid) return
+        if (!force && tabState.likeTimesUid == target && tabState.likeTimes.isNotEmpty()) return
+        val times = runCatching { App.repo.profileLikeTimes(target, force) }.getOrDefault(emptyMap())
+        if (times.isNotEmpty()) {
+            tabState.likeTimes = times
+            tabState.likeTimesUid = target
+        }
+    }
+
     SyncDeletedStatuses(tabState.items)
     LaunchedEffect(uid, tabState) {
         val target = uid ?: runCatching { App.repo.ownUid() }.getOrNull()
@@ -701,10 +802,12 @@ fun ProfileContent(
         }
         tabState.resolvedUid = target
         if (tabState.loadedUid == target && tabState.user != null) {
+            refreshLikeTimes()
             return@LaunchedEffect
         }
         tabState.user = runCatching { App.repo.profile(target) }.getOrNull()
         loadStatuses(true, force = false)
+        refreshLikeTimes()
     }
 
     // 顶栏菜单要用头像和昵称，资料加载完就往上同步一份。
@@ -735,12 +838,23 @@ fun ProfileContent(
             }
     }
 
+    val profileRows = buildProfileRows(
+        items = tabState.items,
+        likeTimes = tabState.likeTimes,
+        pronoun = when (tabState.user?.gender) {
+            "f" -> "她"
+            "m" -> "他"
+            else -> "TA"
+        },
+    )
+
     PullToRefresh(
         isRefreshing = tabState.refreshing,
         onRefresh = {
             scope.launch {
                 tabState.resolvedUid?.let { tabState.user = runCatching { App.repo.profile(it, force = true) }.getOrNull() }
                 loadStatuses(true, force = true, showRefresh = true)
+                refreshLikeTimes(force = true)
             }
         },
         modifier = modifier,
@@ -850,7 +964,11 @@ fun ProfileContent(
                     }
                 }
             }
-            itemsIndexed(tabState.items, key = { _, s -> s.id }) { index, status ->
+            itemsIndexed(profileRows, key = { _, r -> r.key }) { _, row ->
+                when (row) {
+                    is ProfileRow.LikeDivider -> LikeBatchDivider(row.label)
+                    is ProfileRow.Entry -> {
+                val status = row.status
                 val origin = rememberExpandOrigin()
                 val topBar = LocalTopBarBounds.current
                 SideEffect {
@@ -879,6 +997,8 @@ fun ProfileContent(
                         nav.push(Route.Detail(quoted.id, quoted.mid), quotedOrigin)
                     },
                 )
+                    }
+                }
             }
             if (tabState.items.isNotEmpty()) {
                 item {

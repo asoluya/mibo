@@ -103,6 +103,8 @@ data class User(
     val mbrank: Int = 0,
     val svip: Boolean = false,
     val vvip: Boolean = false,
+    /** 性别原文（"m" / "f" / ""），主页流「赞过的微博」分隔行选人称用。 */
+    val gender: String = "",
 ) {
     val membership: Membership
         get() = when {
@@ -155,6 +157,7 @@ data class User(
                 mbrank = mbrank,
                 svip = svip,
                 vvip = vvip,
+                gender = o.str("gender"),
             )
         }
     }
@@ -728,6 +731,11 @@ data class Status(
      * 多见于转发链里的原博——列表预取只覆盖根与第一层，展开时要按需补拉全文。
      */
     val longTextPending: Boolean = false,
+    /**
+     * 他人主页流里这条是对方「赞过的」：容器卡 itemid 形如 `1076030002_<作者>`
+     * 的就是点赞混排卡（探针实测与赞容器精确对上），解析时按卡级 itemid 标记。
+     */
+    val profileLiked: Boolean = false,
 ) {
     val plainText: String get() = stripHtml(textHtml)
 
@@ -2401,21 +2409,27 @@ private fun parseCardsFromData(data: JSONObject?): FeedPage {
         }
     }
 
+    // 他人主页流的点赞混排卡靠卡级 itemid 识别（`1076030002_<作者>`），
+    // 解析时把标记带到 Status 上，供主页流分组显示「赞过的微博」分隔行。
+    fun addCardMblog(card: JSONObject) {
+        val mblog = card.optJSONObject("mblog")?.takeUnless { it.isPromotedStatus() } ?: return
+        val status = Status.from(mblog) ?: return
+        val liked = card.str("itemid").startsWith("1076030002_")
+        items.add(if (liked && !status.profileLiked) status.copy(profileLiked = true) else status)
+    }
+
     val cards: JSONArray? = data?.optJSONArray("cards")
     if (cards != null) {
         for (i in 0 until cards.length()) {
             val card = cards.optJSONObject(i) ?: continue
-            card.optJSONObject("mblog")?.takeUnless { it.isPromotedStatus() }
-                ?.let { Status.from(it)?.let(items::add) }
+            addCardMblog(card)
             collectCardUsers(card)
             collectSubCardsMblogs(card)
             val group = card.optJSONArray("card_group")
             if (group != null) {
                 for (j in 0 until group.length()) {
                     val g = group.optJSONObject(j) ?: continue
-                    g.optJSONObject("mblog")
-                        ?.takeUnless { it.isPromotedStatus() }
-                        ?.let { Status.from(it)?.let(items::add) }
+                    addCardMblog(g)
                     collectCardUsers(g)
                     collectSubCardsMblogs(g)
                 }

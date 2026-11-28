@@ -4017,25 +4017,29 @@ class Repo(private val context: Context, private val store: Store) {
         }.getOrNull()
     }
 
-    suspend fun profile(uid: String, force: Boolean = false): User? {
-        val user = profileFor(cookie(), uid, force)
-        if (uid != session?.uid) runCatching { probeProfileLikeTabs(uid) }
-        return user
-    }
+    suspend fun profile(uid: String, force: Boolean = false): User? =
+        profileFor(cookie(), uid, force)
 
-    private val profileLikeProbeFired = java.util.concurrent.atomic.AtomicBoolean(false)
+    private val profileLikeTimesCache = HashMap<String, Map<String, Long>>()
 
     /**
-     * 一次性探针 v3（为「主页流混入对方赞过的微博」取样）：v2 已确认主页流里
-     * itemid 形如 `1076030002_<作者>` 的卡就是赞过的（与赞容器精确对上一条），
-     * 但还有一批作者非本人、itemid 却是本人帖形状的卡没定性。这一轮抓三类卡
-     * （本人帖 / 0002 卡 / 外人形状卡）各一张完整原文和键表，再拉赞容器两页
-     * 建 mblog_id -> 点赞序号对照表，标出 feed 每张卡是否能在赞容器里对上。
+     * 他人主页流里「赞过的微博」的点赞时间表：mblog id -> 点赞时刻（毫秒）。
+     * 赞容器（`230869<uid>_-_mix`）每张卡 itemid 的尾段是点赞序号；序号与微博 id
+     * 同一套时间编码（高 42 位起 ≈ 秒 * 2^22，探针实测两组 (id, created_at)
+     * 校准偏移完全一致），用容器里微博自身的 (created_at, id) 校准偏移后即可
+     * 解出点赞时间。取不到返回空表，主页流退化为只分组、不带时间。
      */
-    suspend fun probeProfileLikeTabs(uid: String) {
-        if (!profileLikeProbeFired.compareAndSet(false, true)) return
+    suspend fun profileLikeTimes(uid: String, force: Boolean = false): Map<String, Long> {
+        if (!force) profileLikeTimesCache[uid]?.let { return it }
+        val result = runCatching { fetchProfileLikeTimes(uid) }.getOrDefault(emptyMap())
+        if (result.isNotEmpty()) profileLikeTimesCache[uid] = result
+        return result
+    }
 
-        suspend fun fetchPage(cid: String, sinceId: String? = null): JSONObject? {
+    private suspend fun fetchProfileLikeTimes(uid: String): Map<String, Long> {
+        val cid = "230869${uid}_-_mix"
+
+        suspend fun fetchPage(sinceId: String?): JSONObject? {
             return try {
                 if (isClientChannel()) {
                     val params = mutableMapOf("containerid" to cid, "count" to "20")
@@ -4061,103 +4065,50 @@ class Repo(private val context: Context, private val store: Store) {
                 ?: page?.optJSONObject("data")?.str("since_id")?.ifBlank { null }
                 ?: page?.str("since_id").orEmpty()
 
-        fun keyList(obj: JSONObject?): JSONArray {
-            val out = JSONArray()
-            if (obj == null) return out
-            val iter = obj.keys()
-            while (iter.hasNext()) out.put(iter.next())
-            return out
-        }
+        val entries = LinkedHashMap<String, Long>()
+        val offsets = ArrayList<Long>()
 
-        fun entryOf(itemid: String): String =
-            itemid.substringAfterLast('_', "").takeIf { it.isNotBlank() && it.all(Char::isDigit) } ?: ""
-
-        fun collectLikes(cards: JSONArray?, into: MutableMap<String, String>) {
+        fun collect(cards: JSONArray?) {
             if (cards == null) return
+            fun handle(card: JSONObject) {
+                val mblog = card.optJSONObject("mblog") ?: return
+                val mid = mblog.str("idstr").ifBlank { mblog.str("id") }
+                val midLong = mid.toLongOrNull() ?: return
+                val createdSec = parseWeiboTimeMillis(mblog.str("created_at")) / 1000
+                if (createdSec > 0) offsets.add(createdSec - (midLong shr 22))
+                val entry = card.str("itemid").substringAfterLast('_', "")
+                    .takeIf { it.isNotBlank() && it.all(Char::isDigit) }
+                    ?.toLongOrNull() ?: return
+                entries.putIfAbsent(mid, entry)
+            }
             for (i in 0 until cards.length()) {
                 val card = cards.optJSONObject(i) ?: continue
-                val mblog = card.optJSONObject("mblog")
-                val mid = mblog?.str("idstr")?.ifBlank { mblog.str("id") }.orEmpty()
-                val entry = entryOf(card.str("itemid"))
-                if (mid.isNotBlank() && entry.isNotBlank()) into.putIfAbsent(mid, entry)
+                handle(card)
                 val group = card.optJSONArray("card_group") ?: continue
                 for (k in 0 until group.length()) {
-                    val sub = group.optJSONObject(k) ?: continue
-                    val subMblog = sub.optJSONObject("mblog") ?: continue
-                    val subMid = subMblog.str("idstr").ifBlank { subMblog.str("id") }
-                    val subEntry = entryOf(sub.str("itemid"))
-                    if (subMid.isNotBlank() && subEntry.isNotBlank()) into.putIfAbsent(subMid, subEntry)
+                    group.optJSONObject(k)?.let { handle(it) }
                 }
             }
         }
 
-        // ---- 赞容器两页：mblog_id -> 点赞序号 ----
-        val likeCid = "230869${uid}_-_mix"
-        val likeMap = LinkedHashMap<String, String>()
-        val likePage1 = fetchPage(likeCid)
-        collectLikes(cardsOf(likePage1), likeMap)
-        val likeCursor = cursorOf(likePage1)
-        if (likeCursor.isNotBlank()) {
-            collectLikes(cardsOf(fetchPage(likeCid, likeCursor)), likeMap)
+        var cursor: String? = null
+        var pages = 0
+        while (pages < 6) {
+            pages++
+            val page = fetchPage(cursor) ?: break
+            val before = entries.size
+            collect(cardsOf(page))
+            val next = cursorOf(page).ifBlank { null }
+            if (next == null || next == cursor || entries.size == before) break
+            cursor = next
         }
-
-        // ---- 主页流第一页：逐卡形状 + 三类样本 + 赞对照 ----
-        val feedCards = cardsOf(fetchPage("107603$uid"))
-        val feedDump = JSONObject().put("uid", uid)
-        val entries = JSONArray()
-        val matches = JSONArray()
-        var sampleOwn: JSONObject? = null
-        var sampleLiked: JSONObject? = null
-        var sampleForeign: JSONObject? = null
-        var foreignTotal = 0
-        var foreignMatched = 0
-        if (feedCards != null) {
-            for (i in 0 until feedCards.length()) {
-                val card = feedCards.optJSONObject(i) ?: continue
-                val itemid = card.str("itemid")
-                val entry = JSONObject()
-                    .put("card_type", card.optInt("card_type"))
-                    .put("itemid", itemid)
-                val mblog = card.optJSONObject("mblog")
-                if (mblog != null) {
-                    val mid = mblog.str("idstr").ifBlank { mblog.str("id") }
-                    val author = mblog.optJSONObject("user")?.str("idstr") ?: ""
-                    entry.put("mblog_id", mid)
-                    entry.put("author", author)
-                    val likeEntry = likeMap[mid]
-                    if (likeEntry != null) {
-                        entry.put("like_entry", likeEntry)
-                        matches.put(JSONObject().put("mblog_id", mid).put("like_entry", likeEntry))
-                    }
-                    val isLikedShape = itemid.startsWith("1076030002_")
-                    if (author != uid) {
-                        foreignTotal++
-                        if (likeEntry != null) foreignMatched++
-                    }
-                    val sample = JSONObject()
-                        .put("raw", card.toString().take(1800))
-                        .put("card_keys", keyList(card))
-                        .put("mblog_keys", keyList(mblog))
-                    when {
-                        isLikedShape && sampleLiked == null -> sampleLiked = sample
-                        author == uid && sampleOwn == null -> sampleOwn = sample
-                        author != uid && !isLikedShape && sampleForeign == null -> sampleForeign = sample
-                    }
-                } else if (card.optJSONArray("card_group") == null) {
-                    entry.put("raw", card.toString().take(600))
-                }
-                entries.put(entry)
-            }
+        if (entries.isEmpty() || offsets.isEmpty()) return emptyMap()
+        val offset = offsets.sorted()[offsets.size / 2]
+        val out = HashMap<String, Long>(entries.size)
+        for ((mid, entry) in entries) {
+            out[mid] = ((entry shr 22) + offset) * 1000L
         }
-        feedDump.put("cards", entries)
-        feedDump.put("like_matches", matches)
-        feedDump.put("foreign_total", foreignTotal)
-        feedDump.put("foreign_matched", foreignMatched)
-        feedDump.put("like_map_size", likeMap.size)
-        sampleOwn?.let { feedDump.put("sample_own", it) }
-        sampleLiked?.let { feedDump.put("sample_0002", it) }
-        sampleForeign?.let { feedDump.put("sample_foreign", it) }
-        ProbeLog.append("profile_feed_cards2", feedDump)
+        return out
     }
 
     // ---- 主页「更多」菜单：关注分组 / 基本资料 / 拉黑 ----
