@@ -3547,6 +3547,19 @@ private fun DirectVideoPlayer(
         }
     }
 
+    // 切到后台（回桌面 / 切应用 / 锁屏）就暂停：不在前台不出声；回前台保持暂停，
+    // 由用户手动继续。与看图页内嵌播放器同一套口径（ON_PAUSE）。
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, player) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_PAUSE) {
+                if (player.isPlaying || player.playWhenReady) player.pause()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     LaunchedEffect(player, controlsVisible, isScrubbing) {
         if (!controlsVisible) return@LaunchedEffect
         while (true) {
@@ -3595,6 +3608,10 @@ private fun DirectVideoPlayer(
             activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
         }
     }
+
+    // 全屏（横屏）时系统状态栏跟控件一起显隐：进度条/顶栏在，状态栏就在；
+    // 控件自动隐藏，状态栏跟着隐藏，画面真正全屏。竖屏不干预，状态栏常驻。
+    ViewerSystemBars(visible = !isLandscape || controlsVisible)
 
     MiboPredictiveBackHandler(nav)
 

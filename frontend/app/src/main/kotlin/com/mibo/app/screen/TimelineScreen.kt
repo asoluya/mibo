@@ -551,6 +551,9 @@ fun TimelineScreen(
     onScrollOffset: (Float) -> Unit,
     slotKeys: List<String> = stores.indices.map { it.toString() },
     scrollHolder: TimelineScrollHolder = remember { TimelineScrollHolder() },
+    /** 页号在 [hotPages] 里的页不是微博流，渲染成热搜榜；点词条走 [onHotSearchKeyword]。 */
+    hotPages: Set<Int> = emptySet(),
+    onHotSearchKeyword: (String) -> Unit = {},
 ) {
     // The list states live in scrollHolder so bottom-tab switches keep each page's position.
     val listStates = stores.indices.map { index ->
@@ -721,6 +724,13 @@ fun TimelineScreen(
         state = pagerState,
         modifier = Modifier.fillMaxSize(),
     ) { page ->
+        if (page in hotPages) {
+            HotSearchTabPage(
+                topInset = topInset,
+                onSelectKeyword = onHotSearchKeyword,
+            )
+            return@HorizontalPager
+        }
         val store = stores.getOrNull(page) ?: return@HorizontalPager
         val emptyText = emptyTexts.getOrNull(page).orEmpty()
         val listState = listStates.getOrNull(page) ?: return@HorizontalPager
@@ -732,6 +742,35 @@ fun TimelineScreen(
             emptyText = emptyText,
             listState = listState,
             memory = pageMemory.getOrNull(page) ?: return@HorizontalPager,
+        )
+    }
+}
+
+/**
+ * 顶栏「热搜」栏的整页：就是搜索面板里的那份热搜榜（同一份状态机、同一个榜单接口），
+ * 单独成页时没有搜索历史与联想，只剩榜单。点词条由外层接去首页搜索面板里搜。
+ */
+@Composable
+private fun HotSearchTabPage(
+    topInset: Dp,
+    onSelectKeyword: (String) -> Unit,
+) {
+    val state = rememberSearchDiscoverState()
+    val scope = rememberCoroutineScope()
+    LaunchedEffect(state.hotBoard) { state.ensureHotLoaded() }
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(
+            top = topInset + 16.dp,
+            bottom = 96.dp + navBottomPadding(),
+        ),
+    ) {
+        searchDiscoverItems(
+            state = state,
+            suggesting = false,
+            history = emptyList(),
+            onSelectKeyword = onSelectKeyword,
+            onRetryHot = { scope.launch { state.loadHot(force = true) } },
         )
     }
 }

@@ -1269,7 +1269,21 @@ class Repo(private val context: Context, private val store: Store) {
                 val arr = root.optJSONArray("statuses") ?: JSONArray()
                 enrichContainerLongTextArray(arr)
                 val items = statusesOf(arr)
-                val next = root.str("max_id").takeIf { it.isNotBlank() && it != "0" && it != sinceId }
+                // 游标字段与 friends/timeline 同族：next_cursor_str / next_cursor 优先，
+                // max_id 兜底，再不行用本页最后一条的 id 当 max_id 续翻（与
+                // parseContainerStatusPage 同一套口径）。旧实现只认 max_id：接口回
+                // next_cursor 时游标恒为空，推荐页就永远停在第一页、拉到底不再加载。
+                val next = root.str("next_cursor_str")
+                    .ifBlank { root.str("next_cursor") }
+                    .ifBlank { root.str("max_id") }
+                    .takeIf { it.isNotBlank() && it != "0" && it != sinceId }
+                    ?: items.lastOrNull()?.id?.takeIf { items.size >= 5 && it != sinceId }
+                ProbeLog.appendText(
+                    "hot_cursor",
+                    "req=${sinceId ?: "-"} next_cursor_str=${root.str("next_cursor_str")} " +
+                        "next_cursor=${root.str("next_cursor")} max_id=${root.str("max_id")} " +
+                        "items=${items.size} next=${next ?: "-"}",
+                )
                 return FeedPage(items, next)
             }
             val params = LinkedHashMap<String, String?>()
@@ -1286,7 +1300,12 @@ class Repo(private val context: Context, private val store: Store) {
         if (!sinceId.isNullOrBlank()) params["since_id"] = sinceId
         params.putAll(extra)
         val root = get(Api.url("https://m.weibo.cn/api/container/getIndex", params), cookie, force)
-        val page = parseCards(root)
+        var page = parseCards(root)
+        // 推荐容器偶尔不回 cardlistInfo.since_id：游标为空就永远翻不了页。
+        // 用本页最后一条的 id 兜底当 since_id 续翻（容器游标本就是末条锚点）。
+        if (cid == "102803" && page.sinceId.isNullOrBlank() && page.items.size >= 5) {
+            page = page.copy(sinceId = page.items.last().id)
+        }
         if (page.items.isEmpty() && root.optInt("ok", 1) != 1) {
             val message = root.str("msg", "加载失败")
             if (message.contains("还没有内容") || message.contains("暂无")) {

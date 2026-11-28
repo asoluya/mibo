@@ -261,6 +261,7 @@ internal sealed class FeedTabSpec {
                 FeedTabItem.Secret -> "还没有悄悄关注的人"
                 FeedTabItem.Favorites -> if (App.settings.favoritesCloud && !App.repo.guest) "微博账号里还没有收藏" else "还没有本地收藏"
                 FeedTabItem.Nearby -> "附近需要定位\n打开系统定位后，重新点进附近会自动读取当前位置"
+                FeedTabItem.HotSearch -> "热搜暂时没有内容"
                 FeedTabItem.Group -> "在顶栏的「更多」里选一个关注分组"
                 FeedTabItem.None -> "这里还没有微博"
             }
@@ -379,6 +380,9 @@ fun MainShell(nav: NavState) {
         if (favStore.loaded) favStore.refresh()
     }
     val recommendStore = remember { FeedStore("102803", readOnly = guest, resumable = true, snapshotOwner = { accountOwner }) }
+    // 热搜栏不是微博流：这个占位 store 只为让 stores 列表与 pager 页数对齐（永远不会被
+    // TimelinePage 渲染），热搜页本体由 TimelineScreen 按页号换成热搜榜。
+    val hotSearchStore = remember { FeedStore("hotsearch") { _, _ -> FeedPage(emptyList(), null) } }
     val circleStore = filterStores.getValue(FeedFilter.Circle)
     val followStore = filterStores.getValue(filter)
 
@@ -415,6 +419,7 @@ fun MainShell(nav: NavState) {
         FeedTabItem.Secret -> filterStores.getValue(FeedFilter.Secret)
         FeedTabItem.Favorites -> filterStores.getValue(FeedFilter.Favorites)
         FeedTabItem.Nearby -> nearbyStore
+        FeedTabItem.HotSearch -> hotSearchStore
         FeedTabItem.Group -> selection.group?.let { group ->
             groupStores.getOrPut(group.gid) {
                 FeedStore("group_${group.gid}", resumable = true, snapshotOwner = { accountOwner }) { cursor, _ ->
@@ -450,6 +455,10 @@ fun MainShell(nav: NavState) {
         }
     }
     val feedEmptyTexts = feedTabs.map { it.emptyText }
+    // 哪几页是热搜栏：TimelineScreen 按页号把这几页渲染成热搜榜而不是微博流。
+    val feedHotPages = feedTabs.indices.filter { index ->
+        (feedTabs[index] as? FeedTabSpec.Custom)?.selection?.item == FeedTabItem.HotSearch
+    }.toSet()
 
     // 「更多」菜单里的关注分组。分组列表在网页版，只在打开菜单时取一次（Repo 里还有一层缓存）；
     // 拉不到就只显示内置流，不影响其它栏。
@@ -755,6 +764,12 @@ fun MainShell(nav: NavState) {
                                     onScrollOffset = { feedCollapse = it },
                                     slotKeys = feedSlotKeys,
                                     scrollHolder = timelineScrollHolder,
+                                    hotPages = feedHotPages,
+                                    onHotSearchKeyword = { keyword ->
+                                        // 热搜页点词 = 在首页搜索面板里搜这个词，返回即回热搜页。
+                                        feedSearchExpanded = true
+                                        submitHomeSearch(keyword)
+                                    },
                                 )
                                 1 -> if (guest) {
                                     LocalMessagesPlaceholder(nav, pageTopInset)

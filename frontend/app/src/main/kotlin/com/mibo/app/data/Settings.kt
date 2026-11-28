@@ -22,6 +22,9 @@ enum class FeedTabItem(val key: String, val label: String, val tag: String) {
     Favorites("favorites", "收藏", "feed_tab_favorites"),
     Nearby("nearby", "附近", "feed_tab_nearby"),
 
+    /** 热搜榜：不是微博流，顶栏选中后整页换成热搜榜（榜单与搜索面板里的是同一份）。 */
+    HotSearch("hotsearch", "热搜", "feed_tab_hotsearch"),
+
     /**
      * 自建的关注分组。分组本身是账号里的数据，页面上按分组逐个列出，选中哪个由
      * [FeedTabSelection.group] 决定；单独留下这一项只用来表示「分组」这一类。
