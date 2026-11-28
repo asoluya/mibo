@@ -92,6 +92,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -299,9 +300,11 @@ fun MainShell(nav: NavState) {
     val guest = remember { App.repo.guest }
     val accountOwner = remember { App.repo.session?.uid.orEmpty() }
     LaunchedEffect(Unit) { App.repo.refreshSessionIfStale() }
+    val farLeftTab = App.settings.feedFarLeftTab
     val leftTab = App.settings.feedLeftTab
     val centerTab = App.settings.feedCenterTab
     val rightTab = App.settings.feedRightTab
+    val farRightTab = App.settings.feedFarRightTab
 
     // 中间栏看哪条流由「中间栏内容」决定，菜单只是把这一项搬到页面上。原来的「筛选」只剩
     // 一份好友流，显示时统一叫「全部」；纯本地模式没有好友流，仍按「本地关注」走。
@@ -430,8 +433,9 @@ fun MainShell(nav: NavState) {
         FeedTabItem.None -> friendsStore
     }
 
-    // 动态构建主页 Tab 列表：左栏（若非隐藏） + 中间栏（不可隐藏） + 右栏（若非隐藏）
-    val feedTabs: List<FeedTabSpec> = remember(leftTab, centerTab, rightTab, filter, guest) {
+    // 动态构建主页 Tab 列表：五格从左到右——最左 / 左 / 中间（不可隐藏） / 右 / 最右；
+    // 最左与最右是可选栏，默认隐藏，不启用时与原来的三栏完全一样。
+    val feedTabs: List<FeedTabSpec> = remember(farLeftTab, leftTab, centerTab, rightTab, farRightTab, filter, guest) {
         buildList {
             // 关注分组是账号里的数据：纯本地模式读不到，这一栏退回「本地关注」。
             fun addColumn(selection: FeedTabSelection, position: String) {
@@ -442,9 +446,11 @@ fun MainShell(nav: NavState) {
                     else -> add(FeedTabSpec.Custom(effective, position, guest))
                 }
             }
+            addColumn(farLeftTab, "far_left")
             addColumn(leftTab, "left")
             addColumn(centerTab, "center")
             addColumn(rightTab, "right")
+            addColumn(farRightTab, "far_right")
         }
     }
 
@@ -823,7 +829,8 @@ fun MainShell(nav: NavState) {
                         // 留给 TimelinePage，不要在切回来的时候冲掉。
                         val target = storeFor(selection)
                         if (target.error != null) scope.launch { target.refresh() }
-                        val targetPage = if (leftTab.item != FeedTabItem.None) 1 else 0
+                        // 中间栏的页号随启用的栏数变（五格全开时是 2），按 spec 现算，不写死。
+                        val targetPage = feedTabs.indexOfFirst { it.isCenter }.coerceAtLeast(0)
                         scope.launch { feedPager.animateScrollToPage(targetPage) }
                     },
                     onPickNearbyCity = { showNearbyCityPicker = true },
@@ -1112,7 +1119,7 @@ fun MainShell(nav: NavState) {
                 // 选完城市直接切到附近流看那座城（流的刷新由位置变更的副作用负责）。
                 centerOptions.firstOrNull { it.item == FeedTabItem.Nearby }?.let { selection ->
                     App.settings.applyFeedCenterTab(selection)
-                    val targetPage = if (leftTab.item != FeedTabItem.None) 1 else 0
+                    val targetPage = feedTabs.indexOfFirst { it.isCenter }.coerceAtLeast(0)
                     scope.launch { feedPager.animateScrollToPage(targetPage) }
                 }
             },
@@ -1999,10 +2006,19 @@ private fun FeedTabs(
     // 用 sp 折算，系统字体放大时格子跟着变宽；先落到 px 再折算回去，容器宽度与
     // 「格宽 × 格数 + 两侧内边距」严格相等。内边距 5dp 与 Miuix TabRowWithContour 的固定值一致。
     val density = LocalDensity.current
+    val configuration = LocalConfiguration.current
     val segmentWidthPx = with(density) { ((4 * 14).sp.toDp() + 2.dp + 10.dp + 22.dp).roundToPx() }
     val contourPadPx = with(density) { 5.dp.roundToPx() }
-    val segmentWidth = with(density) { segmentWidthPx.toDp() }
-    val containerWidth = with(density) { (segmentWidthPx * feedTabs.size + contourPadPx * 2).toDp() }
+    // 五格全开时按原公式整排会超出屏幕：总宽封顶为屏宽减两侧各 8dp，格宽等比收窄，
+    // 放不下的文字走省略号。三格及以下永远命中原公式，外观与之前一致。
+    val maxTotalWidthPx = with(density) { (configuration.screenWidthDp.dp - 16.dp).roundToPx() }
+    val fittedSegmentWidthPx = if (feedTabs.isEmpty()) {
+        segmentWidthPx
+    } else {
+        minOf(segmentWidthPx, (maxTotalWidthPx - contourPadPx * 2) / feedTabs.size)
+    }
+    val segmentWidth = with(density) { fittedSegmentWidthPx.toDp() }
+    val containerWidth = with(density) { (fittedSegmentWidthPx * feedTabs.size + contourPadPx * 2).toDp() }
 
     // 点一下先把指示器挪过去、再让列表跟上；等 pager 停稳就把临时值交还给 pager。
     // 不跟 pager 的中间页走，长距离切换时指示器不会一格一格地过。

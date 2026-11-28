@@ -151,6 +151,14 @@ class Settings(context: Context) {
     var feedRightTab by mutableStateOf(loadFeedSelection("feed_right", FeedTabItem.Recommend))
         private set
 
+    /** 顶栏最左栏（五栏布局的第 1 格）：默认隐藏，不启用时顶栏与三栏时代完全一样。 */
+    var feedFarLeftTab by mutableStateOf(loadFeedSelection("feed_far_left", FeedTabItem.None))
+        private set
+
+    /** 顶栏最右栏（五栏布局的第 5 格）：默认隐藏，口径同最左栏。 */
+    var feedFarRightTab by mutableStateOf(loadFeedSelection("feed_far_right", FeedTabItem.None))
+        private set
+
     /** 记录当前停留的微博页栏标识（例如 "left_circle", "follow", "right_recommend"）。 */
     var feedTabKey by mutableStateOf(sp.getString("feed_tab_key", "follow").orEmpty())
         private set
@@ -311,6 +319,16 @@ class Settings(context: Context) {
         saveFeedSelection("feed_right", selection)
     }
 
+    fun applyFeedFarLeftTab(selection: FeedTabSelection) {
+        feedFarLeftTab = selection
+        saveFeedSelection("feed_far_left", selection)
+    }
+
+    fun applyFeedFarRightTab(selection: FeedTabSelection) {
+        feedFarRightTab = selection
+        saveFeedSelection("feed_far_right", selection)
+    }
+
     /**
      * 某个账号的首页栏上次停在哪儿：卡片下标与偏了几像素。按账号和流分开记，
      * 切换账号后各保持各自的阅读位置，不会互相带跑。
@@ -354,13 +372,16 @@ class Settings(context: Context) {
     }
 
     /**
-     * 换账号 / 退出登录时把三栏内容复位。关注分组是账号里的数据，gid 换了账号就不存在，
+     * 换账号 / 退出登录时把各栏内容复位。关注分组是账号里的数据，gid 换了账号就不存在，
      * 留着只会让首页出现一条打不开的空栏（中间栏不可隐藏，还会顶掉「关注」）。
      */
     fun clearGroupFeedTabs() {
         if (feedLeftTab.isGroup) applyFeedLeftTab(FeedTabSelection(FeedTabItem.Circle))
         if (feedCenterTab.isGroup) applyFeedCenterTab(FeedTabSelection(FeedTabItem.Follow))
         if (feedRightTab.isGroup) applyFeedRightTab(FeedTabSelection(FeedTabItem.Recommend))
+        // 两格新增栏是可选栏：分组失效时直接退回隐藏，不顶替成内置流。
+        if (feedFarLeftTab.isGroup) applyFeedFarLeftTab(FeedTabSelection(FeedTabItem.None))
+        if (feedFarRightTab.isGroup) applyFeedFarRightTab(FeedTabSelection(FeedTabItem.None))
         // 栏标识形如 "center_group_5012345"：带上位置前缀，用 contains 才兜得住。
         if (feedTabKey.isEmpty() || feedTabKey.contains(GroupKeyMarker)) {
             applyFeedTabKey(FeedTabItem.Follow.key)

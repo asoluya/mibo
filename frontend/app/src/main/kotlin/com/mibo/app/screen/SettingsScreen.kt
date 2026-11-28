@@ -158,11 +158,15 @@ private class SettingsUiState(context: Context) {
     var hideBarsOnScroll by mutableStateOf(App.settings.hideBarsOnScroll)
     var inAppBrowser by mutableStateOf(App.settings.inAppBrowser)
     var message by mutableStateOf("")
+    var feedFarLeftTab by mutableStateOf(App.settings.feedFarLeftTab)
     var feedLeftTab by mutableStateOf(App.settings.feedLeftTab)
     var feedRightTab by mutableStateOf(App.settings.feedRightTab)
+    var feedFarRightTab by mutableStateOf(App.settings.feedFarRightTab)
     var feedGroups by mutableStateOf<List<FollowGroup>>(emptyList())
+    var pickFeedFarLeft by mutableStateOf(false)
     var pickFeedLeft by mutableStateOf(false)
     var pickFeedRight by mutableStateOf(false)
+    var pickFeedFarRight by mutableStateOf(false)
 }
 
 @Composable
@@ -170,8 +174,8 @@ private fun rememberSettingsUiState(): SettingsUiState {
     val context = LocalContext.current
     val state = remember { SettingsUiState(context) }
     // 关注分组是账号里的数据：只在真的要选栏位内容时才去网页版拉一次，拉不到就只列内置流。
-    LaunchedEffect(state.pickFeedLeft, state.pickFeedRight) {
-        if (state.guest || !(state.pickFeedLeft || state.pickFeedRight)) {
+    LaunchedEffect(state.pickFeedFarLeft, state.pickFeedLeft, state.pickFeedRight, state.pickFeedFarRight) {
+        if (state.guest || !(state.pickFeedFarLeft || state.pickFeedLeft || state.pickFeedRight || state.pickFeedFarRight)) {
             return@LaunchedEffect
         }
         runCatching { App.repo.followGroups() }.onSuccess { state.feedGroups = it }
@@ -384,6 +388,12 @@ private fun LazyListScope.feedSettingsItems(
             insideMargin = PaddingValues(0.dp),
         ) {
             ArrowPreference(
+                title = "微博最左栏",
+                modifier = Modifier.testTag("settings_feed_far_left_tab"),
+                summary = state.feedFarLeftTab.label,
+                onClick = { state.pickFeedFarLeft = true },
+            )
+            ArrowPreference(
                 title = "微博左侧栏",
                 modifier = Modifier.testTag("settings_feed_left_tab"),
                 summary = state.feedLeftTab.label,
@@ -394,6 +404,12 @@ private fun LazyListScope.feedSettingsItems(
                 modifier = Modifier.testTag("settings_feed_right_tab"),
                 summary = state.feedRightTab.label,
                 onClick = { state.pickFeedRight = true },
+            )
+            ArrowPreference(
+                title = "微博最右栏",
+                modifier = Modifier.testTag("settings_feed_far_right_tab"),
+                summary = state.feedFarRightTab.label,
+                onClick = { state.pickFeedFarRight = true },
             )
             SwitchPreference(
                 checked = App.settings.monitorNewPosts,
@@ -604,8 +620,24 @@ private fun SettingsDialogs(
     nav: NavState,
     state: SettingsUiState,
 ) {
+    val farLeftOptions = feedTabOptions(state.feedGroups, allowNone = true, current = if (state.guest) null else state.feedFarLeftTab)
     val leftOptions = feedTabOptions(state.feedGroups, allowNone = true, current = if (state.guest) null else state.feedLeftTab)
     val rightOptions = feedTabOptions(state.feedGroups, allowNone = true, current = if (state.guest) null else state.feedRightTab)
+    val farRightOptions = feedTabOptions(state.feedGroups, allowNone = true, current = if (state.guest) null else state.feedFarRightTab)
+
+    if (state.pickFeedFarLeft) {
+        FeedTabPicker(
+            title = "微博最左栏内容",
+            selected = state.feedFarLeftTab,
+            options = farLeftOptions,
+            onDismiss = { state.pickFeedFarLeft = false },
+            onPick = { selection ->
+                App.settings.applyFeedFarLeftTab(selection)
+                state.feedFarLeftTab = selection
+                state.pickFeedFarLeft = false
+            },
+        )
+    }
 
     if (state.pickFeedLeft) {
         FeedTabPicker(
@@ -631,6 +663,20 @@ private fun SettingsDialogs(
                 App.settings.applyFeedRightTab(selection)
                 state.feedRightTab = selection
                 state.pickFeedRight = false
+            },
+        )
+    }
+
+    if (state.pickFeedFarRight) {
+        FeedTabPicker(
+            title = "微博最右栏内容",
+            selected = state.feedFarRightTab,
+            options = farRightOptions,
+            onDismiss = { state.pickFeedFarRight = false },
+            onPick = { selection ->
+                App.settings.applyFeedFarRightTab(selection)
+                state.feedFarRightTab = selection
+                state.pickFeedFarRight = false
             },
         )
     }
