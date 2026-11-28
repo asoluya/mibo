@@ -3,6 +3,7 @@ package com.mibo.app.screen
 import android.Manifest
 import android.content.Context
 import android.content.pm.ActivityInfo
+import android.view.WindowManager
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.Bitmap
@@ -3573,6 +3574,19 @@ private fun DirectVideoPlayer(
             delay(5000)
             controlsVisible = false
         }
+    }
+
+    // 播放时屏幕常亮：播放中置 FLAG_KEEP_SCREEN_ON，暂停/结束即清，离开播放页也清。
+    LaunchedEffect(activity, isPlaying) {
+        val window = activity?.window ?: return@LaunchedEffect
+        if (isPlaying) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        } else {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+    }
+    DisposableEffect(activity) {
+        onDispose { activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
     }
 
     fun windowBrightness(): Float {

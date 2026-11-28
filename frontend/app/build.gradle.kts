@@ -16,8 +16,8 @@ android {
         applicationId = "com.mibo.app"
         minSdk = 33
         targetSdk = 37
-        versionCode = 64
-        versionName = "1.74"
+        versionCode = 65
+        versionName = "1.75"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

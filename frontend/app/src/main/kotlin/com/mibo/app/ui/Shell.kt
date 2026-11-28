@@ -585,6 +585,8 @@ fun MainShell(nav: NavState) {
     val meTitleColor = if (profileCoverContrast.useWhiteContent) Color.White else MiuixTheme.colorScheme.onSurface
     var feedSearchQuery by remember { mutableStateOf("") }
     var feedSearchExpanded by remember { mutableStateOf(false) }
+    // 每次提交搜索 +1：标题栏据此在提交后压掉输入框挂载时的自动焦点（点热搜条进入结果不弹输入法）。
+    var searchSubmitNonce by remember { mutableStateOf(0) }
     val panelAlpha = remember { Animatable(0f) }
     val panelMounted by remember {
         derivedStateOf {
@@ -660,6 +662,7 @@ fun MainShell(nav: NavState) {
     val submitHomeSearch: (String) -> Unit = { raw ->
         val keyword = raw.trim()
         if (keyword.isNotEmpty()) {
+            searchSubmitNonce++
             feedSearchQuery = keyword
             keyboard?.hide()
             focusManager.clearFocus()
@@ -1073,6 +1076,7 @@ fun MainShell(nav: NavState) {
                     onSearchOpen = openFeedSearch,
                     onSearchCancel = cancelFeedSearch,
                     onSearchSubmit = submitHomeSearch,
+                    submitNonce = searchSubmitNonce,
                     filtersVisible = searchTransition.filtersVisible,
                     resultsState = homeResultsState,
                     searchListState = searchListState,
@@ -1538,6 +1542,7 @@ private fun MainTitleRow(
     onSearchOpen: () -> Unit,
     onSearchCancel: () -> Unit,
     onSearchSubmit: (String) -> Unit,
+    submitNonce: Int,
     filtersVisible: Boolean,
     resultsState: SearchResultsState,
     searchListState: LazyListState,
@@ -1563,6 +1568,7 @@ private fun MainTitleRow(
                 onSearchOpen = onSearchOpen,
                 onSearchCancel = onSearchCancel,
                 onSearchSubmit = onSearchSubmit,
+                submitNonce = submitNonce,
                 filtersVisible = filtersVisible,
                 resultsState = resultsState,
                 searchListState = searchListState,
@@ -1637,6 +1643,7 @@ private fun FeedTitleRow(
     onSearchOpen: () -> Unit,
     onSearchCancel: () -> Unit,
     onSearchSubmit: (String) -> Unit,
+    submitNonce: Int,
     filtersVisible: Boolean,
     resultsState: SearchResultsState,
     searchListState: LazyListState,
@@ -1647,6 +1654,19 @@ private fun FeedTitleRow(
     val scheme = MiuixTheme.colorScheme
     val blur = blurEffectsEnabled()
     val barDensity = LocalDensity.current
+    val titleFocusManager = LocalFocusManager.current
+    val titleKeyboard = LocalSoftwareKeyboardController.current
+
+    // 带结果进入搜索时（如在热搜页点热搜条），Miuix InputField 挂载展开会自动请求焦点、
+    // 把输入法弹起来；提交后稍等它挂载完，再清一次焦点收起键盘。用户手动点搜索框输入时
+    // submitNonce 不变，不受影响。
+    LaunchedEffect(submitNonce) {
+        if (submitNonce > 0) {
+            delay(50)
+            titleKeyboard?.hide()
+            titleFocusManager.clearFocus(force = true)
+        }
+    }
 
     // 原 COUI 的 SearchFilterTopAppBar（两行顶栏 + 材质 + 胶囊采样一体）Miuix 没有对应组件，
     // 这里用 Blur.kt 的 AppBarSurface 承担材质与滚动提白，两行布局在本函数内自己排：
