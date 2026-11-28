@@ -240,9 +240,13 @@ internal sealed class FeedTabSpec {
     /** 只有中间栏带「更多」菜单：它列的就是「微博中间栏内容」那份选项。 */
     abstract val isCenter: Boolean
 
+    /** 顶栏格子里实际显示的名字：本地关注只显示「本地」，和其余两字标签对称。 */
+    open val tabLabel: String get() = label
+
     data class Custom(val selection: FeedTabSelection, override val position: String, val guest: Boolean) : FeedTabSpec() {
         override val key: String get() = "${position}_${selection.key}"
         override val label: String get() = selection.label
+        override val tabLabel: String get() = if (selection.item == FeedTabItem.Local) "本地" else label
         override val tag: String get() = if (selection.isGroup) {
             "feed_tab_group_${selection.group?.gid.orEmpty()}"
         } else {
@@ -272,6 +276,7 @@ internal sealed class FeedTabSpec {
     data class Follow(val filter: FeedFilter, val guest: Boolean, override val position: String = "center") : FeedTabSpec() {
         override val key: String get() = if (position == "center") "follow" else "${position}_follow"
         override val label: String get() = if (guest) "本地关注" else filter.label
+        override val tabLabel: String get() = if (guest) "本地" else label
         override val tag: String get() = "feed_tab_follow"
         override val isFollow: Boolean get() = true
         override val isCenter: Boolean get() = position == "center"
@@ -1991,7 +1996,7 @@ private fun FeedTabs(
     // 这里的判断和库内一致，颜色也跟着换，免得玻璃档还挂着一层不透明底色。
     // 与底栏同款玻璃条件：OS4 柔光玻璃开着、有 backdrop、模糊没关（glassPanel 自行处理低版本降级）。
     val glass = backdrop != null && blurEffectsEnabled()
-    val labels = feedTabs.map { it.label }
+    val labels = feedTabs.map { it.tabLabel }
     // 「全部」玻璃菜单的锚点：中间格的窗口坐标，点开时交给全局玻璃菜单宿主。
     var centerAnchorBounds by remember { mutableStateOf(Rect.Zero) }
     // 左右两格已经占住的内容：顶栏一格一步可达，中间栏菜单里不再重复列出。
