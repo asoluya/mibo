@@ -4046,51 +4046,95 @@ class Repo(private val context: Context, private val store: Store) {
             if (e is CancellationException) throw e
             return
         }
-        val tabs = root.optJSONObject("data")?.optJSONObject("tabsInfo")?.optJSONArray("tabs")
-            ?: root.optJSONObject("tabsInfo")?.optJSONArray("tabs")
-        val tabDump = JSONArray()
-        if (tabs != null) {
-            for (i in 0 until tabs.length()) {
-                val tab = tabs.optJSONObject(i) ?: continue
-                tabDump.put(
-                    JSONObject()
-                        .put("containerid", tab.str("containerid").ifBlank { tab.str("container_id") })
-                        .put("tabKey", tab.str("tabKey"))
-                        .put("tab_type", tab.str("tab_type"))
-                        .put("title", tab.str("title")),
-                )
+        suspend fun fetchCards(cid: String): JSONArray? {
+            val page = try {
+                if (isClientChannel()) {
+                    containerGet("profile/statuses", mapOf("containerid" to cid, "count" to "20"))
+                } else {
+                    get(Api.url("https://m.weibo.cn/api/container/getIndex", mapOf("containerid" to cid)), cookie(), false)
+                }
+            } catch (e: Throwable) {
+                if (e is CancellationException) throw e
+                null
             }
+            return page?.optJSONArray("cards") ?: page?.optJSONObject("data")?.optJSONArray("cards")
         }
-        ProbeLog.append("profile_like_tabs", JSONObject().put("uid", uid).put("tabs", tabDump))
-        val cid = extractLikeTabContainerId(root) ?: "230869${uid}_-_mix"
-        val page = try {
-            if (isClientChannel()) {
-                containerGet("profile/statuses", mapOf("containerid" to cid, "count" to "20"))
-            } else {
-                get(Api.url("https://m.weibo.cn/api/container/getIndex", mapOf("containerid" to cid)), cookie(), false)
-            }
-        } catch (e: Throwable) {
-            if (e is CancellationException) throw e
-            null
-        }
-        val cards = page?.optJSONArray("cards") ?: page?.optJSONObject("data")?.optJSONArray("cards")
-        val cardDump = JSONArray()
-        if (cards != null) {
+
+        fun dumpCards(cards: JSONArray?): JSONArray {
+            val out = JSONArray()
+            if (cards == null) return out
             for (i in 0 until cards.length()) {
                 val card = cards.optJSONObject(i) ?: continue
-                val mblog = card.optJSONObject("mblog")
                 val entry = JSONObject()
                     .put("card_type", card.optInt("card_type"))
                     .put("itemid", card.str("itemid"))
+                val mblog = card.optJSONObject("mblog")
                 if (mblog != null) {
                     entry.put("mblog_id", mblog.str("idstr").ifBlank { mblog.str("id") })
-                } else {
+                    entry.put("author", mblog.optJSONObject("user")?.str("idstr") ?: "")
+                }
+                val group = card.optJSONArray("card_group")
+                if (group != null) {
+                    entry.put("title", card.str("title"))
+                    val subs = JSONArray()
+                    for (k in 0 until group.length()) {
+                        val sub = group.optJSONObject(k) ?: continue
+                        val subEntry = JSONObject()
+                            .put("card_type", sub.optInt("card_type"))
+                            .put("itemid", sub.str("itemid"))
+                        sub.optJSONObject("mblog")?.let {
+                            subEntry.put("mblog_id", it.str("idstr").ifBlank { it.str("id") })
+                        }
+                        if (sub.optJSONObject("mblog") == null) {
+                            subEntry.put("raw", sub.toString().take(600))
+                        }
+                        subs.put(subEntry)
+                    }
+                    entry.put("card_group", subs)
+                } else if (mblog == null) {
                     entry.put("raw", card.toString().take(1200))
                 }
-                cardDump.put(entry)
+                out.put(entry)
+            }
+            return out
+        }
+
+        // 「微博」容器（107603）第一页的卡片形状：官方主页流的赞过批次很可能就藏在这里。
+        ProbeLog.append(
+            "profile_feed_cards",
+            JSONObject().put("uid", uid).put("cards", dumpCards(fetchCards("107603$uid"))),
+        )
+        // 赞容器：分组卡的标题/子卡 + 第一条 mblog 的时间相关字段（找点赞时间）。
+        val likeCid = "230869${uid}_-_mix"
+        val likeCards = fetchCards(likeCid)
+        val likeDump = JSONObject().put("uid", uid).put("cid", likeCid).put("cards", dumpCards(likeCards))
+        if (likeCards != null) {
+            var firstMblog: JSONObject? = null
+            for (i in 0 until likeCards.length()) {
+                val card = likeCards.optJSONObject(i) ?: continue
+                firstMblog = card.optJSONObject("mblog")
+                    ?: card.optJSONArray("card_group")?.optJSONObject(0)?.optJSONObject("mblog")
+                if (firstMblog != null) break
+            }
+            if (firstMblog != null) {
+                val keys = JSONArray()
+                val timeFields = JSONObject()
+                val iter = firstMblog.keys()
+                while (iter.hasNext()) {
+                    val key = iter.next()
+                    keys.put(key)
+                    val lower = key.lowercase()
+                    if (lower.contains("time") || lower.contains("date") || lower.contains("like") ||
+                        lower.contains("created") || lower.contains("attitude")
+                    ) {
+                        timeFields.put(key, firstMblog.opt(key)?.toString()?.take(200) ?: "")
+                    }
+                }
+                likeDump.put("first_mblog_keys", keys)
+                likeDump.put("first_mblog_time_fields", timeFields)
             }
         }
-        ProbeLog.append("profile_like_cards", JSONObject().put("uid", uid).put("cid", cid).put("cards", cardDump))
+        ProbeLog.append("profile_like_cards2", likeDump)
     }
 
     // ---- 主页「更多」菜单：关注分组 / 基本资料 / 拉黑 ----
