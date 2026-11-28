@@ -11,6 +11,13 @@ import org.json.JSONObject
  * 只保留结构与端点：密钥类字段打码，URL 去掉查询串，长字符串截断。
  */
 internal object ProbeLog {
+    /**
+     * 设置里「实验数据」入口的开关（用户规则 2026-11-28）：无需调试的版本隐藏，
+     * 只有带探针/需要导日志调试的版本才在本轮改包里改成 true。
+     * 隐藏只是不显示入口，日志照常落盘。
+     */
+    const val ENTRY_VISIBLE: Boolean = false
+
     private const val MAX_BYTES = 180_000
     private val lock = Any()
 
