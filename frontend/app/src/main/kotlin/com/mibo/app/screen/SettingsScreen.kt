@@ -411,31 +411,31 @@ private fun LazyListScope.feedSettingsItems(
                 Column(Modifier.weight(1f)) {
                     Text("定时刷新")
                     Text(
-                        "0 为不刷新，单位分钟；到点自动刷新，与点刷新键一样",
+                        "0 为不刷新，单位秒；到点自动刷新，与点刷新键一样",
                         fontSize = 13.sp,
                         color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                     )
                 }
                 var autoRefreshText by remember {
-                    mutableStateOf(App.settings.autoRefreshMinutes.toString())
+                    mutableStateOf(App.settings.autoRefreshSeconds.toString())
                 }
                 TextField(
                     value = autoRefreshText,
                     onValueChange = { input ->
-                        autoRefreshText = input.filter { it.isDigit() }.take(4)
+                        autoRefreshText = input.filter { it.isDigit() }.take(5)
                     },
                     modifier = Modifier
                         .width(96.dp)
                         .onFocusChanged { focus ->
                             if (!focus.isFocused) {
                                 autoRefreshText.trim().toIntOrNull()?.let {
-                                    App.settings.applyAutoRefreshMinutes(it)
+                                    App.settings.applyAutoRefreshSeconds(it)
                                 }
-                                autoRefreshText = App.settings.autoRefreshMinutes.toString()
+                                autoRefreshText = App.settings.autoRefreshSeconds.toString()
                             }
                         }
-                        .testTag("settings_auto_refresh_minutes"),
-                    label = "分钟",
+                        .testTag("settings_auto_refresh_seconds"),
+                    label = "秒",
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     maxLines = 1,
                     minLines = 1,

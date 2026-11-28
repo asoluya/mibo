@@ -339,12 +339,12 @@ fun MainShell(nav: NavState) {
             hasNewFollow = newestId != topId
         }
     }
-    // 定时刷新：间隔为 0 不刷；大于 0 时前台每隔 N 分钟走一次刷新键的同一通道（回顶刷新）。
-    LaunchedEffect(appResumed, guest, App.settings.autoRefreshMinutes) {
-        val minutes = App.settings.autoRefreshMinutes
-        if (!appResumed || guest || minutes <= 0) return@LaunchedEffect
+    // 定时刷新：间隔为 0 不刷；大于 0 时前台每隔 N 秒走一次刷新键的同一通道（回顶刷新）。
+    LaunchedEffect(appResumed, guest, App.settings.autoRefreshSeconds) {
+        val seconds = App.settings.autoRefreshSeconds
+        if (!appResumed || guest || seconds <= 0) return@LaunchedEffect
         while (true) {
-            delay(minutes * 60_000L)
+            delay(seconds * 1_000L)
             App.requestFeedTop(scrollToTop = true)
         }
     }
